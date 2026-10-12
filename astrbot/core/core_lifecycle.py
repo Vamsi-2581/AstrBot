@@ -688,7 +688,6 @@ class AstrBotCoreLifecycle:
             raise RuntimeError("AstrBot core lifecycle has already been started")
         self._started = True
         await self._load()
-        self._ready = True
         logger.info("AstrBot started.")
 
         handlers = self.services.catalogs.handlers.get_handlers_by_event_type(
@@ -715,6 +714,9 @@ class AstrBotCoreLifecycle:
                     handler.handler_name,
                 )
 
+        # Publish readiness only after the loaded hooks finish so traffic is not
+        # admitted while startup work is still running.
+        self._ready = True
         await await_first_terminal_task(self.curr_tasks)
         raise RuntimeError("AstrBot event bus exited unexpectedly")
 
@@ -725,6 +727,8 @@ class AstrBotCoreLifecycle:
             if self._stopped:
                 return
 
+            # Stop admitting traffic immediately; teardown can take time.
+            self._ready = False
             tasks = self.curr_tasks
             self.curr_tasks = []
             for task in tasks:
@@ -745,7 +749,6 @@ class AstrBotCoreLifecycle:
                 await self._cleanup_stack.aclose()
 
             self._initialized = False
-            self._ready = False
             self._stopped = True
 
     async def restart(self) -> None:
