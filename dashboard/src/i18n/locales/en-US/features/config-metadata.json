@@ -1520,6 +1520,32 @@
           "description": "Trust Proxy Headers for Client IP",
           "hint": "When disabled, ignore X-Forwarded-For/X-Real-IP and use the connection address only."
         },
+        "oidc": {
+          "enable": {
+            "description": "Enable OIDC single sign-on",
+            "hint": "When enabled, the login page shows an SSO button. Local password and TOTP login are unaffected."
+          },
+          "issuer": {
+            "description": "OIDC issuer",
+            "hint": "Provider issuer URL, for example https://idp.example.com. AstrBot reads its /.well-known/openid-configuration."
+          },
+          "client_id": {
+            "description": "OIDC client ID",
+            "hint": "Client ID registered with the identity provider."
+          },
+          "client_secret": {
+            "description": "OIDC client secret",
+            "hint": "Client secret, used only server-side for the token exchange and never sent to the browser."
+          },
+          "redirect_uri": {
+            "description": "OIDC callback URL",
+            "hint": "Fixed server callback URL that must match the provider registration, for example https://astrbot.example.com/api/v1/auth/oidc/callback. When empty it is derived from callback_api_base."
+          },
+          "auto_create": {
+            "description": "Create accounts on first login",
+            "hint": "When enabled, a new user verified by the identity provider gets a Dashboard account (with no role). When disabled, only pre-linked identities may log in."
+          }
+        },
         "auth_rate_limit": {
           "enable": {
             "description": "Enable Login Rate Limiting",

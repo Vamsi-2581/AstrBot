@@ -102,6 +102,15 @@ export interface AuthLoginData {
   [key: string]: unknown;
 }
 
+export interface OidcStatusData {
+  enable: boolean;
+  button_label: string;
+}
+
+export interface OidcStartData {
+  authorize_url: string;
+}
+
 export interface AuthSetupStatusData {
   setup_required?: boolean;
   skip_default_password_auth?: boolean;

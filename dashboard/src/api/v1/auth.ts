@@ -11,6 +11,8 @@ import { notifyPluginDashboardLifecycle } from './lifecycle';
 import type {
   AuthLoginData,
   AuthSetupStatusData,
+  OidcStartData,
+  OidcStatusData,
   OpenConfig,
   TotpSetupData,
 } from './types';
@@ -27,6 +29,12 @@ export const authApi = {
     return typed<AuthSetupStatusData>(
       openApiV1.getAuthSetupStatus(generatedOptions({}, requestConfig)),
     );
+  },
+  oidcStatus() {
+    return typed<OidcStatusData>(openApiV1.getOidcStatus());
+  },
+  oidcStart() {
+    return typed<OidcStartData>(openApiV1.startOidcLogin());
   },
   setup(payload: SetupAuthRequest) {
     return typed<OpenConfig>(openApiV1.setupAuth({ body: payload }));

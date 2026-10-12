@@ -313,6 +313,16 @@ DEFAULT_CONFIG = {
         "port": 6185,
         "disable_access_log": True,
         "trust_proxy_headers": False,
+        "oidc": {
+            "enable": False,
+            "issuer": "",
+            "client_id": "",
+            "client_secret": "",
+            "redirect_uri": "",
+            "scopes": "openid profile email",
+            "auto_create": True,
+            "button_label": "SSO",
+        },
         "auth_rate_limit": {
             "enable": True,
             "average_interval": 1.0,
@@ -5088,6 +5098,41 @@ CONFIG_METADATA_3_SYSTEM = {
                         "description": "信任代理请求头获取客户端 IP",
                         "type": "bool",
                         "hint": "关闭时忽略 X-Forwarded-For/X-Real-IP，仅使用连接地址。",
+                    },
+                    "dashboard.oidc.enable": {
+                        "description": "启用 OIDC 单点登录",
+                        "type": "bool",
+                        "hint": "开启后，登录页显示 SSO 按钮，可通过外部身份提供方登录。本地密码与 TOTP 不受影响。",
+                    },
+                    "dashboard.oidc.issuer": {
+                        "description": "OIDC Issuer",
+                        "type": "string",
+                        "hint": "提供方的 issuer 地址，例如 https://idp.example.com。AstrBot 会读取其 /.well-known/openid-configuration。",
+                        "condition": {"dashboard.oidc.enable": True},
+                    },
+                    "dashboard.oidc.client_id": {
+                        "description": "OIDC Client ID",
+                        "type": "string",
+                        "hint": "在身份提供方注册的客户端 ID。",
+                        "condition": {"dashboard.oidc.enable": True},
+                    },
+                    "dashboard.oidc.client_secret": {
+                        "description": "OIDC Client Secret",
+                        "type": "string",
+                        "hint": "客户端密钥，仅用于服务器端换取 token，不会下发到浏览器。",
+                        "condition": {"dashboard.oidc.enable": True},
+                    },
+                    "dashboard.oidc.redirect_uri": {
+                        "description": "OIDC 回调地址",
+                        "type": "string",
+                        "hint": "固定的服务器回调地址，需与提供方注册一致，例如 https://astrbot.example.com/api/v1/auth/oidc/callback。留空时使用 callback_api_base 拼接。",
+                        "condition": {"dashboard.oidc.enable": True},
+                    },
+                    "dashboard.oidc.auto_create": {
+                        "description": "首次登录自动创建账户",
+                        "type": "bool",
+                        "hint": "开启后，通过身份提供方验证的新用户会自动创建 Dashboard 账户（不授予任何角色）。关闭时仅允许已绑定的身份登录。",
+                        "condition": {"dashboard.oidc.enable": True},
                     },
                     "dashboard.auth_rate_limit.enable": {
                         "description": "启用登录验证速率限制",

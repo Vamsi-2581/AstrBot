@@ -10,6 +10,7 @@ from astrbot.core.db.po.auth import (
     AuthRoleBinding,
     AuthStepUpCredential,
     DashboardAccount,
+    DashboardExternalIdentity,
     DashboardTrustedDevice,
 )
 from astrbot.core.db.po.commands import CommandConfig, CommandConflict
@@ -51,6 +52,7 @@ TABLE_MODELS: tuple[type, ...] = (
     ConversationV2,
     CronJob,
     DashboardAccount,
+    DashboardExternalIdentity,
     DashboardTrustedDevice,
     KnowledgeBaseTask,
     MemoryEpisode,

@@ -51,6 +51,33 @@ The login page now also shows public version information before authentication:
 
 If the login page detects a WebUI/runtime mismatch or runtime/code mismatch, it shows a warning dialog so you can fix stale static assets before signing in.
 
+## Single sign-on (OIDC)
+
+AstrBot can authenticate Dashboard users through an external OpenID Connect
+provider. It is off by default and local password plus TOTP login keep working
+unchanged. Configure it in `data/cmd_config.json` under `dashboard.oidc` (or the
+Dashboard config editor):
+
+| Key             | Role                                                                       |
+| --------------- | -------------------------------------------------------------------------- |
+| `enable`        | Show the SSO button on the login page.                                     |
+| `issuer`        | Provider issuer URL; AstrBot reads `/.well-known/openid-configuration`.    |
+| `client_id`     | Client registered with the provider.                                       |
+| `client_secret` | Server-side secret used for the token exchange; never sent to the browser. |
+| `redirect_uri`  | Fixed callback URL, for example `https://host/api/v1/auth/oidc/callback`.  |
+| `scopes`        | Requested scopes; default `openid profile email`.                          |
+| `auto_create`   | Create a Dashboard account on first verified login (no role is granted).   |
+| `button_label`  | Text shown on the SSO button.                                              |
+
+The flow uses the authorization-code grant with PKCE, a single-use `state` and
+`nonce`, and a fixed redirect URI. AstrBot verifies the ID token signature
+against the provider JWKS and binds the external identity to the stable
+`account_id` by `(issuer, subject)`. Email is stored for display only and never
+grants privilege. Auto-created accounts receive no role binding, so an operator
+must grant access through the existing authorization rules. When `auto_create`
+is off, only pre-linked identities can sign in. A failed or replayed callback
+shows a generic error on the login page.
+
 ## Layout and appearance
 
 Dashboard uses a responsive sidebar and main content area. On desktop, you can collapse and resize the sidebar; on narrow screens it becomes an overlay navigation panel. The appearance menu on login, setup, and signed-in pages selects light, dark, or system appearance. This preference is stored only in the current browser and does not change the AstrBot configuration.
