@@ -4,13 +4,14 @@ import inspect
 import re
 from typing import Any, cast, override
 
+import aiohttp
 import discord
 from discord.abc import GuildChannel, Messageable, PrivateChannel
 from discord.channel import DMChannel
 
 from astrbot import logger
 from astrbot.core.command.schema import CommandParamSpec, CommandSchema
-from astrbot.core.message.components import File, Image, Plain, Record
+from astrbot.core.message.components import File, Image, Plain, Record, Reply
 from astrbot.core.message.message_event_result import MessageChain
 from astrbot.core.platform import (
     AstrBotMessage,
@@ -319,7 +320,40 @@ class DiscordPlatformAdapter(Platform):
     async def convert_message(self, data: dict) -> AstrBotMessage:
         """将平台消息转换成 AstrBotMessage"""
         # 由于 on_interaction 已被禁用，我们只处理普通消息
-        return self._convert_message_to_abm(data)
+        abm = self._convert_message_to_abm(data)
+        message = data["message"]
+        reference = getattr(message, "reference", None)
+        if reference and message.type == discord.MessageType.reply:
+            quoted = reference.resolved
+            if quoted is None:
+                quoted = reference.cached_message
+            if quoted is None and reference.message_id is not None:
+                try:
+                    quoted = await message.channel.fetch_message(reference.message_id)
+                except (
+                    TimeoutError,
+                    discord.HTTPException,
+                    aiohttp.ClientError,
+                    OSError,
+                ) as e:
+                    logger.warning(
+                        "[Discord] Could not fetch replied-to message %s: %s",
+                        reference.message_id,
+                        e,
+                    )
+            # Deleted references are sentinels without message content.
+            if isinstance(quoted, discord.Message):
+                abm.message.insert(
+                    0,
+                    Reply(
+                        id=str(quoted.id),
+                        chain=[Plain(text=quoted.content)] if quoted.content else [],
+                        message_str=quoted.content,
+                        sender_id=str(quoted.author.id),
+                        sender_nickname=quoted.author.display_name,
+                    ),
+                )
+        return abm
 
     def create_event(
         self, message: AstrBotMessage, followup_webhook=None
