@@ -90,7 +90,10 @@ from astrbot.core.utils.astrbot_path import (
     get_astrbot_workspaces_path,
 )
 from astrbot.core.utils.config_number import coerce_int_config
-from astrbot.core.utils.media_utils import prepare_images_for_provider
+from astrbot.core.utils.media_utils import (
+    describe_media_ref,
+    prepare_images_for_provider,
+)
 from astrbot.core.utils.message_context import MessageContextRenderer
 from astrbot.core.utils.quoted_message.settings import (
     SETTINGS as DEFAULT_QUOTED_MESSAGE_SETTINGS,
@@ -1870,8 +1873,9 @@ async def _materialize_image_ref_for_provider(
         raise
     except Exception as exc:  # noqa: BLE001
         logger.warning(
-            "Failed to materialize image ref for provider: %s",
+            "Failed to materialize image ref for provider: %s: %s",
             type(exc).__name__,
+            describe_media_ref(image_ref),
         )
         return []
 
@@ -1884,7 +1888,18 @@ async def _append_direct_attachments(
     del config
     for component in event.message_obj.message:
         if isinstance(component, Image):
-            path = await component.convert_to_file_path()
+            try:
+                path = await component.convert_to_file_path()
+            except (OSError, ValueError) as exc:
+                logger.warning(
+                    "Image attachment is unavailable (%s): %s",
+                    type(exc).__name__,
+                    describe_media_ref(component.url or component.file),
+                )
+                req.extra_user_content_parts.append(
+                    TextPart(text="[Image unavailable]")
+                )
+                continue
             _track_temp_image_path(event, path)
             req.image_urls.append(path)
             req.extra_user_content_parts.append(
