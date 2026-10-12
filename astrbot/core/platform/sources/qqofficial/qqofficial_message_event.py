@@ -34,6 +34,7 @@ from astrbot.core.message.components import (
     MentionAll,
     Plain,
     Record,
+    Reply,
     Video,
 )
 from astrbot.core.message.message_event_result import MessageChain
@@ -261,6 +262,31 @@ class QQOfficialMessageEvent(AstrMessageEvent):
                 return None
             self.send_buffer = MessageChain(chain=[Plain(text="\n")])
         return await self._post_send(stream=stream_payload)
+
+    @staticmethod
+    def _extract_self_ref_idx(message: object) -> str:
+        """取本条消息自身的引用 ID（REFIDX_...），用于出站引用回复。
+
+        QQ 官方文档：message_reference.message_id 对「非机器人发的消息」需从
+        消息事件的 message_scene.ext 数组的 msg_idx 字段获取；它与 message.id
+        （ROBOT1.0_...）不是同一个值，格式也不同。
+        """
+        try:
+            raw = getattr(message, "raw_data", None)
+            if not isinstance(raw, dict):
+                return ""
+            scene = raw.get("message_scene")
+            if not isinstance(scene, dict):
+                return ""
+            for item in scene.get("ext") or []:
+                text = str(item)
+                if text.startswith("msg_idx="):
+                    value = text[len("msg_idx=") :].strip()
+                    if value:
+                        return value
+        except Exception:
+            return ""
+        return ""
 
     async def send_streaming(self, generator, use_fallback: bool = False):
         """流式输出仅支持消息列表私聊（C2C），其他消息源退化为普通发送"""
@@ -586,6 +612,31 @@ class QQOfficialMessageEvent(AstrMessageEvent):
             plain_text += "\n"
 
         payload = self._build_base_payload(plain_text, source)
+
+        # 出站引用回复：消息链里存在 Reply 组件时填 message_reference。
+        # 注意 botpy 在同时传 message_reference 与 file_image 时会主动去除前者（SDK 限制）。
+        _reply_id = next(
+            (
+                str(_component.id).strip()
+                for _component in (getattr(message_to_send, "chain", None) or [])
+                if isinstance(_component, Reply) and str(_component.id or "").strip()
+            ),
+            "",
+        )
+        if _reply_id:
+            # 调用方已经给出 REFIDX_... 时直接使用（插件可借此引用任意消息）；
+            # 否则回退到本条消息自身的 msg_idx。注意 message.id（ROBOT1.0_...）
+            # 不可直接用作 message_reference.message_id。
+            _ref_idx = (
+                _reply_id
+                if _reply_id.startswith("REFIDX_")
+                else QQOfficialMessageEvent._extract_self_ref_idx(
+                    self.message_obj.raw_message
+                )
+            )
+            if _ref_idx:
+                payload["message_reference"] = {"message_id": _ref_idx}
+
         if isinstance(source, botpy.message.GroupMessage | botpy.message.C2CMessage):
             upload_target = self._media_upload_target(source)
             if upload_target is None:
