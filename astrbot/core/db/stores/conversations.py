@@ -2,7 +2,7 @@ import json
 import typing as T
 from datetime import datetime
 
-from sqlalchemy import case, not_
+from sqlalchemy import Text, case, cast, not_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 from sqlmodel import col, delete, desc, func, or_, select, update
@@ -72,6 +72,9 @@ class ConversationStoreMixin(DatabaseStoreMixin):
             session: AsyncSession
             base_query = select(ConversationV2)
             conditions = []
+            # SQLAlchemy 2.1 rejects operators outside a type's operator classes;
+            # ``content`` is JSON-backed, so cast it to text for LIKE matching.
+            content_text = cast(col(ConversationV2.content), Text)
 
             if platform_ids:
                 conditions.append(col(ConversationV2.platform_id).in_(platform_ids))
@@ -96,7 +99,7 @@ class ConversationStoreMixin(DatabaseStoreMixin):
                 conditions.append(
                     or_(
                         col(ConversationV2.title).ilike(search_pattern, escape="\\"),
-                        col(ConversationV2.content).ilike(search_pattern, escape="\\"),
+                        content_text.ilike(search_pattern, escape="\\"),
                         col(ConversationV2.user_id).ilike(search_pattern, escape="\\"),
                         col(ConversationV2.conversation_id).ilike(
                             search_pattern,
@@ -114,11 +117,11 @@ class ConversationStoreMixin(DatabaseStoreMixin):
                 conditions.append(
                     or_(
                         col(ConversationV2.title).ilike(keyword_pattern, escape="\\"),
-                        col(ConversationV2.content).ilike(
+                        content_text.ilike(
                             keyword_pattern,
                             escape="\\",
                         ),
-                        col(ConversationV2.content).ilike(
+                        content_text.ilike(
                             json_keyword_pattern,
                             escape="\\",
                         ),
