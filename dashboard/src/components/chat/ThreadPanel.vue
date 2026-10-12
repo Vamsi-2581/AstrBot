@@ -84,7 +84,7 @@ import type {
   MessagePart,
   StreamPayload,
 } from '@/domain/chat';
-import { useModuleI18n } from '@/i18n/composables';
+import { useI18n, useModuleI18n } from '@/i18n/composables';
 import ChatMessageList from '@/components/chat/ChatMessageList.vue';
 
 const props = defineProps<{
@@ -104,6 +104,7 @@ const emit = defineEmits<{
 }>();
 
 const { tm } = useModuleI18n('features/chat');
+const { locale } = useI18n();
 const isTouchDevice = computed(
   () =>
     props.isTouchDevice ??
@@ -191,6 +192,7 @@ async function send() {
         body: JSON.stringify({
           message: [{ type: 'plain', text }],
           enable_streaming: true,
+          locale: locale.value,
           selected_provider: selection.providerId,
           selected_model: selection.modelName,
           _webchat_step_up_tokens: stepUpTokens,

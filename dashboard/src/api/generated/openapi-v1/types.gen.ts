@@ -321,6 +321,10 @@ export type ProviderEmbeddingDimensionRequest = {
 
 export type ChatRequest = {
   /**
+   * UI locale for built-in LLM error messages. Omitted or unsupported locales fall back to zh-CN.
+   */
+  locale?: string;
+  /**
    * Caller-declared WebChat sender/session owner.
    */
   username?: string;
@@ -364,6 +368,10 @@ export type ChatMessagePatchRequest = {
 };
 
 export type ChatMessageRegenerateRequest = {
+  /**
+   * UI locale for built-in LLM error messages. Omitted or unsupported locales fall back to zh-CN.
+   */
+  locale?: string;
   selected_provider?: string;
   selected_model?: string;
   enable_streaming?: boolean;
@@ -376,6 +384,10 @@ export type ChatThreadCreateRequest = {
 };
 
 export type ChatThreadMessageRequest = {
+  /**
+   * UI locale for built-in LLM error messages. Omitted or unsupported locales fall back to zh-CN.
+   */
+  locale?: string;
   message: string | Array<MessagePart>;
   selected_provider?: string;
   selected_model?: string;
@@ -1048,6 +1060,10 @@ export type SubAgentConfigRequest = {
 
 export type ChatRequestWritable = {
   /**
+   * UI locale for built-in LLM error messages. Omitted or unsupported locales fall back to zh-CN.
+   */
+  locale?: string;
+  /**
    * Caller-declared WebChat sender/session owner.
    */
   username?: string;
@@ -1083,6 +1099,10 @@ export type ChatRequestWritable = {
 };
 
 export type ChatMessageRegenerateRequestWritable = {
+  /**
+   * UI locale for built-in LLM error messages. Omitted or unsupported locales fall back to zh-CN.
+   */
+  locale?: string;
   selected_provider?: string;
   selected_model?: string;
   enable_streaming?: boolean;
@@ -1095,6 +1115,10 @@ export type ChatMessageRegenerateRequestWritable = {
 };
 
 export type ChatThreadMessageRequestWritable = {
+  /**
+   * UI locale for built-in LLM error messages. Omitted or unsupported locales fall back to zh-CN.
+   */
+  locale?: string;
   message: string | Array<MessagePart>;
   selected_provider?: string;
   selected_model?: string;

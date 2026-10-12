@@ -1301,6 +1301,7 @@ class ChatService:
                 "enable_reasoning": enable_reasoning,
                 "llm_checkpoint_id": llm_checkpoint_id,
                 "thread_selected_text": thread_selected_text,
+                "locale": post_data.get("locale"),
             }
             if thread_parent_session_id:
                 queue_payload["webchat_parent_session_id"] = thread_parent_session_id
@@ -1760,6 +1761,7 @@ class ChatService:
             "enable_reasoning": data.get("enable_reasoning", True),
             "selected_provider": data.get("selected_provider"),
             "selected_model": data.get("selected_model"),
+            "locale": data.get("locale"),
             "_platform_history_id": "webchat_thread",
             "_thread_selected_text": thread.selected_text,
         }
@@ -2010,6 +2012,7 @@ class ChatService:
             "enable_reasoning": data.get("enable_reasoning", True),
             "selected_provider": data.get("selected_provider"),
             "selected_model": data.get("selected_model"),
+            "locale": data.get("locale"),
             "_skip_user_history": True,
             "_llm_checkpoint_id": new_checkpoint_id,
         }
