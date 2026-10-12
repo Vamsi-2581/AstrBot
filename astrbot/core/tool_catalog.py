@@ -132,14 +132,15 @@ LOOP_SCOPED_TOOL_NAMES: Mapping[str, str] = {
     DELEGATE_CODING_TASK_TOOL_NAME: "work",
 }
 
+WEB_SEARCH_TOOL_NAME = "web_search"
+
+# Extract tools that stay available for a route member.  Search itself is a
+# single aggregate tool, so only providers with a page-content extractor need
+# an extra entry here.
 WEB_SEARCH_PROVIDER_TOOLS: Mapping[str, tuple[str, ...]] = {
-    "tavily": ("web_search_tavily", "tavily_extract_web_page"),
-    "bocha": ("web_search_bocha",),
-    "brave": ("web_search_brave",),
-    "firecrawl": ("web_search_firecrawl", "firecrawl_extract_web_page"),
-    "baidu_ai_search": ("web_search_baidu",),
-    "exa": ("web_search_exa", "exa_get_contents"),
-    "anysearch": ("web_search_anysearch",),
+    "tavily": ("tavily_extract_web_page",),
+    "firecrawl": ("firecrawl_extract_web_page",),
+    "exa": ("exa_get_contents",),
 }
 
 
@@ -161,7 +162,7 @@ class ToolCatalogInputs:
     session_tool_names: frozenset[str] = frozenset()
     memory_enabled: bool = False
     web_search_enabled: bool = False
-    web_search_provider: str = "tavily"
+    web_search_route: tuple[str, ...] = ()
     group_history_enabled: bool = False
     proactive_messaging: bool = False
     kb_agentic_mode: bool = False
@@ -339,8 +340,10 @@ def _platform_baseline(inputs: ToolCatalogInputs) -> set[str]:
         names.add(READ_SKILL_TOOL_NAME)
     if inputs.memory_enabled:
         names.update(MEMORY_BASELINE_TOOLS)
-    if inputs.web_search_enabled:
-        names.update(WEB_SEARCH_PROVIDER_TOOLS.get(inputs.web_search_provider, ()))
+    if inputs.web_search_enabled and inputs.web_search_route:
+        names.add(WEB_SEARCH_TOOL_NAME)
+        for provider in inputs.web_search_route:
+            names.update(WEB_SEARCH_PROVIDER_TOOLS.get(provider, ()))
     if inputs.group_history_enabled:
         names.add("get_group_message_history")
     if inputs.proactive_messaging:

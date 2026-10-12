@@ -27,7 +27,7 @@ LOOP_TOOLS = {
     "astrbot_file_write_tool": ("tool.file_write",),
     "astrbot_file_read_tool": ("tool.file_read",),
     "astrbot_grep_tool": ("tool.file_read",),
-    "web_search_tavily": ("tool.web_search",),
+    "web_search": ("tool.web_search",),
     "submit_work_task": ("agent.manage",),
     "delegate_coding_task": ("tool.local_exec", "tool.file_write"),
     "mcp_read_tool": ("tool.mcp_read",),
@@ -112,7 +112,7 @@ def test_work_loop_keeps_reads_and_drops_every_write():
     names = _names(loop_mode="work", read_only=True)
     assert "astrbot_file_read_tool" in names
     assert "astrbot_grep_tool" in names
-    assert "web_search_tavily" in names
+    assert "web_search" in names
     for dropped in (
         "astrbot_execute_shell",
         "astrbot_execute_python",

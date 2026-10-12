@@ -19,6 +19,7 @@ from astrbot.core.utils.outbound_http import (
     compose_github_mirror_url,
     download_to_path,
     redact_outbound_url,
+    searxng_search_policy,
     validate_github_mirror_origin,
     validate_outbound_url,
 )
@@ -73,6 +74,36 @@ def test_rejects_rfc1918_link_local_and_metadata() -> None:
     ):
         with pytest.raises(OutboundRequestError):
             validate_outbound_url(url, PLUGIN_DOWNLOAD_URL)
+
+
+def test_searxng_policy_allows_only_the_configured_host() -> None:
+    policy = searxng_search_policy("http://searx.internal:8080")
+    resolver = _resolver(
+        {
+            "searx.internal": ["10.0.0.5"],
+            "evil.internal": ["10.0.0.6"],
+        }
+    )
+
+    allowed = validate_outbound_url(
+        "http://searx.internal:8080/search",
+        policy,
+        resolve_addresses=resolver,
+    )
+    assert allowed.hostname == "searx.internal"
+
+    with pytest.raises(OutboundRequestError):
+        validate_outbound_url(
+            "http://evil.internal:8080/search",
+            policy,
+            resolve_addresses=resolver,
+        )
+
+
+def test_searxng_policy_still_blocks_metadata_hosts() -> None:
+    policy = searxng_search_policy("http://169.254.169.254")
+    with pytest.raises(OutboundRequestError):
+        validate_outbound_url("http://169.254.169.254/search", policy)
 
 
 def test_allows_clash_fake_ip_for_resolved_hostnames() -> None:

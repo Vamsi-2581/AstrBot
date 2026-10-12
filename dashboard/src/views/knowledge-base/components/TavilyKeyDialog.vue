@@ -54,7 +54,7 @@ import { resolveErrorMessage } from '@/utils/errorUtils';
 
 interface ProviderSettings {
   websearch_tavily_key?: string[];
-  websearch_provider?: string;
+  websearch_route?: string[];
   [key: string]: unknown;
 }
 
@@ -125,8 +125,15 @@ const saveKey = async () => {
     currentConfig.provider_settings.websearch_tavily_key = [
       apiKey.value.trim(),
     ];
-    // 同时将搜索提供商设置为 tavily
-    currentConfig.provider_settings.websearch_provider = 'tavily';
+    // 同时确保 tavily 在搜索来源路由中
+    const route = currentConfig.provider_settings.websearch_route;
+    const routeList = Array.isArray(route) ? route : [];
+    if (!routeList.includes('tavily')) {
+      currentConfig.provider_settings.websearch_route = [
+        ...routeList,
+        'tavily',
+      ];
+    }
 
     // 3. 保存整个配置
     const saveResponse = await runConfigMutationWithStepUp(

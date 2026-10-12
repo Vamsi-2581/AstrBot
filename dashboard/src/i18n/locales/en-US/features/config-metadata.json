@@ -303,8 +303,17 @@
         "web_search": {
           "description": "Enable Web Search"
         },
-        "websearch_provider": {
-          "description": "Web Search Provider"
+        "websearch_route": {
+          "description": "Web Search Sources (ordered, multi-select)",
+          "hint": "Sources are queried in parallel, deduplicated by canonical URL, and fused with RRF. Order is priority."
+        },
+        "websearch_oversample": {
+          "description": "Per-source candidate multiplier",
+          "hint": "Each source fetches target results × this multiplier before fusion."
+        },
+        "websearch_searxng_url": {
+          "description": "SearXNG Instance URL",
+          "hint": "A self-hosted SearXNG must enable json in search.formats in its settings.yml, otherwise it returns 403."
         },
         "websearch_tavily_key": {
           "description": "Tavily API Key",

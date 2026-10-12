@@ -11,7 +11,7 @@ from astrbot.core.tools.function_tool_manager import FunctionToolManager
 from astrbot.core.tools.message_tools import SendMessageToUserTool, SendPokeToUserTool
 from astrbot.core.tools.web_search_tools import (
     FirecrawlExtractWebPageTool,
-    FirecrawlWebSearchTool,
+    WebSearchTool,
 )
 from tests.fixtures.auth import attach_authorized_tool_context
 
@@ -467,15 +467,15 @@ async def test_execute_shell_reports_blank_exception_type(monkeypatch):
     assert result == "Error executing command: BlankError"
 
 
-def test_firecrawl_tools_are_registered_as_builtin_tools():
+def test_web_search_tools_are_registered_as_builtin_tools():
     manager = FunctionToolManager()
 
-    search_tool = manager.get_builtin_tool(FirecrawlWebSearchTool)
+    search_tool = manager.get_builtin_tool(WebSearchTool)
     extract_tool = manager.get_builtin_tool(FirecrawlExtractWebPageTool)
 
-    assert search_tool.name == "web_search_firecrawl"
+    assert search_tool.name == "web_search"
     assert extract_tool.name == "firecrawl_extract_web_page"
-    assert manager.is_builtin_tool("web_search_firecrawl") is True
+    assert manager.is_builtin_tool("web_search") is True
     assert manager.is_builtin_tool("firecrawl_extract_web_page") is True
 
 

@@ -536,7 +536,7 @@ def test_extract_web_search_refs_filters_supported_results_and_attaches_favicon(
                 "type": "tool_call",
                 "tool_calls": [
                     {
-                        "name": "web_search_tavily",
+                        "name": "web_search",
                         "result": json.dumps(
                             {
                                 "results": [
@@ -586,8 +586,8 @@ def test_extract_web_search_refs_returns_empty_for_invalid_tool_payload():
             {
                 "type": "tool_call",
                 "tool_calls": [
-                    {"name": "web_search_tavily", "result": "{bad json"},
-                    {"name": "web_search_tavily"},
+                    {"name": "web_search", "result": "{bad json"},
+                    {"name": "web_search"},
                 ],
             }
         ],

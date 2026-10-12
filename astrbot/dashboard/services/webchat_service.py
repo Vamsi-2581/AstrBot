@@ -342,12 +342,7 @@ class WebChatService:
         accumulated_text: str,
         accumulated_parts: list,
     ) -> dict:
-        supported = [
-            "web_search_baidu",
-            "web_search_tavily",
-            "web_search_bocha",
-            "web_search_brave",
-        ]
+        supported = ["web_search"]
         web_search_results = {}
         tool_call_parts = [
             p
