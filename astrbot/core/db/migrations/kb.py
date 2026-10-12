@@ -21,7 +21,7 @@ async def _add_kb_media_updated_at(conn: AsyncConnection) -> None:
     already has the column from the baseline.
     """
     result = await conn.exec_driver_sql("PRAGMA table_info(kb_media)")
-    columns = {row[1] for row in result.fetchall()}
+    columns = {str(row["name"]) for row in result.mappings()}
     if "updated_at" in columns:
         return
     await conn.exec_driver_sql(

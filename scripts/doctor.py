@@ -26,8 +26,21 @@ def version(command: tuple[str, ...], cwd: Path) -> str | None:
         result = subprocess.run(
             (executable, *command[1:]), cwd=cwd, text=True, capture_output=True
         )
-    except OSError:
-        return None
+    except OSError as exc:
+        if exc.errno != 8 or sys.platform == "win32":
+            return None
+        # pnpm's POSIX launcher can temporarily be a shebang-less shell script
+        # while its native binary is being installed. Shells handle ENOEXEC by
+        # retrying it through /bin/sh; reproduce that behavior for doctor.
+        try:
+            result = subprocess.run(
+                ("/bin/sh", executable, *command[1:]),
+                cwd=cwd,
+                text=True,
+                capture_output=True,
+            )
+        except OSError:
+            return None
     if result.returncode:
         return None
     output = (result.stdout or result.stderr).strip()
@@ -67,12 +80,12 @@ def main() -> None:
             failures.append(check.name)
 
     dashboard_pnpm = version(("pnpm", "--version"), root / "dashboard")
-    pnpm_ok = dashboard_pnpm is not None and dashboard_pnpm.startswith("12.5.")
+    pnpm_ok = dashboard_pnpm is not None and dashboard_pnpm.startswith("12.11.")
     print(
         f"{'pnpm':12} {'ok' if pnpm_ok else 'missing/unexpected':18} {dashboard_pnpm or ''}"
     )
     if not pnpm_ok:
-        failures.append("pnpm 12.5")
+        failures.append("pnpm 12.11")
 
     if failures:
         print(

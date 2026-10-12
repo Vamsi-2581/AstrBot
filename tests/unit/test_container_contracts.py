@@ -135,7 +135,7 @@ def test_runtime_build_does_not_depend_on_dev_stage() -> None:
 
     runtime_assets_at = dockerfile.index("FROM builder AS runtime-assets")
     dev_at = dockerfile.index("FROM builder AS dev")
-    runtime_at = dockerfile.index("FROM python:3.14.7-slim", dev_at)
+    runtime_at = dockerfile.index("FROM python:3.14.8-slim", dev_at)
 
     assert runtime_assets_at < dev_at < runtime_at
     assert (
