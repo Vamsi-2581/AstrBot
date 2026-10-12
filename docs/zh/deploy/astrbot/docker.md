@@ -194,6 +194,18 @@ AstrBot 与 NapCat 位于同一个 Docker 网络。使用 `MODE=ws` 时，请在
 
 如果保留 Compose 原有的 `MODE=astrbot`，则不要创建独立 `NapCat` 平台。请创建 `OneBot v11` 平台，将 `ws_reverse_host` 设为 `0.0.0.0`，端口保持 `6199`。`6199` 只需在内部 Docker 网络可达，不需要发布到宿主机。如需鉴权，同样要在第一次生成配置后从 Compose 删除 `MODE`，再在 NapCat 与 AstrBot 两端设置相同 token。
 
+## 健康检查端点
+
+AstrBot 在 WebUI 端口上提供两个无需鉴权、无副作用的端点：
+
+- `GET /healthz`：存活探针。进程正常、事件循环可响应时返回 `200`。
+- `GET /readyz`：就绪探针。核心启动完成后返回 `200`，启动过程中返回 `503`
+  和 `{"status": "not_ready"}`。
+
+仓库自带的 `compose.yml` 与 `compose-with-napcat.yml` 使用 `/healthz` 作为容器
+健康检查。如果编排系统需要在运行时可用前暂不转发流量，可改用 `/readyz`。
+两个端点都不会暴露内部状态，也不需要 Dashboard 鉴权。
+
 ## 在 Docker 中配置 HTTP 代理
 
 AstrBot 的 HTTP 代理在 WebUI：`设置 → 网络 → 代理与依赖源 → HTTP 代理`。填写的地址由 AstrBot 容器内部访问，因此 `http://127.0.0.1:7890` 会连到 AstrBot 容器自己，而不是宿主机或其他容器。

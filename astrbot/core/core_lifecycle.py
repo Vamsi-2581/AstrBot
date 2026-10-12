@@ -103,6 +103,7 @@ class AstrBotCoreLifecycle:
         self._initializing = False
         self._initialized = False
         self._started = False
+        self._ready = False
         self._stopped = False
         self.reboot_requested = False
         self.process_rebooter: ProcessRebooter | None = None
@@ -168,6 +169,17 @@ class AstrBotCoreLifecycle:
         if self._runtime is None:
             raise RuntimeError("AstrBot core runtime is not initialized")
         return self._runtime
+
+    @property
+    def is_ready(self) -> bool:
+        """Return whether the core finished its startup sequence.
+
+        Readiness is published for the Dashboard ``/readyz`` probe. It becomes
+        true only after the event bus and platform adapters are running, so an
+        orchestrator can hold traffic until the runtime is actually usable.
+        """
+
+        return self._ready
 
     def _register_cleanup(
         self,
@@ -676,6 +688,7 @@ class AstrBotCoreLifecycle:
             raise RuntimeError("AstrBot core lifecycle has already been started")
         self._started = True
         await self._load()
+        self._ready = True
         logger.info("AstrBot started.")
 
         handlers = self.services.catalogs.handlers.get_handlers_by_event_type(
@@ -732,6 +745,7 @@ class AstrBotCoreLifecycle:
                 await self._cleanup_stack.aclose()
 
             self._initialized = False
+            self._ready = False
             self._stopped = True
 
     async def restart(self) -> None:

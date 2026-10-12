@@ -68,6 +68,7 @@ from astrbot.dashboard.services.update_service import (
 from astrbot.dashboard.services.webchat_service import WebChatService
 
 from .error_handling import internal_error_response
+from .health import router as health_router
 from .plugin_files import router as plugin_files_router
 from .plugin_page_assets import router as plugin_page_assets_router
 from .router import API_V1_PREFIX, build_api_router
@@ -93,6 +94,7 @@ def create_dashboard_asgi_app(
     )
     app.state.astrbot_config = runtime.astrbot_config
     app.state.runtime = runtime
+    app.state.core_control = core_control
     app.state.db = db
     app.state.jwt_secret = jwt_secret
     dashboard_token_validator = DashboardTokenValidator(jwt_secret)
@@ -444,6 +446,7 @@ def create_dashboard_asgi_app(
             exc,
         )
 
+    app.include_router(health_router)
     app.include_router(build_api_router())
     app.include_router(plugin_page_assets_router)
     app.include_router(plugin_files_router)

@@ -1,6 +1,7 @@
 """Tests for AstrBotCoreLifecycle."""
 
 import asyncio
+import contextlib
 import os
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -833,6 +834,32 @@ class TestAstrBotCoreLifecycleStart:
                 await lifecycle.start()
         finally:
             await lifecycle.stop()
+
+    @pytest.mark.asyncio
+    async def test_readiness_tracks_start_and_stop(self, mock_log_broker, mock_db):
+        """Readiness turns on after startup and off again on stop."""
+        lifecycle = self._prepare_started_lifecycle(mock_log_broker, mock_db)
+
+        async def never_end() -> None:
+            await asyncio.Event().wait()
+
+        lifecycle.event_bus.dispatch = never_end
+        assert lifecycle.is_ready is False
+
+        start_task = asyncio.create_task(lifecycle.start())
+        try:
+            for _ in range(100):
+                if lifecycle.is_ready:
+                    break
+                await asyncio.sleep(0.01)
+            assert lifecycle.is_ready is True
+        finally:
+            start_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await start_task
+            await lifecycle.stop()
+
+        assert lifecycle.is_ready is False
 
     @pytest.mark.asyncio
     async def test_start_calls_on_astrbot_loaded_hook(self, mock_log_broker, mock_db):
