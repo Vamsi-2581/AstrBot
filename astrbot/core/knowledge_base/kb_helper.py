@@ -48,6 +48,7 @@ from .kb_db_sqlite import (
     posix_identity_input,
 )
 from .models import KBDocument, KBMedia, KnowledgeBase
+from .parsers.ocr import OCREngineUnavailable
 from .parsers.util import select_parser
 
 if TYPE_CHECKING:
@@ -95,12 +96,14 @@ class KBHelper:
         provider_manager: ProviderManager,
         kb_root_dir: str,
         chunker: BaseChunker,
+        extraction_config: dict | None = None,
     ) -> None:
         self.kb_db = kb_db
         self.kb = kb
         self.prov_mgr = provider_manager
         self.kb_root_dir = kb_root_dir
         self.chunker = chunker
+        self.extraction_config = extraction_config or {}
         self.init_error = None
 
         self.kb_dir = Path(self.kb_root_dir) / self.kb.kb_id
@@ -263,10 +266,22 @@ class KBHelper:
     ):
         await self._report_upload_progress(progress_callback, "parsing", 0, 100)
         try:
-            parser = await select_parser(f".{file_type}")
+            parser = await select_parser(
+                f".{file_type}",
+                extraction_config=self.extraction_config,
+            )
             parse_result = await parser.parse(file_content, file_name)
         except KnowledgeBaseUploadError:
             raise
+        except OCREngineUnavailable as exc:
+            raise KnowledgeBaseUploadError(
+                stage="parsing",
+                user_message=(
+                    "文档解析失败：已启用 OCR，但未安装或无法运行 OCR 引擎。"
+                    "请安装 pytesseract 与 Tesseract，或关闭 OCR 后重试。"
+                ),
+                details={"file_name": file_name},
+            ) from exc
         except Exception as exc:
             raise KnowledgeBaseUploadError(
                 stage="parsing",
@@ -278,6 +293,22 @@ class KBHelper:
             ) from exc
 
         text_content = parse_result.text
+        if (
+            not text_content or not text_content.strip()
+        ) and self.extraction_config.get("ocr_enable"):
+            try:
+                parse_result = await self._ocr_fallback(parse_result)
+            except OCREngineUnavailable as exc:
+                raise KnowledgeBaseUploadError(
+                    stage="parsing",
+                    user_message=(
+                        "文档解析失败：已启用 OCR，但未安装或无法运行 OCR 引擎。"
+                        "请安装 pytesseract 与 Tesseract，或关闭 OCR 后重试。"
+                    ),
+                    details={"file_name": file_name},
+                ) from exc
+            text_content = parse_result.text
+
         if not text_content or not text_content.strip():
             raise KnowledgeBaseUploadError(
                 stage="parsing",
@@ -289,6 +320,23 @@ class KBHelper:
             )
 
         await self._report_upload_progress(progress_callback, "parsing", 100, 100)
+        return parse_result
+
+    async def _ocr_fallback(self, parse_result):
+        """OCR embedded images when text extraction produced nothing."""
+        from astrbot.core.knowledge_base.parsers.base import ParseResult
+        from astrbot.core.knowledge_base.parsers.ocr import ocr_image_bytes
+
+        languages = str(self.extraction_config.get("ocr_languages") or "eng")
+        texts: list[str] = []
+        for item in parse_result.media:
+            if item.media_type != "image":
+                continue
+            text = await ocr_image_bytes(item.content, languages)
+            if text and text.strip():
+                texts.append(text)
+        if texts:
+            return ParseResult(text="\n\n".join(texts), media=parse_result.media)
         return parse_result
 
     async def _save_media_items(

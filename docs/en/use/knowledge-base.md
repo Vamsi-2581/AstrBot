@@ -37,6 +37,28 @@ An upload writes the document store, metadata, and local vectors together. Any s
 
 The Dashboard task id returned by a file upload, pre-chunk import, or URL import can be queried after a normal restart. Task progress and results are retained for seven days, with at most 1,000 completed, failed, or interrupted task records kept. Work that was pending or processing when AstrBot stops is reported as `interrupted`; it is not resumed automatically. Its task slot and upload staging directory are released during cancellation. The document list remains the source of truth for material that completed before the interruption.
 
+## OCR and external extraction
+
+The default parsers only extract text that is already present in the file, so
+scanned PDFs and images yield nothing. To ingest them, enable OCR or point
+AstrBot at an external extraction service. Configure both under
+`Config → Knowledge Base` or in `data/cmd_config.json`:
+
+| Key                                       | Default | Role                                                                              |
+| ----------------------------------------- | ------- | --------------------------------------------------------------------------------- |
+| `knowledge_base.extraction.ocr_enable`    | `false` | OCR images and text-free scanned PDFs with Tesseract                              |
+| `knowledge_base.extraction.ocr_languages` | `eng`   | Tesseract language argument, for example `eng+chi_sim`                            |
+| `knowledge_base.extraction.tika_url`      | empty   | When set, every document is extracted by this Apache Tika (or compatible) service |
+
+OCR is optional. Install `pytesseract` and the Tesseract binary yourself; when
+OCR is enabled but the engine is missing or fails, the upload fails with a
+precise message instead of a generic parse error. OCR only runs when the built-in
+parsers return no text, so text-based PDFs are not re-processed. When `tika_url`
+is set it takes precedence for every format, which lets operators handle rich
+formats and scanned files without bundling heavy models locally. Input size,
+page, and response bounds are enforced, and a failed upload still runs the
+compensating cleanup that keeps a partial document out of the index.
+
 ## Attach to a session
 
 Chat does not search every knowledge base you created. You must name them on the profile or a rule.

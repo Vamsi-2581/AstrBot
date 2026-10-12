@@ -385,6 +385,11 @@ DEFAULT_CONFIG = {
         "fusion_top_k": 20,  # 知识库检索融合阶段返回结果数量
         "final_top_k": 5,  # 知识库检索最终返回结果数量
         "agentic_mode": False,
+        "extraction": {
+            "ocr_enable": False,
+            "ocr_languages": "eng",
+            "tika_url": "",
+        },
     },
     "disable_metrics": False,
 }
@@ -3908,6 +3913,22 @@ CONFIG_METADATA_3 = {
                         "description": "Agentic 知识库检索",
                         "type": "bool",
                         "hint": "启用后，知识库检索将作为 LLM Tool，由模型自主决定何时调用知识库进行查询。需要模型支持函数调用能力。",
+                    },
+                    "knowledge_base.extraction.tika_url": {
+                        "description": "外部 Tika 提取服务地址",
+                        "type": "string",
+                        "hint": "填写后，知识库文档解析改为调用该 Apache Tika（或兼容）服务，可处理更多格式与扫描件。留空则使用内置解析器。",
+                    },
+                    "knowledge_base.extraction.ocr_enable": {
+                        "description": "启用 OCR 提取扫描件文本",
+                        "type": "bool",
+                        "hint": "开启后，图片与无文本的扫描 PDF 会尝试使用 Tesseract OCR 提取文字。需要自行安装 pytesseract 与 Tesseract。",
+                    },
+                    "knowledge_base.extraction.ocr_languages": {
+                        "description": "OCR 语言",
+                        "type": "string",
+                        "hint": "Tesseract 语言参数，例如 eng、chi_sim 或 eng+chi_sim。",
+                        "condition": {"knowledge_base.extraction.ocr_enable": True},
                     },
                 },
                 "condition": {
