@@ -120,6 +120,42 @@ async def test_discord_video_url_attachment_filename(
         files[0].close()
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("allow_bot_messages", [False, True])
+@pytest.mark.parametrize(("author_id", "is_bot"), [(1, True), (2, True), (3, False)])
+async def test_discord_filters_self_messages(allow_bot_messages, author_id, is_bot):
+    """Reject self messages while preserving the other-bot setting.
+
+    Args:
+        allow_bot_messages: Whether messages from other bots are enabled.
+        author_id: The sender ID; 1 is the connected bot.
+        is_bot: Whether the sender is a bot.
+    """
+    client = DiscordBotClient(token="test", allow_bot_messages=allow_bot_messages)
+    client._connection.user = SimpleNamespace(id=1)
+    client.on_message_received = AsyncMock()
+    message = SimpleNamespace(
+        id=42,
+        author=SimpleNamespace(
+            id=author_id, bot=is_bot, name="tester", display_name="tester"
+        ),
+        content="hello",
+        clean_content="hello",
+        channel=SimpleNamespace(id=123),
+        guild=None,
+        mentions=[],
+    )
+
+    await client.on_message(message)
+    await asyncio.sleep(0)
+
+    if author_id == 1 or (is_bot and not allow_bot_messages):
+        client.on_message_received.assert_not_called()
+    else:
+        client.on_message_received.assert_called_once()
+        assert client.on_message_received.call_args.args[0]["message"] is message
+
+
 def _discord_platform_meta():
     return SimpleNamespace(id="discord", name="discord")
 
@@ -168,6 +204,7 @@ async def test_discord_client_on_message_background_dispatches_callback():
     client = DiscordBotClient.__new__(DiscordBotClient)
     client.allow_bot_messages = False
     client._message_tasks = set()
+    client._connection = SimpleNamespace(user=None)
 
     started = asyncio.Event()
     release = asyncio.Event()
