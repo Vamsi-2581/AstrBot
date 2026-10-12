@@ -21,7 +21,7 @@ No single prose document defines the entire project. Check the relevant source w
 | Current upstream sync point    | `upstream-sync.yaml`                                                                                                                       |
 | Versioned change records       | `changelogs/`; they record absorbed version changes, not proof of fork publication; later commits are not yet in the latest version record |
 
-The reproducible development and CI baseline is currently Python 3.14.7, Node.js 26.9.0, and pnpm 12.5.0. Package metadata supports Python 3.14 and later.
+The reproducible development and CI baseline is currently Python 3.14.8, Node.js 26.11.1, and pnpm 12.11.2. Package metadata supports Python 3.14 and later.
 
 ## Startup Flow
 

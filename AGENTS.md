@@ -64,10 +64,10 @@ The reproducible development/CI baseline is:
 
 | Tool                | Baseline and source of truth                                                 |
 | ------------------- | ---------------------------------------------------------------------------- |
-| Python              | 3.14.7 in `.python-version`, CI, and `Dockerfile`; project floor is `>=3.14` |
-| Node.js             | 26.9.0 in CI and `Dockerfile`                                                |
-| root npm            | 12.0.2 in the root `package.json` `packageManager` field                     |
-| Dashboard/docs pnpm | 12.5.0 in their `package.json` `packageManager` fields                       |
+| Python              | 3.14.8 in `.python-version`, CI, and `Dockerfile`; project floor is `>=3.14` |
+| Node.js             | 26.11.1 in CI and `Dockerfile`                                               |
+| root npm            | 12.2.0 in the root `package.json` `packageManager` field                     |
+| Dashboard/docs pnpm | 12.11.2 in their `package.json` `packageManager` fields                      |
 | Python manager      | `uv` (required, currently not patch-pinned)                                  |
 
 Use the globally installed `npm` and `pnpm` commands. Workflows may instead use a

@@ -305,7 +305,7 @@ WebChat. Name the skipped ones.
 
 ## `ops-supply-chain`
 
-- Toolchain pins: Python 3.14.7, Node 26.9.0, npm 12.0.2, pnpm 12.5.0.
+- Toolchain pins: Python 3.14.8, Node 26.11.1, npm 12.2.0, pnpm 12.11.2.
 - `uv.lock` + `requirements.txt` + `pyproject.toml` stay aligned.
   `uv sync --locked` / `uv lock --check` is the contract.
 - Compose `build:` + `astrbot:local`; no upstream image substitution.

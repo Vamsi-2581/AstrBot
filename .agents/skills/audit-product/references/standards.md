@@ -418,8 +418,8 @@ blocking` is the required gate, not the full suite unless asked.
 - Title: pnpm
 - URL: <https://pnpm.io/>
 - When: Dashboard and docs installs
-- Product checks: frozen lockfile installs. Dashboard pnpm 12.5.0 and
-  root npm 12.0.2 are different surfaces; do not reintroduce a root
+- Product checks: frozen lockfile installs. Dashboard pnpm 12.11.2 and
+  root npm 12.2.0 are different surfaces; do not reintroduce a root
   `pnpm-lock.yaml`.
 
 ### `vitepress`

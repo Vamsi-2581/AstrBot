@@ -13,7 +13,7 @@
 #   docker  Docker CLI and Compose plugin
 ARG ASTRBOT_FEATURES=full
 ARG GITHUB_RELEASE_BASES="https://github.com https://ghproxy.net/https://github.com https://gh-proxy.com/https://github.com https://ghfast.top/https://github.com"
-FROM python:3.14.7-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS builder
+FROM python:3.14.8-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS builder
 WORKDIR /AstrBot
 
 ARG ASTRBOT_FEATURES
@@ -158,9 +158,9 @@ RUN touch "${BASH_ENV}" \
     && echo '. "${BASH_ENV}"' >> ~/.bashrc \
     && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.7/install.sh | PROFILE="${BASH_ENV}" bash \
     && . "${BASH_ENV}" \
-    && nvm install 26.9.0 \
-    && nvm alias default 26.9.0 \
-    && npm install -g npm@12.0.2 pnpm@12.5.0 \
+    && nvm install 26.11.1 \
+    && nvm alias default 26.11.1 \
+    && npm install -g npm@12.2.0 pnpm@12.11.2 \
     && current_node_dir="$(dirname "$(dirname "$(nvm which current)")")" \
     && for tool in node npm npx pnpm; do \
         if [ -x "${current_node_dir}/bin/${tool}" ]; then \
@@ -175,7 +175,7 @@ RUN --mount=type=cache,target=/root/.cache,sharing=locked \
     curl -LsSf https://astral.sh/uv/install.sh | sh \
     && uv --version \
     && uvx --version \
-    && echo "3.14.7" > .python-version
+    && echo "3.14.8" > .python-version
 
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
     uv pip install -r requirements.txt --no-cache-dir --system \
@@ -494,7 +494,7 @@ CMD ["python", "main.py"]
 # Keep the development image above separate from the production runtime. The
 # runtime copies only the application, installed Python packages, browser
 # assets, and the Node/uv tools needed by runtime MCP integrations.
-FROM python:3.14.7-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS runtime
+FROM python:3.14.8-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS runtime
 
 WORKDIR /AstrBot
 
@@ -505,7 +505,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PLAYWRIGHT_BROWSERS_PATH=/opt/astrbot/runtime-assets/ms-playwright \
     DOCKER_CONFIG=/opt/astrbot/runtime-assets/docker-config \
     NVM_DIR=/opt/astrbot/runtime-assets/nvm \
-    PATH=/opt/astrbot/runtime-assets/bin:/opt/astrbot/runtime-assets/nvm/versions/node/v26.9.0/bin:/usr/local/bin:${PATH} \
+    PATH=/opt/astrbot/runtime-assets/bin:/opt/astrbot/runtime-assets/nvm/versions/node/v26.11.1/bin:/usr/local/bin:${PATH} \
     UV_LINK_MODE=copy \
     UV_INSTALL_DIR=/usr/local/bin \
     HOME=/root

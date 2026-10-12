@@ -22,7 +22,7 @@ class DashboardAccount(SQLModel, table=True):
     password_hash: str = Field(nullable=False, sa_type=Text)
     is_active: bool = Field(default=True, nullable=False, index=True)
     created_by: str | None = Field(default=None, index=True, max_length=512)
-    last_login_at: datetime | None = Field(default=None, index=True)
+    last_login_at: datetime | None = Field(default=None, index=True, sa_type=DateTime)
     # TOTP belongs to this immutable account identity; a username rename must
     # never transfer a second factor to a different account.
     totp_enabled: bool = Field(default=False, nullable=False)
@@ -58,9 +58,9 @@ class AuthRoleBinding(SQLModel, table=True):
     scope_id: str = Field(nullable=False, max_length=4096)
     config_id: str = Field(nullable=False, index=True, max_length=128)
     source: str = Field(nullable=False, default="explicit", max_length=64)
-    expires_at: datetime | None = Field(default=None, index=True)
+    expires_at: datetime | None = Field(default=None, index=True, sa_type=DateTime)
     created_by: str | None = Field(default=None, max_length=512)
-    revoked_at: datetime | None = Field(default=None, index=True)
+    revoked_at: datetime | None = Field(default=None, index=True, sa_type=DateTime)
     revoked_by: str | None = Field(default=None, max_length=512)
     metadata_json: dict = Field(default_factory=dict, sa_type=JSON)
     created_at: datetime = Field(
@@ -240,7 +240,7 @@ class AuthPolicyOverride(SQLModel, table=True):
     config_id: str | None = Field(default=None, index=True, max_length=128)
     allowed_roles: list = Field(default_factory=list, sa_type=JSON)
     enabled: bool = Field(default=True, nullable=False, index=True)
-    expires_at: datetime | None = Field(default=None, index=True)
+    expires_at: datetime | None = Field(default=None, index=True, sa_type=DateTime)
     created_by: str | None = Field(default=None, max_length=512)
     metadata_json: dict = Field(default_factory=dict, sa_type=JSON)
     created_at: datetime = Field(
@@ -272,9 +272,9 @@ class AuthCapability(SQLModel, table=True):
     resource_type: str = Field(nullable=False, max_length=64)
     resource_id: str = Field(nullable=False, max_length=4096)
     config_id: str = Field(nullable=False, index=True, max_length=128)
-    expires_at: datetime | None = Field(default=None, index=True)
+    expires_at: datetime | None = Field(default=None, index=True, sa_type=DateTime)
     created_by: str | None = Field(default=None, max_length=512)
-    revoked_at: datetime | None = Field(default=None, index=True)
+    revoked_at: datetime | None = Field(default=None, index=True, sa_type=DateTime)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_type=DateTime,

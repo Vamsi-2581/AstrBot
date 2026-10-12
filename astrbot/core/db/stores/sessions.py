@@ -121,7 +121,9 @@ class PlatformSessionStoreMixin(DatabaseStoreMixin):
         return query
 
     @staticmethod
-    def _rows_to_session_dicts(rows: T.Sequence[Row[tuple]]) -> list[dict]:
+    def _rows_to_session_dicts(
+        rows: T.Sequence[Row[T.Any, T.Any, T.Any, T.Any]],
+    ) -> list[dict]:
         sessions_with_projects = []
         for row in rows:
             platform_session = row[0]
