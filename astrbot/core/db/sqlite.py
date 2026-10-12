@@ -36,6 +36,7 @@ from astrbot.core.db.stores.projects import ChatProjectStoreMixin
 from astrbot.core.db.stores.prompts import PromptStoreMixin
 from astrbot.core.db.stores.session_bridge import SessionBridgeStoreMixin
 from astrbot.core.db.stores.sessions import PlatformSessionStoreMixin
+from astrbot.core.db.stores.shares import ConversationShareStoreMixin
 from astrbot.core.db.stores.statistics import StatisticsStoreMixin
 from astrbot.core.db.stores.webchat import WebChatThreadStoreMixin
 
@@ -54,6 +55,7 @@ class SQLiteDatabase(
     CommandStoreMixin,
     CronStoreMixin,
     PlatformSessionStoreMixin,
+    ConversationShareStoreMixin,
     SessionBridgeStoreMixin,
     UmoAliasStoreMixin,
     ChatProjectStoreMixin,

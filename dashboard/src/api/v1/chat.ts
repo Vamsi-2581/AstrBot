@@ -17,10 +17,13 @@ import type {
   ChatSessionListParams,
   ChatSessionPage,
   ChatSessionSummary,
+  ChatShareData,
+  ChatShareListData,
   ChatThreadData,
   ChatThreadDetailData,
   OpenConfig,
   ProjectData,
+  SharedConversationData,
 } from './types';
 
 export const chatApi = {
@@ -78,6 +81,29 @@ export const chatApi = {
   stopSession(sessionId: string) {
     return typed<OpenConfig>(
       openApiV1.stopChatSession({ path: { session_id: sessionId } }),
+    );
+  },
+  createShare(sessionId: string, expiresInDays: number) {
+    return typed<ChatShareData>(
+      openApiV1.createChatShare({
+        path: { session_id: sessionId },
+        body: { expires_in_days: expiresInDays },
+      }),
+    );
+  },
+  listShares(sessionId: string) {
+    return typed<ChatShareListData>(
+      openApiV1.listChatShares({ path: { session_id: sessionId } }),
+    );
+  },
+  revokeShare(shareId: string) {
+    return typed<OpenConfig>(
+      openApiV1.revokeChatShare({ path: { share_id: shareId } }),
+    );
+  },
+  getSharedConversation(token: string) {
+    return typed<SharedConversationData>(
+      openApiV1.getSharedConversation({ path: { token } }),
     );
   },
   updateMessage(

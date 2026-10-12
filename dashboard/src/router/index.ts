@@ -2,12 +2,13 @@ import { createRouter, createWebHashHistory } from 'vue-router';
 import MainRoutes from './MainRoutes';
 import AuthRoutes from './AuthRoutes';
 import ChatBoxRoutes from './ChatBoxRoutes';
+import SharedRoutes from './SharedRoutes';
 import { useAuthStore } from '@/stores/auth';
 import { useRouterLoadingStore } from '@/stores/routerLoading';
 
 export const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
-  routes: [MainRoutes, AuthRoutes, ChatBoxRoutes],
+  routes: [MainRoutes, AuthRoutes, ChatBoxRoutes, SharedRoutes],
 });
 
 interface AuthStore {

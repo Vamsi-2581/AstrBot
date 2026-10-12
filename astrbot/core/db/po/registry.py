@@ -33,6 +33,7 @@ from astrbot.core.db.po.session_bridge import (
     SessionBridgeRule,
 )
 from astrbot.core.db.po.sessions import PlatformSession, UmoAlias
+from astrbot.core.db.po.shares import ConversationShare
 from astrbot.core.db.po.statistics import PlatformStat, ProviderStat
 from astrbot.core.db.po.webchat import WebChatThread
 
@@ -48,6 +49,7 @@ TABLE_MODELS: tuple[type, ...] = (
     ChatUIProject,
     CommandConfig,
     CommandConflict,
+    ConversationShare,
     ConversationV2,
     CronJob,
     DashboardAccount,

@@ -362,6 +362,10 @@ class ChatSessionPatchRequest(OpenModel):
     display_name: str | None = None
 
 
+class ChatShareCreateRequest(OpenModel):
+    expires_in_days: int = Field(default=7, ge=0, le=365)
+
+
 class ChatMessagePatchRequest(OpenModel):
     content: dict[str, Any]
 

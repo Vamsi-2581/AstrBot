@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import re
+import secrets
 import uuid
 from collections.abc import AsyncIterator
 from copy import deepcopy
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
@@ -246,6 +249,44 @@ def serialize_history_entry(history) -> dict:
         "created_at": to_utc_isoformat(getattr(history, "created_at", None)),
         "updated_at": to_utc_isoformat(getattr(history, "updated_at", None)),
     }
+
+
+_SHARE_TOKEN_BYTES = 32
+_SHARE_EXPIRY_DAYS = frozenset({0, 1, 7, 30, 90})
+_MAX_SHARE_TRANSCRIPT_MESSAGES = 2000
+
+
+def hash_share_token(token: str) -> str:
+    """Hash a share token for storage and lookup."""
+
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def normalize_transcript_text(content: Any) -> str:
+    """Extract readable text from a stored message chain without media tokens."""
+
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, dict):
+        return ""
+    parts = content.get("message")
+    if not isinstance(parts, list):
+        return ""
+    chunks: list[str] = []
+    for part in parts:
+        if isinstance(part, dict):
+            text = part.get("text")
+            if isinstance(text, str) and text:
+                chunks.append(text)
+    return "\n".join(chunks)
+
+
+def _as_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value
 
 
 def find_checkpoint_index(history: list[dict], checkpoint_id: str) -> int | None:
@@ -1631,6 +1672,131 @@ class ChatService:
         if not session_id:
             raise ChatServiceError("Missing key: session_id")
         return await self.get_session(username, session_id)
+
+    async def _owned_session(self, username: str, session_id: str):
+        session = await self.db.get_platform_session_by_id(session_id)
+        if not session or session.creator != username:
+            raise ChatServiceError("Permission denied")
+        return session
+
+    async def create_share(
+        self,
+        username: str,
+        session_id: str,
+        expires_in_days: int = 7,
+    ) -> dict:
+        """Create a revocable read-only link to one owned session.
+
+        Args:
+            username: Authenticated owner.
+            session_id: Owned WebChat session identifier.
+            expires_in_days: ``0`` for no expiry, otherwise 1/7/30/90 days.
+
+        Returns:
+            The public share id, the raw token (shown once), and timestamps.
+
+        Raises:
+            ChatServiceError: If the expiry is invalid or the session is not owned.
+        """
+        if expires_in_days not in _SHARE_EXPIRY_DAYS:
+            raise ChatServiceError("Invalid share expiry")
+        await self._owned_session(username, session_id)
+
+        token = secrets.token_urlsafe(_SHARE_TOKEN_BYTES)
+        expires_at = (
+            datetime.now(UTC) + timedelta(days=expires_in_days)
+            if expires_in_days
+            else None
+        )
+        share = await self.db.create_conversation_share(
+            token_hash=hash_share_token(token),
+            session_id=session_id,
+            creator=username,
+            expires_at=expires_at,
+        )
+        return {
+            "share_id": share.share_id,
+            "token": token,
+            "created_at": to_utc_isoformat(share.created_at),
+            "expires_at": to_utc_isoformat(share.expires_at),
+        }
+
+    @staticmethod
+    def _serialize_share(share) -> dict:
+        now = datetime.now(UTC)
+        expires_at = _as_utc(share.expires_at)
+        active = share.revoked_at is None and (expires_at is None or expires_at > now)
+        return {
+            "share_id": share.share_id,
+            "created_at": to_utc_isoformat(share.created_at),
+            "expires_at": to_utc_isoformat(share.expires_at),
+            "revoked_at": to_utc_isoformat(share.revoked_at),
+            "active": active,
+        }
+
+    async def list_shares(self, username: str, session_id: str) -> dict:
+        """List every share the owner created for one session."""
+        await self._owned_session(username, session_id)
+        shares = await self.db.list_conversation_shares(
+            session_id=session_id,
+            creator=username,
+        )
+        return {"shares": [self._serialize_share(share) for share in shares]}
+
+    async def revoke_share(self, username: str, share_id: str) -> dict:
+        """Revoke one owned share link."""
+        share = await self.db.get_conversation_share(share_id)
+        if share is None or share.creator != username:
+            raise ChatServiceError("Permission denied")
+        revoked = await self.db.revoke_conversation_share(share_id)
+        return {"revoked": revoked}
+
+    async def get_shared_transcript(self, token: str) -> dict:
+        """Resolve a share token to a text-only, read-only transcript.
+
+        Raises:
+            ChatServiceError: If the token is unknown, revoked, or expired.
+        """
+        normalized = (token or "").strip()
+        if not normalized or len(normalized) > 512:
+            raise ChatServiceError("Share not found")
+        share = await self.db.get_conversation_share_by_token_hash(
+            hash_share_token(normalized)
+        )
+        if share is None or share.revoked_at is not None:
+            raise ChatServiceError("Share not found")
+        expires_at = _as_utc(share.expires_at)
+        if expires_at is not None and expires_at <= datetime.now(UTC):
+            raise ChatServiceError("Share not found")
+        session = await self.db.get_platform_session_by_id(share.session_id)
+        if session is None:
+            raise ChatServiceError("Share not found")
+
+        history = await self.platform_history_mgr.get(
+            platform_id=session.platform_id,
+            user_id=session.session_id,
+            page=1,
+            page_size=_MAX_SHARE_TRANSCRIPT_MESSAGES,
+        )
+        total = await self.platform_history_mgr.count(
+            platform_id=session.platform_id,
+            user_id=session.session_id,
+        )
+        return {
+            "title": session.display_name,
+            "created_at": to_utc_isoformat(session.created_at),
+            "updated_at": to_utc_isoformat(session.updated_at),
+            "expires_at": to_utc_isoformat(share.expires_at),
+            "truncated": total > len(history),
+            "messages": [
+                {
+                    "role": entry.role,
+                    "text": normalize_transcript_text(entry.content),
+                    "created_at": to_utc_isoformat(entry.created_at),
+                }
+                for entry in history
+            ],
+        }
 
     async def create_thread(self, username: str, data: dict) -> dict:
         session_id = data.get("session_id")
