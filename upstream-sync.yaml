@@ -5,24 +5,33 @@ upstream:
   branch: master
 
 last_synced:
-  commit: 6b2e41791e16460bfbde3f79911f4d258c6da944
-  synced_at_utc: 2026-10-08T18:36:24Z
+  commit: 48ba71ad7477fc81c8aa99ad241f41ef5b1c0bfe
+  synced_at_utc: 2026-10-12T15:15:48Z
   sync_method: adapt
   source_pr: >-
-    10055, 10251, 10372, 10376, 10380, 10392, 10393, 10399, 10400, 10413,
-    10415, 10432, 10436, 10437, 10442, 10444, 10445, 10446
+    10321, 10398, 10423, 10425, 10434, 10447, 10448, 10452, 10468, 10474,
+    10478, 10483, 10487, 10489, 10493, 10496, 10498, 10512, 10455, 10471,
+    10472, 10480, 10502, 10505
   note: >-
-    Reviewed 42972e932a64f01d96e2e0708579b0f79dd6f792..6b2e41791e16460bfbde3f79911f4d258c6da944
-    (18 commits). Cherry-picked 1 (#10392) and adapted 14: #10380, #10400,
-    #10376, #10251, #10413, #10393, #10055, #10442, #10444, #10445, #10446,
-    #10432, #10436, and #10437. Adaptations preserve the fork's normalized
-    Telegram handling, immutable command catalog, Dashboard Extension Protocol
-    v1, source-built Docker image, bounded static gzip, local Monaco worker
-    setup, zh/en locale scope, and explicit group admission policy. Skipped 3:
-    #10399 is already implemented more completely; #10372 targets the removed
-    legacy command-group matcher; #10415 restores incompatible legacy plugin
-    Page/View APIs. No upstream version change was present, so the fork version
-    and changelog remain unchanged. Focused Python and Dashboard suites, the
-    complete blocking pytest suite (6376 passed, 8 skipped), Dashboard tests,
-    i18n check and build, documentation build, make check, and make quality
-    passed. Docker engine was unavailable, so the image build was not run.
+    Reviewed 6b2e41791e16460bfbde3f79911f4d258c6da944..48ba71ad7477fc81c8aa99ad241f41ef5b1c0bfe
+    (24 commits). Cherry-picked 0 and adapted 18: #10423, #10447, #10448,
+    #10425, #10434, #10468, #10398, #10474, #10321, #10487, #10493, #10496,
+    #10478, #10498, #10452, #10483, #10489, and #10512. Adaptations preserved
+    the fork's MediaResolver-based Discord/Slack event paths, Mention-based
+    Slack parsing and PlatformSendResult contract, no-legacy media reference
+    contract, cron send-result accounting, async generator task ownership with
+    the fork stop machinery, MDI v-icon dashboard components, docsHref in-app
+    /help/ links, provider model config dialog, locale scope, synchronous
+    provider lookup, fork RespondStage context, and test layout under
+    tests/unit/. The version tracks upstream 4.29.0-beta.2 (pyproject.toml,
+    astrbot/__init__.py, uv.lock, changelogs/v4.29.0-beta.2.md). Skipped 6:
+    #10455 and #10472 target a fork-specific issue template config; #10471
+    targets the upstream plugin-market link the fork extension page does not
+    have; #10480 removes the sidebar customization the fork keeps; #10502
+    targets legacy plugin page/view sidebar items the fork replaced with
+    Dashboard Extension Protocol v1; #10505 references upstream-only i18n keys
+    and the fork already runs its own source-usage i18n check. Focused Python
+    and Dashboard suites, the complete blocking pytest suite (6460 passed, 25
+    skipped), Dashboard tests, i18n check and build, documentation markdown
+    checks, make check, and make quality passed. Docker engine was unavailable,
+    so the image build was not run.
