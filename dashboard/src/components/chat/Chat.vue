@@ -83,6 +83,21 @@
         />
       </div>
 
+      <div v-if="!isSidebarCollapsed" class="session-search">
+        <v-text-field
+          :model-value="sessionSearchInput"
+          density="compact"
+          variant="solo-filled"
+          flat
+          hide-details
+          clearable
+          prepend-inner-icon="mdi-magnify"
+          :placeholder="tm('conversation.searchPlaceholder')"
+          :aria-label="tm('conversation.searchPlaceholder')"
+          @update:model-value="onSessionSearchInput"
+        />
+      </div>
+
       <div
         v-if="!isSidebarCollapsed"
         ref="sidebarContent"
@@ -698,13 +713,32 @@ const { languageOptions, currentLanguage, switchLanguage, locale } =
 const {
   sessions,
   sessionsPagination,
+  sessionSearch,
   currSessionId,
   getSessions,
+  setSessionSearch,
   newSession,
   newChat,
   deleteSession,
   updateSessionTitle,
 } = useSessions(props.chatboxMode);
+
+const sessionSearchInput = ref(sessionSearch.value);
+let sessionSearchTimer: ReturnType<typeof setTimeout> | null = null;
+function onSessionSearchInput(value: string) {
+  sessionSearchInput.value = value ?? '';
+  if (sessionSearchTimer) {
+    clearTimeout(sessionSearchTimer);
+  }
+  sessionSearchTimer = setTimeout(() => {
+    void setSessionSearch(sessionSearchInput.value);
+  }, 250);
+}
+onBeforeUnmount(() => {
+  if (sessionSearchTimer) {
+    clearTimeout(sessionSearchTimer);
+  }
+});
 const {
   projects,
   selectedProjectId,
@@ -2171,6 +2205,10 @@ function toggleTheme() {
 
 .chevron-collapsed {
   transform: rotate(180deg);
+}
+
+.session-search {
+  padding: 4px 12px 0;
 }
 
 .session-list {

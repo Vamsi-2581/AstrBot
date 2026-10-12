@@ -40,6 +40,7 @@ export function useSessions(chatboxMode: boolean = false) {
     append: false,
   });
   let sessionsRequestId = 0;
+  const sessionSearch = ref('');
   const selectedSessions = ref<string[]>([]);
   const currSessionId = ref('');
   const pendingSessionId = ref<string | null>(null);
@@ -71,10 +72,15 @@ export function useSessions(chatboxMode: boolean = false) {
     sessionsPagination.append = append;
     try {
       for (let page = append ? lastPage : 1; page <= lastPage; page += 1) {
-        const response = await chatApi.listSessions({
+        const params: { page: number; page_size: number; search?: string } = {
           page,
           page_size: SESSIONS_PAGE_SIZE,
-        });
+        };
+        const query = sessionSearch.value.trim();
+        if (query) {
+          params.search = query;
+        }
+        const response = await chatApi.listSessions(params);
         if (requestId !== sessionsRequestId) return;
         if (response.data.status !== 'ok') {
           throw new Error(response.data.message || 'Failed to load sessions');
@@ -287,6 +293,18 @@ export function useSessions(chatboxMode: boolean = false) {
     }
   }
 
+  /** Filter the sidebar by title, resetting to the first page. */
+  async function setSessionSearch(value: string) {
+    const next = value ?? '';
+    if (next === sessionSearch.value) {
+      return;
+    }
+    sessionSearch.value = next;
+    sessionsPagination.page = 0;
+    sessionsPagination.hasMore = false;
+    await getSessions();
+  }
+
   function newChat(closeMobileSidebar?: () => void) {
     currSessionId.value = '';
     selectedSessions.value = [];
@@ -302,6 +320,7 @@ export function useSessions(chatboxMode: boolean = false) {
   return {
     sessions,
     sessionsPagination,
+    sessionSearch,
     selectedSessions,
     currSessionId,
     pendingSessionId,
@@ -310,6 +329,7 @@ export function useSessions(chatboxMode: boolean = false) {
     editingSessionId,
     getCurrentSession,
     getSessions,
+    setSessionSearch,
     newSession,
     deleteSession,
     batchDeleteSessions,

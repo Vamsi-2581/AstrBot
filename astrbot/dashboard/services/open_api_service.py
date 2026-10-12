@@ -614,6 +614,7 @@ class OpenApiService:
         page: int | str,
         page_size: int | str,
         platform_id: str | None,
+        search: str | None = None,
     ) -> dict:
         """Return one owner-scoped page of non-project WebChat sessions.
 
@@ -622,6 +623,7 @@ class OpenApiService:
             page: One-based page number from the query string.
             page_size: Requested number of sessions, clamped to 1-100.
             platform_id: Optional platform filter.
+            search: Optional case-insensitive title filter.
 
         Returns:
             Serialized sessions and pagination metadata.
@@ -642,6 +644,7 @@ class OpenApiService:
         if page_size > 100:
             page_size = 100
 
+        normalized_search = (search or "").strip()[:200] or None
         (
             paginated_sessions,
             total,
@@ -651,6 +654,7 @@ class OpenApiService:
             page=page,
             page_size=page_size,
             exclude_project_sessions=True,
+            search=normalized_search,
         )
 
         sessions_data = []

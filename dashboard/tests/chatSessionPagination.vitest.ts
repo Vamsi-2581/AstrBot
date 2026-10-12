@@ -139,6 +139,33 @@ describe('sidebar session pagination', () => {
     expect(api.listSessions).not.toHaveBeenCalled();
   });
 
+  it('reloads the first page with a title search filter', async () => {
+    api.listSessions.mockResolvedValueOnce(page([session(1)], 1, 1));
+
+    const sessions = useSessions();
+    await sessions.setSessionSearch('hello');
+
+    expect(sessions.sessionSearch.value).toBe('hello');
+    expect(sessions.sessionsPagination.page).toBe(1);
+    expect(api.listSessions).toHaveBeenCalledWith({
+      page: 1,
+      page_size: 30,
+      search: 'hello',
+    });
+  });
+
+  it('omits the search parameter when the query is cleared', async () => {
+    api.listSessions.mockResolvedValue(page([session(1)], 1, 1));
+
+    const sessions = useSessions();
+    await sessions.setSessionSearch('hello');
+    api.listSessions.mockClear();
+
+    await sessions.setSessionSearch('');
+
+    expect(api.listSessions).toHaveBeenCalledWith({ page: 1, page_size: 30 });
+  });
+
   it('keeps the active session when deleting a different session', async () => {
     api.deleteSession.mockResolvedValue({ data: { status: 'ok' } });
     api.listSessions.mockResolvedValue(page([session(1)], 1, 1));
