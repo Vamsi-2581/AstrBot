@@ -375,6 +375,12 @@ DEFAULT_CONFIG = {
         "log_path": "logs/astrbot.trace.log",
         "log_max_mb": 20,
     },
+    "observability": {
+        "enable": False,
+        "metrics_enable": False,
+        "tracing_enable": False,
+        "service_name": "astrbot",
+    },
     "pip_install_arg": "",
     "pypi_index_url": "https://mirrors.aliyun.com/pypi/simple/",
     "timezone": "Asia/Shanghai",
@@ -5164,6 +5170,32 @@ CONFIG_METADATA_3_SYSTEM = {
                         "description": "Trace 日志大小上限 (MB)",
                         "type": "int",
                         "hint": "超过大小后自动轮转，默认 20MB。",
+                    },
+                    "observability.enable": {
+                        "description": "启用运行指标与追踪",
+                        "type": "bool",
+                        "hint": "开启后可选择暴露 Prometheus 指标或 OpenTelemetry 追踪。默认关闭，不影响默认安装。",
+                    },
+                    "observability.metrics_enable": {
+                        "description": "暴露 Prometheus 指标端点",
+                        "type": "bool",
+                        "hint": "开启后，WebUI 端口的 GET /metrics 返回 Prometheus 文本格式指标。请仅在可信网络中暴露该端点。",
+                        "condition": {"observability.enable": True},
+                    },
+                    "observability.tracing_enable": {
+                        "description": "启用 OpenTelemetry 追踪",
+                        "type": "bool",
+                        "hint": "通过 OpenTelemetry API 生成消息流水线与 Agent 运行的 span。需要自行安装并配置 OpenTelemetry SDK，或使用 opentelemetry-instrument 启动，才会导出追踪数据。",
+                        "condition": {"observability.enable": True},
+                    },
+                    "observability.service_name": {
+                        "description": "OpenTelemetry 服务名",
+                        "type": "string",
+                        "hint": "追踪 span 中使用的服务名，默认为 astrbot。",
+                        "condition": {
+                            "observability.enable": True,
+                            "observability.tracing_enable": True,
+                        },
                     },
                     "pip_install_arg": {
                         "description": "pip 安装额外参数",

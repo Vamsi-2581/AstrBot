@@ -13,6 +13,7 @@ from astrbot.core.message.message_event_result import (
     MessageEventResult,
     ResultContentType,
 )
+from astrbot.core.observability import get_observability
 from astrbot.core.prompt_error_reply import (
     get_agent_error_message,
 )
@@ -23,6 +24,17 @@ AgentRunner = ToolLoopAgentRunner[AstrAgentContext]
 
 def _should_stop_agent(astr_event) -> bool:
     return astr_event.is_stopped() or bool(astr_event.get_extra("agent_stop_requested"))
+
+
+def _provider_id(agent_runner: AgentRunner) -> str | None:
+    """Return the configured provider id for observability labels."""
+
+    provider = getattr(agent_runner, "provider", None)
+    config = getattr(provider, "provider_config", None)
+    if isinstance(config, dict):
+        provider_id = str(config.get("id") or "")
+        return provider_id or None
+    return None
 
 
 def _truncate_tool_result(text: str, limit: int = 70) -> str:
@@ -307,6 +319,8 @@ async def run_agent(
     buffer_intermediate_messages: bool = False,
 ) -> AsyncGenerator[MessageChain | None]:
     step_idx = 0
+    observability = get_observability()
+    provider_id = _provider_id(agent_runner)
     agent_runner._step_budget_max = max_step
     agent_runner._step_budget_used = 0
     agent_runner._step_budget_notified = set()
@@ -321,6 +335,7 @@ async def run_agent(
     try:
         while step_idx < max_step + 1:
             step_idx += 1
+            observability.record_agent_step()
             _prepare_forced_final_step(agent_runner, step_idx, max_step)
 
             stop_watcher = asyncio.create_task(
@@ -328,6 +343,8 @@ async def run_agent(
             )
             try:
                 async for resp in agent_runner.step():
+                    if resp.type == "agent_stats":
+                        observability.record_llm_call(provider_id)
                     if _should_stop_agent(astr_event):
                         agent_runner.request_stop()
                     if resp.type == "aborted":
@@ -402,6 +419,13 @@ async def run_agent(
             yield MessageChain().message(err_msg)
         else:
             astr_event.set_result(MessageEventResult().message(err_msg))
+    finally:
+        stats = getattr(agent_runner, "stats", None)
+        if stats is not None:
+            try:
+                observability.record_agent_run(stats, provider_id)
+            except Exception:
+                logger.warning("Failed to record agent observability metrics")
 
 
 async def _watch_agent_stop_signal(agent_runner: AgentRunner, astr_event) -> None:

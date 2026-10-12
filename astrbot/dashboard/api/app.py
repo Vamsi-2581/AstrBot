@@ -13,6 +13,7 @@ from astrbot.core.agent.mcp_client import validate_mcp_server_config
 from astrbot.core.computer.process_sandbox import detect_local_runtime_info
 from astrbot.core.core_runtime import CoreControl, CoreRuntime
 from astrbot.core.db.sqlite import SQLiteDatabase
+from astrbot.core.observability import configure_observability
 from astrbot.core.skills.skill_manager import SkillManager
 from astrbot.dashboard.responses import ApiError, DashboardValidationError, error
 from astrbot.dashboard.services.api_key_service import ApiKeyService
@@ -68,6 +69,7 @@ from astrbot.dashboard.services.update_service import (
 from astrbot.dashboard.services.webchat_service import WebChatService
 
 from .error_handling import internal_error_response
+from .observability import router as observability_router
 from .plugin_files import router as plugin_files_router
 from .plugin_page_assets import router as plugin_page_assets_router
 from .router import API_V1_PREFIX, build_api_router
@@ -93,6 +95,16 @@ def create_dashboard_asgi_app(
     )
     app.state.astrbot_config = runtime.astrbot_config
     app.state.runtime = runtime
+    observability = configure_observability(runtime.astrbot_config)
+    event_queue = getattr(runtime, "event_queue", None)
+    if event_queue is not None:
+        observability.register_backlog_source(event_queue.qsize)
+    queue_manager = getattr(runtime.services, "webchat_queue_manager", None)
+    if queue_manager is not None:
+        observability.register_webchat_queue_source(
+            lambda: sum(queue.qsize() for queue in queue_manager.back_queues.values())
+        )
+    app.state.observability = observability
     app.state.db = db
     app.state.jwt_secret = jwt_secret
     dashboard_token_validator = DashboardTokenValidator(jwt_secret)
@@ -444,6 +456,7 @@ def create_dashboard_asgi_app(
             exc,
         )
 
+    app.include_router(observability_router)
     app.include_router(build_api_router())
     app.include_router(plugin_page_assets_router)
     app.include_router(plugin_files_router)

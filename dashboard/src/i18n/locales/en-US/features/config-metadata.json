@@ -1655,6 +1655,24 @@
           "description": "Trace Log Max Size (MB)",
           "hint": "Rotate when exceeding this size; default 20MB."
         }
+      },
+      "observability": {
+        "enable": {
+          "description": "Enable operational metrics and tracing",
+          "hint": "When enabled you can expose Prometheus metrics or OpenTelemetry tracing. Off by default so the default install is unchanged."
+        },
+        "metrics_enable": {
+          "description": "Expose the Prometheus metrics endpoint",
+          "hint": "When enabled, GET /metrics on the WebUI port returns Prometheus text metrics. Only expose this endpoint on a trusted network."
+        },
+        "tracing_enable": {
+          "description": "Enable OpenTelemetry tracing",
+          "hint": "Emits message-pipeline and agent-run spans through the OpenTelemetry API. Install and configure an OpenTelemetry SDK, or start with opentelemetry-instrument, to export them."
+        },
+        "service_name": {
+          "description": "OpenTelemetry service name",
+          "hint": "Service name used for trace spans. Defaults to astrbot."
+        }
       }
     }
   },
