@@ -551,6 +551,65 @@ def test_slack_parse_blocks_handles_rich_text_lists_and_markdown_sections():
     assert components[4].text == "*bold*"
 
 
+@pytest.mark.parametrize("style", ["bullet", "ordered"])
+def test_slack_parse_blocks_list_preserves_links_and_mentions(style):
+    adapter = _build_adapter()
+    url = "https://example.com/slack-list-8642"
+
+    components = adapter._parse_blocks(
+        [
+            {
+                "type": "rich_text",
+                "elements": [
+                    {
+                        "type": "rich_text_list",
+                        "style": style,
+                        "elements": [
+                            {
+                                "type": "rich_text_section",
+                                "elements": [
+                                    {"type": "user", "user_id": "UBOT"},
+                                    {"type": "text", "text": " Link: "},
+                                    {"type": "link", "url": url, "text": "Probe"},
+                                    {"type": "text", "text": " after"},
+                                ],
+                            },
+                            {
+                                "type": "rich_text_section",
+                                "elements": [{"type": "link", "url": url}],
+                            },
+                            {
+                                "type": "rich_text_section",
+                                "elements": [{"type": "user", "user_id": "UOTHER"}],
+                            },
+                            {
+                                "type": "rich_text_section",
+                                "elements": [{"type": "text", "text": "End"}],
+                            },
+                        ],
+                    },
+                ],
+            },
+        ]
+    )
+
+    assert [c.target for c in components if isinstance(c, Comp.Mention)] == [
+        "UBOT",
+        "UOTHER",
+    ]
+    assert (
+        "".join(c.text for c in components if isinstance(c, Comp.Plain))
+        == f"•  Link: [Probe]({url}) after\n• [{url}]({url})\n• \n• End"
+    )
+    assert [type(c) for c in components] == [
+        Comp.Plain,
+        Comp.Mention,
+        Comp.Plain,
+        Comp.Mention,
+        Comp.Plain,
+    ]
+
+
 @pytest.mark.parametrize("block_type", ["rich_text_preformatted", "rich_text_quote"])
 def test_slack_parse_blocks_preserves_preformatted_and_quote_text(block_type):
     adapter = _build_adapter()
