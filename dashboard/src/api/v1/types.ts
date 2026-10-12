@@ -229,6 +229,13 @@ export interface ChatMessageMutationData {
   [key: string]: unknown;
 }
 
+export interface ChatFeaturesData {
+  multi_model: {
+    enable: boolean;
+    max_models: number;
+  };
+}
+
 export interface ChatBatchDeleteData {
   deleted_count?: number;
   failed_count?: number;

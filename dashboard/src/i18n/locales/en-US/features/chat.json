@@ -223,5 +223,12 @@
     "exit": "Exit",
     "partialFailure": "{failed} of {total} conversations failed to delete",
     "requestFailed": "Failed to delete conversations. Please try again."
+  },
+  "multiModel": {
+    "title": "Parallel models",
+    "hint": "Pick up to {count} models to run the next prompt in parallel.",
+    "button": "Compare models",
+    "selected": "{count} models",
+    "empty": "No chat providers available."
   }
 }

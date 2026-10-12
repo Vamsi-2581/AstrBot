@@ -448,6 +448,7 @@ class ChatRunState:
     run: WebChatRun
     llm_checkpoint_id: str
     platform_history_id: str
+    branch: dict | None = None
     subscribers: set[asyncio.Queue] = field(default_factory=set)
     message_parts: list[dict] = field(default_factory=list)
     agent_stats: dict = field(default_factory=dict)
@@ -829,19 +830,48 @@ class ChatService:
         refs: dict,
         llm_checkpoint_id: str | None = None,
         platform_history_id: str = "webchat",
+        branch: dict | None = None,
     ):
+        content = build_bot_history_content(
+            message_parts,
+            agent_stats=agent_stats,
+            refs=refs,
+        )
+        if branch:
+            content["branch"] = branch
         return await self.platform_history_mgr.insert(
             platform_id=platform_history_id,
             user_id=webchat_conv_id,
-            content=build_bot_history_content(
-                message_parts,
-                agent_stats=agent_stats,
-                refs=refs,
-            ),
+            content=content,
             sender_id="bot",
             sender_name="bot",
             llm_checkpoint_id=llm_checkpoint_id,
         )
+
+    @staticmethod
+    def _parse_branch(value: object) -> dict | None:
+        """Validate optional multi-model branch metadata from a chat payload."""
+
+        if not isinstance(value, dict):
+            return None
+        group_id = value.get("group_id")
+        if not isinstance(group_id, str) or not group_id or len(group_id) > 64:
+            return None
+        index = value.get("index")
+        total = value.get("total")
+        if not isinstance(index, int) or not isinstance(total, int):
+            return None
+        if index < 0 or total < 1 or index >= total or total > 8:
+            return None
+        provider = value.get("provider")
+        model = value.get("model")
+        return {
+            "group_id": group_id,
+            "index": index,
+            "total": total,
+            "provider": provider if isinstance(provider, str) else "",
+            "model": model if isinstance(model, str) else "",
+        }
 
     def get_active_chat_runs(self, username: str, session_id: str) -> list[dict]:
         """Return resumable runs owned by a user in one chat session.
@@ -1050,6 +1080,7 @@ class ChatService:
                 extracted_refs,
                 run.llm_checkpoint_id,
                 run.platform_history_id,
+                run.branch,
             )
             pending_accumulator = BotMessageAccumulator()
             pending_agent_stats = {}
@@ -1254,9 +1285,10 @@ class ChatService:
             if thread is not None:
                 thread_parent_session_id = thread.parent_session_id
 
-        message_id = str(uuid.uuid4())
+        message_id = str(post_data.get("message_id") or uuid.uuid4())
         llm_checkpoint_id = post_data.get("_llm_checkpoint_id") or str(uuid.uuid4())
         skip_user_history = bool(post_data.get("_skip_user_history"))
+        branch = self._parse_branch(post_data.get("_branch"))
         saved_user_record = None
 
         message_parts_for_storage = strip_message_parts_path_fields(message_parts)
@@ -1279,6 +1311,7 @@ class ChatService:
             run=webchat_run,
             llm_checkpoint_id=llm_checkpoint_id,
             platform_history_id=platform_history_id,
+            branch=branch,
         )
         self.chat_run_states[message_id] = run
         stream = self._subscribe_chat_run(

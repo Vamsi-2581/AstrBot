@@ -4,6 +4,7 @@ import { fetchWithAuth } from '@/api/http';
 import { useI18n } from '@/i18n/composables';
 import type { Session } from '@/composables/useSessions';
 import type {
+  BranchGroup,
   ChatContent,
   ChatRecord,
   ChatSessionProject,
@@ -68,6 +69,7 @@ interface SendMessageStreamOptions {
   botRecord: ChatRecord;
   skipUserHistory?: boolean;
   llmCheckpointId?: string | null;
+  branch?: BranchGroup;
 }
 
 interface ContinueEditedMessageOptions {
@@ -165,11 +167,20 @@ export function useMessages(options: UseMessagesOptions) {
   // session visible in the sidebar before its paginated page is fetched.
   const sessionDetails = reactive(new Map<string, Session>());
 
-  const activeMessages = computed(() =>
-    options.currentSessionId.value
-      ? messagesBySession.get(options.currentSessionId.value) || []
-      : [],
-  );
+  const branchSelection = reactive(new Map<string, number>());
+  const branchLabels = reactive(new Map<string, string[]>());
+
+  const activeMessages = computed(() => {
+    const sessionId = options.currentSessionId.value;
+    if (!sessionId) return [];
+    const records = messagesBySession.get(sessionId) || [];
+    return records.filter((record) => {
+      const group = record.branchGroup;
+      if (!group) return true;
+      const selected = branchSelection.get(group.group_id) ?? 0;
+      return group.index === selected;
+    });
+  });
   const loadingMessages = computed(
     () =>
       loadingMessagesState.value &&
@@ -500,6 +511,34 @@ export function useMessages(options: UseMessagesOptions) {
     };
   }
 
+  /** Create and append a branch bot record for one model of a parallel turn. */
+  function createLocalBranchRecord(
+    sessionId: string,
+    messageId: string,
+    branch: BranchGroup,
+  ): ChatRecord {
+    const botRecord = reactive<ChatRecord>({
+      id: `local-bot-${messageId}`,
+      created_at: new Date().toISOString(),
+      content: {
+        type: 'bot',
+        message: [],
+        reasoning: '',
+        isLoading: true,
+      },
+      branchGroup: branch,
+    });
+    const sessionMessages = messagesBySession.get(sessionId) || [];
+    sessionMessages.push(botRecord);
+    messagesBySession.set(sessionId, sessionMessages);
+    registerBranchLabel(branch);
+    return botRecord;
+  }
+
+  function setBranchSelection(groupId: string, index: number) {
+    branchSelection.set(groupId, index);
+  }
+
   function sendMessageStream({
     sessionId,
     messageId,
@@ -513,11 +552,12 @@ export function useMessages(options: UseMessagesOptions) {
     userRecord,
     skipUserHistory = false,
     llmCheckpointId = null,
+    branch,
   }: SendMessageStreamOptions) {
     // Step-up credentials are one-time per action.  Take the in-memory bundle
     // at run creation so a later chat cannot replay an already consumed proof.
     const stepUpTokens = takeWebChatStepUpTokens();
-    if (transport === 'websocket') {
+    if (transport === 'websocket' && !branch) {
       startWebSocketStream(
         sessionId,
         messageId,
@@ -545,6 +585,7 @@ export function useMessages(options: UseMessagesOptions) {
       skipUserHistory,
       llmCheckpointId,
       stepUpTokens,
+      branch,
     );
   }
 
@@ -769,9 +810,43 @@ export function useMessages(options: UseMessagesOptions) {
       refs: content.refs,
     };
 
+    const branchGroup = normalizeBranchGroup(content.branch);
+    if (branchGroup) {
+      registerBranchLabel(branchGroup);
+    }
     return {
       ...record,
       content: normalizedContent,
+      ...(branchGroup ? { branchGroup } : {}),
+    };
+  }
+
+  function registerBranchLabel(group: BranchGroup) {
+    const labels = branchLabels.get(group.group_id) || [];
+    labels[group.index] =
+      group.model || group.provider || `#${group.index + 1}`;
+    branchLabels.set(group.group_id, labels);
+  }
+
+  function normalizeBranchGroup(value: unknown): BranchGroup | undefined {
+    if (!value || typeof value !== 'object') return undefined;
+    const raw = value as Record<string, unknown>;
+    const groupId = raw.group_id;
+    const index = raw.index;
+    const total = raw.total;
+    if (
+      typeof groupId !== 'string' ||
+      typeof index !== 'number' ||
+      typeof total !== 'number'
+    ) {
+      return undefined;
+    }
+    return {
+      group_id: groupId,
+      index,
+      total,
+      provider: typeof raw.provider === 'string' ? raw.provider : undefined,
+      model: typeof raw.model === 'string' ? raw.model : undefined,
     };
   }
 
@@ -803,6 +878,7 @@ export function useMessages(options: UseMessagesOptions) {
     skipUserHistory = false,
     llmCheckpointId: string | null = null,
     stepUpTokens?: Record<string, string>,
+    branch?: BranchGroup,
   ) {
     const abort = new AbortController();
     const connection: ActiveConnection = {
@@ -825,6 +901,7 @@ export function useMessages(options: UseMessagesOptions) {
       },
       body: JSON.stringify({
         session_id: sessionId,
+        message_id: messageId,
         message: parts.map(partToPayload),
         flags: buildChatRequestFlags(enableStreaming, enableReasoning),
         selected_provider: selectedProvider,
@@ -833,6 +910,7 @@ export function useMessages(options: UseMessagesOptions) {
         _skip_user_history: skipUserHistory,
         _llm_checkpoint_id: llmCheckpointId || undefined,
         _webchat_step_up_tokens: stepUpTokens,
+        _branch: branch || undefined,
       }),
       signal: abort.signal,
     })
@@ -1428,6 +1506,10 @@ export function useMessages(options: UseMessagesOptions) {
     loadSessionMessages,
     loadEarlierMessages,
     createLocalExchange,
+    createLocalBranchRecord,
+    branchSelection,
+    branchLabels,
+    setBranchSelection,
     sendMessageStream,
     editMessage,
     continueEditedMessage,

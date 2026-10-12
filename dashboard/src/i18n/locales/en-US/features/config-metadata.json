@@ -1520,6 +1520,16 @@
           "description": "Trust Proxy Headers for Client IP",
           "hint": "When disabled, ignore X-Forwarded-For/X-Real-IP and use the connection address only."
         },
+        "chatui_multi_model": {
+          "enable": {
+            "description": "Enable multi-model parallel chat in ChatUI",
+            "hint": "When enabled, ChatUI can run one prompt across several models and show their answers together. Off by default."
+          },
+          "max_models": {
+            "description": "Maximum parallel models",
+            "hint": "Maximum number of models to run for one prompt, between 2 and 8."
+          }
+        },
         "auth_rate_limit": {
           "enable": {
             "description": "Enable Login Rate Limiting",

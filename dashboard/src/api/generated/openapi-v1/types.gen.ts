@@ -2733,6 +2733,23 @@ export type ListChatSessionsResponses = {
 export type ListChatSessionsResponse =
   ListChatSessionsResponses[keyof ListChatSessionsResponses];
 
+export type GetChatFeaturesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/chat/features';
+};
+
+export type GetChatFeaturesResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type GetChatFeaturesResponse =
+  GetChatFeaturesResponses[keyof GetChatFeaturesResponses];
+
 export type CreateChatSessionData = {
   body?: never;
   path?: never;

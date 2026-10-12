@@ -308,6 +308,12 @@
             v-if="props.showProviderSelector && providerSelectorAvailable"
             ref="providerModelMenuRef"
           />
+          <MultiModelMenu
+            v-if="props.multiModelEnabled && props.showProviderSelector"
+            :model-value="props.multiModelSelection"
+            :max-models="props.multiModelMax"
+            @update:model-value="emit('update:multiModelSelection', $event)"
+          />
           <v-progress-circular
             v-if="disabled && !mobile"
             indeterminate
@@ -409,6 +415,7 @@ import { commandApi } from '@/api/v1';
 import type { CommandItem } from '@/domain/commands';
 import ConfigSelector from './ConfigSelector.vue';
 import ProviderModelMenu from './ProviderModelMenu.vue';
+import MultiModelMenu, { type MultiModelSelection } from './MultiModelMenu.vue';
 import StyledMenu from '@/components/shared/StyledMenu.vue';
 import CommandSuggestion from './CommandSuggestion.vue';
 import { attachmentPresentation } from './attachmentPresentation';
@@ -461,6 +468,9 @@ interface Props {
   replyTo?: ReplyInfo | null;
   sendShortcut?: 'enter' | 'shift_enter';
   showProviderSelector?: boolean;
+  multiModelEnabled?: boolean;
+  multiModelMax?: number;
+  multiModelSelection?: MultiModelSelection[];
   tokenUsage?: TokenUsageInfo | null;
   placeholder?: string;
   webChatToolsEnabled?: boolean;
@@ -476,6 +486,9 @@ const props = withDefaults(defineProps<Props>(), {
   replyTo: null,
   sendShortcut: 'shift_enter',
   showProviderSelector: true,
+  multiModelEnabled: false,
+  multiModelMax: 3,
+  multiModelSelection: () => [],
   tokenUsage: null,
   webChatToolsEnabled: false,
   enableReasoning: true,
@@ -500,6 +513,7 @@ const emit = defineEmits<{
   clearReply: [];
   toggleWebChatTools: [];
   'config-changed': [payload: { configId: string; agentRunnerType: string }];
+  'update:multiModelSelection': [value: MultiModelSelection[]];
 }>();
 
 const { tm } = useModuleI18n('features/chat');
