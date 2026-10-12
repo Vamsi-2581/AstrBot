@@ -18,6 +18,7 @@ from astrbot.core.platform.sources.slack.client import (
     SlackWebhookClient,
 )
 from astrbot.core.platform.sources.slack.slack_adapter import SlackAdapter
+from astrbot.core.platform.sources.slack.slack_event import SlackMessageEvent
 from tests.fixtures.helpers import make_platform_config
 
 pytestmark = pytest.mark.platform
@@ -608,6 +609,23 @@ def test_slack_parse_blocks_list_preserves_links_and_mentions(style):
         Comp.Mention,
         Comp.Plain,
     ]
+
+
+@pytest.mark.asyncio
+async def test_slack_parse_blocks_preserves_outbound_mentions():
+    adapter = _build_adapter()
+
+    blocks, text = await SlackMessageEvent._parse_slack_blocks(
+        MessageChain(
+            chain=[Comp.Plain("hi "), Comp.Mention(target="U123"), Comp.Plain(" bye")]
+        ),
+        adapter.web_client,
+    )
+
+    assert blocks == [
+        {"type": "section", "text": {"type": "mrkdwn", "text": "hi <@U123> bye"}}
+    ]
+    assert text == ""
 
 
 @pytest.mark.parametrize("block_type", ["rich_text_preformatted", "rich_text_quote"])

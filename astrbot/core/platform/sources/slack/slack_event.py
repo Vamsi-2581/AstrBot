@@ -15,6 +15,7 @@ from astrbot.core.message.components import (
     BaseMessageComponent,
     File,
     Image,
+    Mention,
     Plain,
 )
 from astrbot.core.message.message_event_result import MessageChain
@@ -189,6 +190,9 @@ class SlackMessageEvent(AstrMessageEvent):
         for segment in message_chain.chain:
             if isinstance(segment, Plain):
                 text_content += segment.text
+            elif isinstance(segment, Mention):
+                if not segment.is_everyone_sentinel():
+                    text_content += f"<@{segment.target}>"
             else:
                 # 如果有文本内容，先添加文本块
                 if text_content.strip():
@@ -237,6 +241,9 @@ class SlackMessageEvent(AstrMessageEvent):
             for segment in message.chain:
                 if isinstance(segment, Plain):
                     parts.append(segment.text)
+                elif isinstance(segment, Mention):
+                    if not segment.is_everyone_sentinel():
+                        parts.append(f"<@{segment.target}>")
                 elif isinstance(segment, File):
                     parts.append(f" [文件: {segment.name}] ")
                 elif isinstance(segment, Image):
