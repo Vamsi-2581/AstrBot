@@ -23,9 +23,9 @@ last_synced:
     the fork stop machinery, MDI v-icon dashboard components, docsHref in-app
     /help/ links, provider model config dialog, locale scope, synchronous
     provider lookup, fork RespondStage context, and test layout under
-    tests/unit/. The fork version is 4.29.0, absorbing the upstream
-    4.29.0-beta.2 window (pyproject.toml, astrbot/__init__.py, uv.lock,
-    changelogs/v4.29.0.md). Skipped 6:
+    tests/unit/. The fork tracks the upstream version 4.29.0-beta.2 and follows
+    its changelog, adding only fork-specific deviations (pyproject.toml,
+    astrbot/__init__.py, uv.lock, changelogs/v4.29.0-beta.2.md). Skipped 6:
     #10455 and #10472 target a fork-specific issue template config; #10471
     targets the upstream plugin-market link the fork extension page does not
     have; #10480 removes the sidebar customization the fork keeps; #10502
