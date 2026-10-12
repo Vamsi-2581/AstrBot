@@ -83,7 +83,7 @@ make bootstrap
 ```
 
 `make doctor` is strict. It checks Python 3.14.x, `uv`, Node 26.x, and
-pnpm 12.5.x; on POSIX it also requires `shellcheck`, `shfmt`, and `hadolint`.
+pnpm 12.11.x; on POSIX it also requires `shellcheck`, `shfmt`, and `hadolint`.
 Docker is optional. Windows additionally needs GNU Make and PowerShell 7, while
 `check-ps` needs PSScriptAnalyzer; `doctor` does not currently validate those
 three items. `make bootstrap` installs the locked Python development
