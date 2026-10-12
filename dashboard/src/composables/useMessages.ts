@@ -1,6 +1,7 @@
 import { computed, onBeforeUnmount, reactive, ref, type Ref } from 'vue';
 import { chatApi, fileApi } from '@/api/v1';
 import { fetchWithAuth } from '@/api/http';
+import { useI18n } from '@/i18n/composables';
 import type { Session } from '@/composables/useSessions';
 import type {
   ChatContent,
@@ -142,6 +143,7 @@ export function mergeHistoryRecords(
 
 /** Manage request-scoped chat messages, history pages, and live transports. */
 export function useMessages(options: UseMessagesOptions) {
+  const { locale } = useI18n();
   const loadingMessagesState = ref(false);
   const sending = ref(false);
   const messagesBySession = reactive(new Map<string, ChatRecord[]>());
@@ -694,6 +696,7 @@ export function useMessages(options: UseMessagesOptions) {
             selected_provider: selectedProvider,
             selected_model: selectedModel,
             flags: buildChatRequestFlags(enableStreaming, enableReasoning),
+            locale: locale.value,
             _webchat_step_up_tokens: stepUpTokens,
           }),
           signal: abort.signal,
@@ -826,6 +829,7 @@ export function useMessages(options: UseMessagesOptions) {
         flags: buildChatRequestFlags(enableStreaming, enableReasoning),
         selected_provider: selectedProvider,
         selected_model: selectedModel,
+        locale: locale.value,
         _skip_user_history: skipUserHistory,
         _llm_checkpoint_id: llmCheckpointId || undefined,
         _webchat_step_up_tokens: stepUpTokens,
@@ -981,6 +985,7 @@ export function useMessages(options: UseMessagesOptions) {
       flags: buildChatRequestFlags(enableStreaming, enableReasoning),
       selected_provider: selectedProvider,
       selected_model: selectedModel,
+      locale: locale.value,
       webchat_step_up_tokens: stepUpTokens,
     });
   }

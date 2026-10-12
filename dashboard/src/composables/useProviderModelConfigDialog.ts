@@ -28,12 +28,12 @@ interface ProviderEditData {
 interface UseProviderModelConfigDialogOptions {
   selectedProviderSource: Ref<ProviderSourceRef | null>;
   configSchema: Ref<ProviderConfigSchema>;
-  buildModelProviderConfig: (
+  buildModelProviderConfig?: (
     modelId: string,
   ) => ProviderEditData | null | undefined;
-  modelAlreadyConfigured: (modelId: string) => boolean;
+  modelAlreadyConfigured?: (modelId: string) => boolean;
   loadConfig: () => Promise<void> | void;
-  tm: (key: string, params?: Record<string, unknown>) => string;
+  tm: (key: string, params?: Record<string, string | number>) => string;
   showMessage: (message: string, color?: string) => void;
   requestStepUp?: RequestDashboardStepUp;
 }
@@ -105,12 +105,12 @@ export function useProviderModelConfigDialog(
       return;
     }
     if (!modelId) return;
-    if (modelAlreadyConfigured(modelId)) {
+    if (modelAlreadyConfigured?.(modelId)) {
       showMessage(tm('models.manualModelExists'), 'error');
       return;
     }
 
-    const newProviderConfig = buildModelProviderConfig(modelId);
+    const newProviderConfig = buildModelProviderConfig?.(modelId);
     if (!newProviderConfig) return;
 
     providerEditData.value = newProviderConfig;
@@ -154,7 +154,9 @@ export function useProviderModelConfigDialog(
       showMessage(
         res.data.message ||
           (isAdding
-            ? tm('models.addSuccess', { model: providerEditData.value.model })
+            ? tm('models.addSuccess', {
+                model: providerEditData.value.model ?? '',
+              })
             : tm('providerSources.saveSuccess')),
       );
       showProviderEditDialog.value = false;

@@ -32,6 +32,7 @@ from astrbot.core.assistant_history import (
 from astrbot.core.astr_main_agent import (
     LLM_ERROR_MESSAGE_EXTRA_KEY,
     MainAgentBuildResult,
+    _set_llm_error_message,
     build_main_agent,
     local_agent_runtime_from_profile,
 )
@@ -355,10 +356,10 @@ class InternalAgentSubStage:
         api_base = build_result.provider.provider_config.get("api_base", "")
         for host in BLOCKED_PROVIDER_HOSTS:
             if host in api_base:
-                logger.warning(
-                    "Blocked provider API base for safety policy. api_base=%s, blocked_host=%s",
+                _set_llm_error_message(event, "blockedProvider", api_base=api_base)
+                logger.error(
+                    "Provider API base %s was blocked for security reasons",
                     safe_error("", api_base),
-                    host,
                 )
                 await self._send_llm_error_message(event)
                 return None

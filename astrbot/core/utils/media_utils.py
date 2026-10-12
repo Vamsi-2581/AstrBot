@@ -7,9 +7,11 @@ probing, and image compression helpers.
 import asyncio
 import base64
 import binascii
+import errno
 import math
 import mimetypes
 import os
+import stat
 import statistics
 import subprocess
 import uuid
@@ -433,6 +435,16 @@ def describe_media_ref(media_ref: object | None) -> str:
         filename = Path(file_uri_to_path(media_ref)).name
         return f"file URI name={filename!r} len={ref_len}"
 
+    media_path_exists = False
+    try:
+        media_path_exists = Path(media_ref).exists()
+    except OSError, ValueError:
+        # Mirror pathlib's exists(): Windows raises ValueError for over-long
+        # paths and embedded NUL bytes instead of an OSError.
+        pass
+    if not media_path_exists:
+        return f"unresolved media ref name={Path(media_ref).name!r} len={ref_len}"
+
     return f"local media path name={Path(media_ref).name!r} len={ref_len}"
 
 
@@ -514,10 +526,23 @@ async def _materialize_media_ref(
     Supported references: local paths, file:// URIs, http(s) URLs, base64://,
     and data:*;base64,... URIs.
 
+    Image references are read as soon as they are resolved, so an image must
+    resolve to a real file. Audio, video and generic file references may point to
+    a local path that does not exist yet: platforms such as NapCat can hand over a
+    path before the file is readable, and those callers convert or retry later.
+
     Args:
         media_ref: Original media reference from a platform, plugin, or history.
         media_type: Logical media family used for temp filenames and defaults.
         default_suffix: Suffix to use when the reference does not carry one.
+
+    Raises:
+        FileNotFoundError: If an image reference is neither an existing file nor a
+            supported URL or base64 payload, or if an image file URI does not
+            exist. Audio, video and file references do not raise for a missing
+            path; they return it so the caller can retry later.
+        ValueError: If the reference points to an existing path that is not a
+            regular file.
     """
 
     cleanup_paths: list[Path] = []
@@ -550,6 +575,20 @@ async def _materialize_media_ref(
 
     if is_file_uri(media_ref):
         path = Path(file_uri_to_path(media_ref))
+        try:
+            file_stat = path.stat()
+        except OSError, ValueError:
+            # Mirror pathlib's exists(): Windows raises ValueError for over-long
+            # paths and embedded NUL bytes instead of an OSError.
+            file_stat = None
+        if file_stat is not None and not stat.S_ISREG(file_stat.st_mode):
+            raise ValueError(f"media reference is not a regular file: {media_ref}")
+        if file_stat is None and media_type == "image":
+            raise FileNotFoundError(
+                errno.ENOENT,
+                "image file URI does not point to an existing file",
+                media_ref,
+            )
         return _LocalMediaFile(path=path, mime_type=_guess_mime_type(path))
 
     if media_ref.startswith("data:"):
@@ -592,12 +631,15 @@ async def _materialize_media_ref(
         )
 
     path = Path(media_ref)
-    path_exists = False
     try:
-        path_exists = path.exists()
-    except OSError:
-        pass
-    if path_exists:
+        local_stat = path.stat()
+    except OSError, ValueError:
+        # Mirror pathlib's exists(): Windows raises ValueError for over-long
+        # paths and embedded NUL bytes instead of an OSError.
+        local_stat = None
+    if local_stat is not None:
+        if not stat.S_ISREG(local_stat.st_mode):
+            raise ValueError(f"media reference is not a regular file: {media_ref}")
         mime_type = _guess_mime_type(path)
         if media_type == "image" and mime_type is None:
             mime_type = detect_image_mime_type(path, default_mime_type=None)
@@ -619,6 +661,19 @@ async def _materialize_media_ref(
                 "use base64:// or a data URI instead"
             )
 
+    if media_type == "image":
+        # Images are read right after resolution, so a missing source is a
+        # failure instead of a file that may appear later.
+        raise FileNotFoundError(
+            errno.ENOENT,
+            "image reference is not an existing local file or a valid payload",
+            media_ref,
+        )
+
+    logger.debug(
+        "Media reference does not exist locally yet; returning it for the caller: %s",
+        describe_media_ref(media_ref),
+    )
     return _LocalMediaFile(path=path, mime_type=_guess_mime_type(path))
 
 
@@ -827,43 +882,49 @@ class MediaResolver:
                 whose bytes cannot be identified.
         """
         if self.media_type == "image":
+            # Resolve outside as_path(): an image reference that cannot be
+            # materialized must degrade to None in non-strict mode, which payload
+            # assembly relies on to skip bad image refs.
             try:
-                resolved_context = self.as_path(target_format=target_format)
-                async with resolved_context as resolved:
-                    try:
-                        media_bytes = resolved.read_bytes()
-                    except OSError:
-                        if strict:
-                            raise
-                        return None
-
-                    mime_type = detect_image_mime_type(
-                        media_bytes,
-                        default_mime_type=None,
-                    )
-                    if (
-                        not mime_type
-                        and resolved.mime_type
-                        and resolved.mime_type.startswith("image/")
-                    ):
-                        mime_type = resolved.mime_type
-                    if not mime_type and self.media_ref.startswith("base64://"):
-                        mime_type = default_mime_type
-                    if not mime_type:
-                        if strict:
-                            raise ValueError(
-                                f"Invalid image file: {describe_media_ref(self.media_ref)}"
-                            )
-                        return None
-
-                    return ResolvedMediaData(
-                        base64_data=base64.b64encode(media_bytes).decode("utf-8"),
-                        mime_type=mime_type,
-                    )
-            except ValueError:
+                resolved = await self._resolve_path(target_format=target_format)
+            except OSError, ValueError:
+                # A missing image file or a non-regular source is skippable.
                 if strict:
                     raise
                 return None
+            try:
+                try:
+                    media_bytes = resolved.read_bytes()
+                except OSError:
+                    if strict:
+                        raise
+                    return None
+
+                mime_type = detect_image_mime_type(
+                    media_bytes,
+                    default_mime_type=None,
+                )
+                if (
+                    not mime_type
+                    and resolved.mime_type
+                    and resolved.mime_type.startswith("image/")
+                ):
+                    mime_type = resolved.mime_type
+                if not mime_type and self.media_ref.startswith("base64://"):
+                    mime_type = default_mime_type
+                if not mime_type:
+                    if strict:
+                        raise ValueError(
+                            f"Invalid image file: {describe_media_ref(self.media_ref)}"
+                        )
+                    return None
+
+                return ResolvedMediaData(
+                    base64_data=base64.b64encode(media_bytes).decode("utf-8"),
+                    mime_type=mime_type,
+                )
+            finally:
+                resolved.cleanup()
 
         async with self.as_path(
             target_format=target_format,

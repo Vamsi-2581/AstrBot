@@ -1347,3 +1347,93 @@ async def test_prepare_images_for_provider_bounds_output_bytes(tmp_path, monkeyp
     assert Path(paths[0]).stat().st_size < 8 * 1024
     with PILImage.open(paths[0]) as jpeg:
         assert jpeg.format == "JPEG"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("media_type", ["image", "audio", "file"])
+async def test_media_resolver_rejects_directory_ref(tmp_path, media_type):
+    with pytest.raises(ValueError, match="not a regular file"):
+        await media_utils.MediaResolver(str(tmp_path), media_type=media_type).to_path()
+
+    with pytest.raises(ValueError, match="not a regular file"):
+        await media_utils.MediaResolver(
+            tmp_path.as_uri(), media_type=media_type
+        ).to_path()
+
+
+@pytest.mark.asyncio
+async def test_media_resolver_rejects_unresolved_image_url_path():
+    ref = "/api/v1/files/tokens/ddbb1afd-84d9-4b1d-9b0e-5c7e6fe75684"
+
+    with pytest.raises(FileNotFoundError) as excinfo:
+        await media_utils.MediaResolver(ref, media_type="image").to_path()
+
+    assert ref in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_media_resolver_rejects_missing_image_file_uri(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        await media_utils.MediaResolver(
+            (tmp_path / "missing.png").as_uri(),
+            media_type="image",
+        ).to_path()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("media_type", ["audio", "file"])
+async def test_media_resolver_keeps_pending_path_for_non_image(tmp_path, media_type):
+    # Platforms such as NapCat can hand over a path before the file is readable.
+    missing = str(tmp_path / "not-written-yet.amr")
+
+    resolved = await media_utils.MediaResolver(missing, media_type=media_type).to_path()
+
+    assert resolved == missing
+
+
+@pytest.mark.asyncio
+async def test_record_keeps_pending_local_path_for_platform_races(tmp_path):
+    # The STT stage retries this path until the platform finishes writing it.
+    missing = tmp_path / "not-written-yet.amr"
+
+    resolved = await Record(file=str(missing)).convert_to_file_path()
+
+    assert resolved == str(missing)
+
+
+@pytest.mark.asyncio
+async def test_image_base64_data_degrades_for_unresolved_ref_when_not_strict():
+    ref = "/api/v1/files/tokens/ddbb1afd-84d9-4b1d-9b0e-5c7e6fe75684"
+
+    assert await media_utils.resolve_image_ref_to_base64_data(ref) is None
+    assert (
+        await media_utils.MediaResolver(ref, media_type="image").to_data_url() is None
+    )
+
+    with pytest.raises(FileNotFoundError):
+        await media_utils.resolve_image_ref_to_base64_data(ref, strict=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["directory", "empty"])
+async def test_image_base64_data_degrades_for_non_regular_ref_when_not_strict(
+    tmp_path, kind
+):
+    ref = str(tmp_path) if kind == "directory" else ""
+
+    assert await media_utils.resolve_image_ref_to_base64_data(ref) is None
+    assert (
+        await media_utils.MediaResolver(ref, media_type="image").to_data_url() is None
+    )
+
+    with pytest.raises(ValueError):
+        await media_utils.resolve_image_ref_to_base64_data(ref, strict=True)
+
+
+@pytest.mark.asyncio
+async def test_media_resolver_keeps_oversized_pending_path_for_audio():
+    # An over-long reference is not a usable path, so audio keeps retrying it.
+    ref = "/api/v1/files/tokens/" + "a" * 40000
+
+    async with media_utils.MediaResolver(ref, media_type="audio").as_path() as resolved:
+        assert resolved.path == Path(ref)

@@ -51,6 +51,7 @@
   },
   "actions": {
     "copy": "Copy",
+    "download": "Download",
     "regenerate": "Regenerate",
     "retry": "Retry",
     "retryWithModel": "Use another model",

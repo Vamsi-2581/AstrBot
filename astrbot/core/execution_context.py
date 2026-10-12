@@ -21,6 +21,7 @@ from astrbot.core.db.sqlite import SQLiteDatabase
 from astrbot.core.exceptions import ProviderNotFoundError
 from astrbot.core.group_sender_concurrency import GroupOutboundGate
 from astrbot.core.knowledge_base.kb_mgr import KnowledgeBaseManager
+from astrbot.core.llm_error_messages import LLM_ERROR_MESSAGES
 from astrbot.core.message.components import Plain
 from astrbot.core.message.message_event_result import MessageChain
 from astrbot.core.platform.astr_message_event import AstrMessageEvent, MessageSession
@@ -660,12 +661,15 @@ class CoreExecutionContext:
         """Return all providers that expose typed classifier decisions."""
         return self.provider_manager.classifier_provider_insts
 
-    def get_using_provider(self, umo: str | None = None) -> Provider | None:
+    def get_using_provider(
+        self, umo: str | None = None, *, locale: str = "zh-CN"
+    ) -> Provider | None:
         """获取当前使用的用于文本生成任务的 LLM Provider(Chat_Completion 类型)。
 
         Args:
             umo: unified_message_origin 值，如果传入并且用户启用了提供商会话隔离，
                  则使用该会话偏好的对话模型（提供商）。
+            locale: Language for the built-in provider type error.
 
         Returns:
             当前使用的对话模型（提供商），如果未设置则返回 None。
@@ -680,8 +684,9 @@ class CoreExecutionContext:
         if prov is None:
             return None
         if not isinstance(prov, Provider):
+            messages = LLM_ERROR_MESSAGES.get(locale, LLM_ERROR_MESSAGES["zh-CN"])
             raise ValueError(
-                f"该会话来源的对话模型（提供商）的类型不正确: {type(prov)}"
+                messages["invalidSessionProviderType"].format(provider_type=type(prov))
             )
         return prov
 

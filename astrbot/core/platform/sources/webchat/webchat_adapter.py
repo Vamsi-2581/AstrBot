@@ -274,6 +274,7 @@ class WebChatAdapter(Platform):
         if isinstance(raw_message, tuple) and len(raw_message) >= 3:
             payload = raw_message[2]
             if isinstance(payload, dict):
+                message_event.set_extra("locale", payload.get("locale"))
                 message_event.set_extra(
                     "selected_provider", payload.get("selected_provider")
                 )

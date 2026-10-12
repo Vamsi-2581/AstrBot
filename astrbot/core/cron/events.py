@@ -57,6 +57,9 @@ class CronMessageEvent(AstrMessageEvent):
         if message is None:
             return self._success_send_result(message_count=0)
         send_result = await self.context_obj.send_message(self.session, message)
+        if not send_result.success:
+            # Do not record a send that never reached a matching platform.
+            return send_result
         await super().send(message)
         return send_result
 

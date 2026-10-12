@@ -298,6 +298,23 @@
                       </template>
                       <span>{{ providerTm('models.testButton') }}</span>
                     </v-tooltip>
+                    <v-tooltip v-if="variant === 'config'" location="top">
+                      <template #activator="{ props: editTooltipProps }">
+                        <v-btn
+                          v-bind="editTooltipProps"
+                          icon="mdi-cog-outline"
+                          size="x-small"
+                          variant="text"
+                          :aria-label="`${providerTm(
+                            'dialogs.config.editTitle',
+                          )} ${provider.id}`"
+                          :loading="editingProviderId === provider.id"
+                          :disabled="Boolean(editingProviderId)"
+                          @click.stop="editProvider(provider)"
+                        />
+                      </template>
+                      <span>{{ providerTm('dialogs.config.editTitle') }}</span>
+                    </v-tooltip>
                     <v-icon
                       v-if="isProviderSelected(provider.id)"
                       class="provider-selected-icon"
@@ -345,6 +362,31 @@
         </div>
       </v-card>
     </v-menu>
+    <v-tooltip
+      v-if="
+        variant === 'config' &&
+        !multiple &&
+        typeof modelValue === 'string' &&
+        modelValue
+      "
+      location="top"
+    >
+      <template #activator="{ props: editTooltipProps }">
+        <v-btn
+          v-bind="editTooltipProps"
+          icon="mdi-cog-outline"
+          size="x-small"
+          variant="text"
+          :aria-label="`${providerTm(
+            'dialogs.config.editTitle',
+          )} ${modelValue}`"
+          :loading="editingProviderId === modelValue"
+          :disabled="Boolean(editingProviderId)"
+          @click.stop="editProvider({ id: modelValue })"
+        />
+      </template>
+      <span>{{ providerTm('dialogs.config.editTitle') }}</span>
+    </v-tooltip>
   </div>
 
   <v-overlay
@@ -369,6 +411,41 @@
       </div>
     </v-card>
   </v-overlay>
+
+  <v-dialog v-model="showProviderEditDialog" width="800">
+    <v-card>
+      <v-card-title class="text-h3 pa-4 pb-0 pl-6">
+        {{ providerEditDialogTitle }}
+      </v-card-title>
+      <v-card-text class="py-4">
+        <AstrBotConfig
+          v-if="providerEditData"
+          :iterable="providerEditData"
+          :metadata="providerModelConfigSchema"
+          metadata-key="provider"
+          :is-editing="true"
+        />
+      </v-card-text>
+      <v-card-actions class="pa-4">
+        <v-spacer />
+        <v-btn
+          variant="text"
+          :disabled="savingProviders.includes(providerEditData?.id ?? '')"
+          @click="showProviderEditDialog = false"
+        >
+          {{ providerTm('dialogs.config.cancel') }}
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="tonal"
+          :loading="savingProviders.includes(providerEditData?.id ?? '')"
+          @click="saveEditedProvider"
+        >
+          {{ providerTm('dialogs.config.save') }}
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
@@ -377,6 +454,9 @@ import { useDisplay } from 'vuetify';
 import { providerApi } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
 import { useToast } from '@/utils/toast';
+import { resolveErrorMessage } from '@/utils/errorUtils';
+import AstrBotConfig from '@/components/shared/AstrBotConfig.vue';
+import { useProviderModelConfigDialog } from '@/composables/useProviderModelConfigDialog';
 import {
   formatContextLimit,
   providerCapabilityBadges,
@@ -453,6 +533,32 @@ const providerListRef = ref<{ $el: HTMLElement } | null>(null);
 const providerDrawer = ref(false);
 const loadingProviders = ref(false);
 const providersLoaded = ref(false);
+const editingProviderId = ref('');
+const configSchema = ref<Record<string, unknown>>({});
+const selectedProviderSource = ref<{ id?: string; type?: string } | null>(null);
+const {
+  showProviderEditDialog,
+  providerEditData,
+  savingProviders,
+  providerModelConfigSchema,
+  providerEditDialogTitle,
+  openProviderEdit,
+  saveEditedProvider,
+} = useProviderModelConfigDialog({
+  selectedProviderSource,
+  configSchema,
+  loadConfig: () => {
+    void loadProviderConfigs(true);
+  },
+  tm: providerTm,
+  showMessage: (message, color) => {
+    if (color === 'error') {
+      toastError(message);
+    } else {
+      toastSuccess(message);
+    }
+  },
+});
 
 const selectedProviderIds = computed(() =>
   props.multiple && Array.isArray(props.modelValue)
@@ -721,6 +827,40 @@ async function testProvider(provider: ProviderConfig) {
   }
 }
 
+async function editProvider(provider: ProviderConfig) {
+  if (editingProviderId.value) return;
+  editingProviderId.value = provider.id;
+  try {
+    // The selector list may include inherited fields; edit the stored model config.
+    const response = await providerApi.schema();
+    if (response.data.status === 'error') {
+      throw new Error(
+        response.data.message || providerTm('providerSources.saveError'),
+      );
+    }
+    const data = response.data.data;
+    const storedProvider = data.providers?.find(
+      (item) => item.id === provider.id,
+    );
+    if (!storedProvider) {
+      throw new Error(providerTm('providerSources.saveError'));
+    }
+    configSchema.value = (data.config_schema as Record<string, unknown>) || {};
+    selectedProviderSource.value =
+      data.provider_sources?.find(
+        (source) => source.id === storedProvider.provider_source_id,
+      ) || storedProvider;
+    openProviderEdit(storedProvider as Parameters<typeof openProviderEdit>[0]);
+    menuOpen.value = false;
+  } catch (error) {
+    toastError(
+      resolveErrorMessage(error, providerTm('providerSources.saveError')),
+    );
+  } finally {
+    editingProviderId.value = '';
+  }
+}
+
 function onProviderListScroll(event: Event) {
   const target = event.target;
   if (target instanceof HTMLElement) {
@@ -805,6 +945,7 @@ defineExpose({ getCurrentSelection });
 
 .provider-select-menu--config {
   display: flex;
+  align-items: center;
   width: 100%;
   justify-content: flex-end;
 }

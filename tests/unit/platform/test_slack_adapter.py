@@ -18,6 +18,7 @@ from astrbot.core.platform.sources.slack.client import (
     SlackWebhookClient,
 )
 from astrbot.core.platform.sources.slack.slack_adapter import SlackAdapter
+from astrbot.core.platform.sources.slack.slack_event import SlackMessageEvent
 from tests.fixtures.helpers import make_platform_config
 
 pytestmark = pytest.mark.platform
@@ -549,6 +550,82 @@ def test_slack_parse_blocks_handles_rich_text_lists_and_markdown_sections():
     assert components[3].text == "• first\n• second"
     assert isinstance(components[4], Comp.Plain)
     assert components[4].text == "*bold*"
+
+
+@pytest.mark.parametrize("style", ["bullet", "ordered"])
+def test_slack_parse_blocks_list_preserves_links_and_mentions(style):
+    adapter = _build_adapter()
+    url = "https://example.com/slack-list-8642"
+
+    components = adapter._parse_blocks(
+        [
+            {
+                "type": "rich_text",
+                "elements": [
+                    {
+                        "type": "rich_text_list",
+                        "style": style,
+                        "elements": [
+                            {
+                                "type": "rich_text_section",
+                                "elements": [
+                                    {"type": "user", "user_id": "UBOT"},
+                                    {"type": "text", "text": " Link: "},
+                                    {"type": "link", "url": url, "text": "Probe"},
+                                    {"type": "text", "text": " after"},
+                                ],
+                            },
+                            {
+                                "type": "rich_text_section",
+                                "elements": [{"type": "link", "url": url}],
+                            },
+                            {
+                                "type": "rich_text_section",
+                                "elements": [{"type": "user", "user_id": "UOTHER"}],
+                            },
+                            {
+                                "type": "rich_text_section",
+                                "elements": [{"type": "text", "text": "End"}],
+                            },
+                        ],
+                    },
+                ],
+            },
+        ]
+    )
+
+    assert [c.target for c in components if isinstance(c, Comp.Mention)] == [
+        "UBOT",
+        "UOTHER",
+    ]
+    assert (
+        "".join(c.text for c in components if isinstance(c, Comp.Plain))
+        == f"•  Link: [Probe]({url}) after\n• [{url}]({url})\n• \n• End"
+    )
+    assert [type(c) for c in components] == [
+        Comp.Plain,
+        Comp.Mention,
+        Comp.Plain,
+        Comp.Mention,
+        Comp.Plain,
+    ]
+
+
+@pytest.mark.asyncio
+async def test_slack_parse_blocks_preserves_outbound_mentions():
+    adapter = _build_adapter()
+
+    blocks, text = await SlackMessageEvent._parse_slack_blocks(
+        MessageChain(
+            chain=[Comp.Plain("hi "), Comp.Mention(target="U123"), Comp.Plain(" bye")]
+        ),
+        adapter.web_client,
+    )
+
+    assert blocks == [
+        {"type": "section", "text": {"type": "mrkdwn", "text": "hi <@U123> bye"}}
+    ]
+    assert text == ""
 
 
 @pytest.mark.parametrize("block_type", ["rich_text_preformatted", "rich_text_quote"])

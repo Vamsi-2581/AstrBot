@@ -101,33 +101,18 @@ class SlackAdapter(Platform):
         self,
         session: MessageSession,
         message_chain: MessageChain,
-    ):
-        blocks, text = await SlackMessageEvent._parse_slack_blocks(
-            message_chain=message_chain,
-            web_client=self.web_client,
-        )
+    ) -> PlatformSendResult:
+        channel_id = session.session_id
+        if session.message_type == MessageType.GROUP_MESSAGE:
+            channel_id = channel_id.split("_")[-1]
 
         await super().send_by_session(session, message_chain)
         try:
-            if session.message_type == MessageType.GROUP_MESSAGE:
-                # 发送到频道
-                channel_id = (
-                    session.session_id.split("_")[-1]
-                    if "_" in session.session_id
-                    else session.session_id
-                )
-                response = await self.web_client.chat_postMessage(
-                    channel=channel_id,
-                    text=text,
-                    blocks=blocks if blocks else None,
-                )
-            else:
-                # 发送私信
-                response = await self.web_client.chat_postMessage(
-                    channel=session.session_id,
-                    text=text,
-                    blocks=blocks if blocks else None,
-                )
+            response = await SlackMessageEvent._send_message(
+                message=message_chain,
+                web_client=self.web_client,
+                channel_id=channel_id,
+            )
         except Exception as e:
             logger.error(f"Slack 发送消息失败: {e}")
             return PlatformSendResult(
@@ -386,15 +371,25 @@ class SlackAdapter(Platform):
                         list_text = ""
                         for item in list_items:
                             if item.get("type") == "rich_text_section":
-                                item_elements = item.get("elements", [])
-                                item_text = ""
-                                for item_element in item_elements:
-                                    if item_element.get("type") == "text":
-                                        item_text += item_element.get("text", "")
-                                list_text += f"• {item_text}\n"
+                                # Reuse section parsing to preserve inline components.
+                                item_components = self._parse_blocks(
+                                    [{"type": "rich_text", "elements": [item]}]
+                                )
+                                list_text += "• "
+                                for component in item_components:
+                                    if isinstance(component, Plain):
+                                        list_text += component.text
+                                    else:
+                                        if list_text:
+                                            message_components.append(
+                                                Plain(text=list_text)
+                                            )
+                                            list_text = ""
+                                        message_components.append(component)
+                                list_text += "\n"
 
                         if list_text.strip():
-                            message_components.append(Plain(text=list_text.strip()))
+                            message_components.append(Plain(text=list_text.rstrip()))
 
             elif block_type == "section":
                 # 处理段落块

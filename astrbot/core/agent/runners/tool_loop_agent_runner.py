@@ -43,6 +43,7 @@ from astrbot.core.message.message_event_result import (
 from astrbot.core.prompt_error_reply import (
     extract_prompt_custom_error_message_from_event,
 )
+from astrbot.core.utils.async_generator import iterate_in_task
 from astrbot.core.utils.error_redaction import safe_error
 from astrbot.core.utils.string_utils import interpolate_placeholders
 
@@ -2233,23 +2234,24 @@ class ToolLoopAgentRunner(BaseAgentRunner[TContext]):
         self,
         executor: T.AsyncGenerator[ToolExecutorResultT],
     ) -> T.AsyncGenerator[ToolExecutorResultT]:
+        executor = iterate_in_task(executor)
+
         async def _next_executor_result() -> ToolExecutorResultT:
             return await anext(executor)
 
-        while True:
-            if self._is_stop_requested():
-                await self._close_executor(executor)
-                raise AgentStopRequested(
-                    "Tool execution interrupted before reading the next tool result."
-                )
+        try:
+            while True:
+                if self._is_stop_requested():
+                    raise AgentStopRequested(
+                        "Tool execution interrupted before reading the next tool result."
+                    )
 
-            try:
-                yield await self._await_stop_interruptibly(
-                    _next_executor_result(),
-                    close_after_stop=lambda: self._close_executor(executor),
-                )
-            except StopAsyncIteration:
-                return
-            except AgentStopRequested:
-                await self._close_executor(executor)
-                raise
+                try:
+                    yield await self._await_stop_interruptibly(
+                        _next_executor_result(),
+                        close_after_stop=lambda: self._close_executor(executor),
+                    )
+                except StopAsyncIteration:
+                    return
+        finally:
+            await self._close_executor(executor)

@@ -922,6 +922,61 @@ async def test_post_send_one_routes_text_for_every_qq_message_source(
             assert "msg_type" not in sent_kwargs
 
 
+@pytest.mark.parametrize(
+    ("raw_data", "expected"),
+    [
+        ({"message_scene": {"ext": ["msg_idx=REFIDX_abc", "other=1"]}}, "REFIDX_abc"),
+        ({"message_scene": {"ext": ["other=1"]}}, ""),
+        ({"message_scene": {}}, ""),
+        ({}, ""),
+        (None, ""),
+    ],
+)
+def test_extract_self_ref_idx(raw_data, expected):
+    message = SimpleNamespace(raw_data=raw_data)
+
+    assert QQOfficialMessageEvent._extract_self_ref_idx(message) == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("reply_id", "self_ref", "expected_ref"),
+    [
+        ("REFIDX_target", "", "REFIDX_target"),
+        ("ROBOT1.0_msgid", "REFIDX_self", "REFIDX_self"),
+        ("ROBOT1.0_msgid", "", None),
+    ],
+)
+async def test_post_send_one_fills_message_reference_for_reply(
+    reply_id, self_ref, expected_ref, monkeypatch
+):
+    api = SimpleNamespace(post_group_message=AsyncMock(return_value={"id": "sent"}))
+    source = botpy.message.GroupMessage(
+        None, "evt", {"id": "msg-1", "group_openid": "g1", "author": {"id": "u1"}}
+    )
+    event = QQOfficialMessageEvent.__new__(QQOfficialMessageEvent)
+    event._bot = SimpleNamespace(api=api)
+    event.message_obj = SimpleNamespace(raw_message=source, message_id="msg-1")
+    event.send_buffer = MessageChain([Plain("hi")], use_markdown_=False)
+    event.track_temporary_local_file = MagicMock()
+    monkeypatch.setattr(
+        QQOfficialMessageEvent,
+        "_extract_self_ref_idx",
+        staticmethod(lambda _message: self_ref),
+    )
+
+    with patch.object(AstrMessageEvent, "send", AsyncMock(return_value=None)):
+        await event._post_send_one(
+            MessageChain([Plain("hi"), Reply(id=reply_id, message_str="")])
+        )
+
+    sent_kwargs = api.post_group_message.await_args.kwargs
+    if expected_ref is None:
+        assert "message_reference" not in sent_kwargs
+    else:
+        assert sent_kwargs["message_reference"] == {"message_id": expected_ref}
+
+
 @pytest.mark.asyncio
 async def test_post_send_one_group_media_uses_group_target_and_last_media_wins(
     monkeypatch,

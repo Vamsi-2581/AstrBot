@@ -50,6 +50,7 @@ from astrbot.core.conversation_mgr import (
 )
 from astrbot.core.conversation_models import Conversation
 from astrbot.core.db.protocols import PlatformSessionStore
+from astrbot.core.llm_error_messages import LLM_ERROR_MESSAGES
 from astrbot.core.message.components import File, Image, Record, Reply, Video
 from astrbot.core.message.json_card import coalesce_prompt_with_json_cards
 from astrbot.core.platform.astr_message_event import AstrMessageEvent
@@ -90,7 +91,10 @@ from astrbot.core.utils.astrbot_path import (
     get_astrbot_workspaces_path,
 )
 from astrbot.core.utils.config_number import coerce_int_config
-from astrbot.core.utils.media_utils import prepare_images_for_provider
+from astrbot.core.utils.media_utils import (
+    describe_media_ref,
+    prepare_images_for_provider,
+)
 from astrbot.core.utils.message_context import MessageContextRenderer
 from astrbot.core.utils.quoted_message.settings import (
     SETTINGS as DEFAULT_QUOTED_MESSAGE_SETTINGS,
@@ -361,8 +365,19 @@ class MainAgentBuildResult:
     reset_coro: Coroutine | None = None
 
 
-def _set_llm_error_message(event: AstrMessageEvent, message: str) -> None:
-    event.set_extra(LLM_ERROR_MESSAGE_EXTRA_KEY, message)
+def _set_llm_error_message(event: AstrMessageEvent, key: str, **params: str) -> None:
+    """Format an internal LLM error in the requesting client's language.
+
+    Args:
+        event: Message event carrying the optional UI locale.
+        key: Built-in error translation key.
+        **params: Values interpolated into the message.
+    """
+    locale = event.get_extra("locale")
+    if not isinstance(locale, str):
+        locale = "zh-CN"
+    messages = LLM_ERROR_MESSAGES.get(locale, LLM_ERROR_MESSAGES["zh-CN"])
+    event.set_extra(LLM_ERROR_MESSAGE_EXTRA_KEY, messages[key].format(**params))
 
 
 def _select_provider(
@@ -396,7 +411,8 @@ def _select_provider(
             logger.error("未找到指定的提供商: %s。", sel_provider)
             _set_llm_error_message(
                 event,
-                f"LLM 请求失败：未找到指定的提供商 `{sel_provider}`。请检查提供商配置或重新选择可用模型。",
+                "providerNotFound",
+                provider=sel_provider,
             )
             return None
         if not _is_chat_model(provider):
@@ -405,15 +421,20 @@ def _select_provider(
             )
             _set_llm_error_message(
                 event,
-                f"LLM 请求失败：选择的提供商类型无效（{type(provider).__name__}），已跳过本次请求。",
+                "invalidProviderType",
+                provider_type=type(provider).__name__,
             )
             return None
         return provider
     try:
-        return plugin_context.get_using_provider(umo=event.unified_msg_origin)
+        locale = event.get_extra("locale")
+        locale_kwargs = {"locale": locale} if isinstance(locale, str) else {}
+        return plugin_context.get_using_provider(
+            umo=event.unified_msg_origin, **locale_kwargs
+        )
     except ValueError as exc:
         logger.error("Error occurred while selecting provider: %s", exc)
-        _set_llm_error_message(event, f"LLM 请求失败：{exc}")
+        _set_llm_error_message(event, "requestFailed", detail=str(exc))
         return None
 
 
@@ -1870,8 +1891,9 @@ async def _materialize_image_ref_for_provider(
         raise
     except Exception as exc:  # noqa: BLE001
         logger.warning(
-            "Failed to materialize image ref for provider: %s",
+            "Failed to materialize image ref for provider: %s: %s",
             type(exc).__name__,
+            describe_media_ref(image_ref),
         )
         return []
 
@@ -1884,7 +1906,18 @@ async def _append_direct_attachments(
     del config
     for component in event.message_obj.message:
         if isinstance(component, Image):
-            path = await component.convert_to_file_path()
+            try:
+                path = await component.convert_to_file_path()
+            except (OSError, ValueError) as exc:
+                logger.warning(
+                    "Image attachment is unavailable (%s): %s",
+                    type(exc).__name__,
+                    describe_media_ref(component.url or component.file),
+                )
+                req.extra_user_content_parts.append(
+                    TextPart(text="[Image unavailable]")
+                )
+                continue
             _track_temp_image_path(event, path)
             req.image_urls.append(path)
             req.extra_user_content_parts.append(
@@ -2236,10 +2269,7 @@ async def build_main_agent(
     if provider is None:
         logger.info("未找到任何对话模型（提供商），跳过 LLM 请求处理。")
         if not event.get_extra(LLM_ERROR_MESSAGE_EXTRA_KEY):
-            _set_llm_error_message(
-                event,
-                "LLM 请求失败：未找到任何可用的对话模型（提供商）。请先在 WebUI 中配置并启用可用模型。",
-            )
+            _set_llm_error_message(event, "noProvider")
         return None
 
     provider_request_from_event = False
@@ -2287,9 +2317,9 @@ async def build_main_agent(
             event.unified_msg_origin, req.conversation.cid
         )
         if conversation is None:
-            _set_llm_error_message(
-                event,
-                "LLM 请求失败：请求的会话已不存在，请重新发送消息。",
+            event.set_extra(
+                LLM_ERROR_MESSAGE_EXTRA_KEY,
+                "The requested conversation no longer exists. Please send a new message.",
             )
             return None
         req.conversation = conversation

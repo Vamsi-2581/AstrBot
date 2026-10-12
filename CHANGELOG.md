@@ -11,7 +11,7 @@ authoritative release record for this branch.
 ## Where the notes live / 说明文件位置
 
 - Per-version entries: [`changelogs/`](./changelogs/) — spanning `v3.4.0`
-  through the current `v4.28.x` series.
+  through the current `v4.29.x` series.
 - New-entry skeleton: [`changelogs/TEMPLATE.md`](./changelogs/TEMPLATE.md).
   Copy it to `changelogs/vX.Y.Z.md`. Use `[WIP]` in place of the ISO date
   until the version is published.
@@ -34,9 +34,13 @@ fork behavior apart from upstream merges:
 
 ## Recent releases / 近期版本
 
+### v4.29.x
+
+- [v4.29.0-beta.2](./changelogs/v4.29.0-beta.2.md) — 2026-10-11
+
 ### v4.28.x
 
-- [v4.28.2](./changelogs/v4.28.2.md) — `[WIP]`
+- [v4.28.2](./changelogs/v4.28.2.md) — 2026-09-27
 - [v4.28.1](./changelogs/v4.28.1.md) — 2026-09-14
 - [v4.28.0](./changelogs/v4.28.0.md)
 
