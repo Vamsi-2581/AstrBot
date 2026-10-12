@@ -293,6 +293,10 @@
         "agentic_mode": {
           "description": "Agentic Knowledge Base Retrieval",
           "hint": "When enabled, knowledge base retrieval becomes an LLM Tool, allowing the model to autonomously decide when to query the knowledge base. Requires the model to support function calling."
+        },
+        "vector_store": {
+          "description": "Vector store backend",
+          "hint": "faiss is the default single-node local index; exact uses pure NumPy exact search and needs no FAISS install, suited to small knowledge bases. Changing the backend does not migrate an existing index."
         }
       }
     },

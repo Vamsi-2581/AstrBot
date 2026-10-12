@@ -6,7 +6,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import aiofiles
 
@@ -95,12 +95,14 @@ class KBHelper:
         provider_manager: ProviderManager,
         kb_root_dir: str,
         chunker: BaseChunker,
+        vector_store: str = "faiss",
     ) -> None:
         self.kb_db = kb_db
         self.kb = kb
         self.prov_mgr = provider_manager
         self.kb_root_dir = kb_root_dir
         self.chunker = chunker
+        self.vector_store = vector_store
         self.init_error = None
 
         self.kb_dir = Path(self.kb_root_dir) / self.kb.kb_id
@@ -157,13 +159,18 @@ class KBHelper:
         return rp
 
     async def _ensure_vec_db(self) -> FaissVecDB:
+        from astrbot.core.db.vec_db import (
+            create_vector_store,
+            vector_index_filename,
+        )
+        from astrbot.core.db.vec_db.base import VectorStore
         from astrbot.core.db.vec_db.faiss import FaissVecDB
 
         existing = getattr(self, "vec_db", None)
-        if isinstance(existing, FaissVecDB):
-            return existing
+        if isinstance(existing, VectorStore):
+            return cast(FaissVecDB, existing)
         if existing is not None:
-            raise TypeError("knowledge base vector store is not FaissVecDB")
+            raise TypeError("knowledge base vector store does not satisfy VectorStore")
         if not self.kb.embedding_provider_id:
             raise ValueError(f"知识库 {self.kb.kb_name} 未配置 Embedding Provider")
 
@@ -176,17 +183,21 @@ class KBHelper:
                 f"知识库 {self.kb.kb_name}({self.kb.kb_id}) 初始化重排序能力失败，将跳过重排序: {e}",
             )
 
-        vec_db = FaissVecDB(
+        vector_store = getattr(self, "vector_store", "faiss")
+        vec_db = create_vector_store(
+            vector_store,
             doc_store_path=str(self.kb_dir / "doc.db"),
-            index_store_path=str(self.kb_dir / "index.faiss"),
+            index_store_path=str(self.kb_dir / vector_index_filename(vector_store)),
             embedding_provider=ep,
             rerank_provider=rp,
         )
         await vec_db.initialize()
-        self.vec_db = vec_db
+        # ExactVecDB subclasses FaissVecDB, so the shared base type holds here.
+        resolved = cast(FaissVecDB, vec_db)
+        self.vec_db = resolved
         # Clear stale init_error once initialization succeeds.
         self.init_error = None
-        return vec_db
+        return resolved
 
     async def delete_vec_db(self) -> None:
         """删除知识库的向量数据库和所有相关文件"""
@@ -493,7 +504,7 @@ class KBHelper:
         doc_id: str,
         file_name: str,
     ) -> None:
-        vec_db: FaissVecDB = self.vec_db  # type: ignore
+        vec_db: FaissVecDB = self.vec_db
         try:
             await self.kb_db.update_kb_stats(kb_id=self.kb.kb_id, vec_db=vec_db)
             await self.refresh_kb()
@@ -1241,7 +1252,7 @@ class KBHelper:
 
     async def delete_chunk(self, chunk_id: str, doc_id: str) -> None:
         """删除单个文本块及其相关数据"""
-        vec_db: FaissVecDB = self.vec_db  # type: ignore
+        vec_db: FaissVecDB = self.vec_db
         await vec_db.delete(chunk_id)
         self._invalidate_bm25_cache()
         await self.kb_db.update_kb_stats(
@@ -1277,7 +1288,7 @@ class KBHelper:
         limit: int = 100,
     ) -> list[dict]:
         """获取文档的所有块及其元数据"""
-        vec_db: FaissVecDB = self.vec_db  # type: ignore
+        vec_db: FaissVecDB = self.vec_db
         chunks = await vec_db.document_storage.get_documents(
             metadata_filters={"kb_doc_id": doc_id},
             offset=offset,
@@ -1300,7 +1311,7 @@ class KBHelper:
 
     async def get_chunk_count_by_doc_id(self, doc_id: str) -> int:
         """获取文档的块数量"""
-        vec_db: FaissVecDB = self.vec_db  # type: ignore
+        vec_db: FaissVecDB = self.vec_db
         count = await vec_db.count_documents(metadata_filter={"kb_doc_id": doc_id})
         return count
 

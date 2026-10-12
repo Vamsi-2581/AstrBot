@@ -31,11 +31,29 @@ For uploads and URL imports, `chunk_size` is 1-8192 and `chunk_overlap` is 0-819
 
 When URL content cleaning is enabled, concurrent chunk requests are released at the configured RPM interval instead of waking all waiting requests in one burst. Set `max_rpm=0` to disable this pacing.
 
-Markdown is split on headings. Uploading the same file identity or the same canonical URL **replaces** the existing document instead of appending a snapshot. An unchanged SHA-256 skips embedding (`unchanged`). URL identity is the SHA-256 of the canonical URL; `http` and `https` are distinct. Changing `chunk_size` / `chunk_overlap` does not change the hash; use **Reindex** on the document list or document detail to rebuild chunks. Documents without a stored source cannot be reindexed. Changing the embedding model or dimension is not migrated; reindex returns 400. Create a new knowledge base or re-upload. FAISS remains the only vector store. There is no directory watch or automatic sync. Older URL imports have no recoverable source URL; delete and import again. Original files and extracted URL text are stored under `data/knowledge_base/` and included in backup.
+Markdown is split on headings. Uploading the same file identity or the same canonical URL **replaces** the existing document instead of appending a snapshot. An unchanged SHA-256 skips embedding (`unchanged`). URL identity is the SHA-256 of the canonical URL; `http` and `https` are distinct. Changing `chunk_size` / `chunk_overlap` does not change the hash; use **Reindex** on the document list or document detail to rebuild chunks. Documents without a stored source cannot be reindexed. Changing the embedding model or dimension is not migrated; reindex returns 400. Create a new knowledge base or re-upload. FAISS is the default vector store, and an optional NumPy-backed exact backend is also available (see below). There is no directory watch or automatic sync. Older URL imports have no recoverable source URL; delete and import again. Original files and extracted URL text are stored under `data/knowledge_base/` and included in backup.
 
 An upload writes the document store, metadata, and local vectors together. Any step that fails runs compensating cleanup: after the API reports failure, that document must not stay queryable. Storage is SQLite in the runtime directory plus FAISS indexes under `data/knowledge_base/`. It is a single-process, single-node deployment. Runtime startup enforces that with `data/astrbot.lock`; on POSIX it also locks the `data/` directory, so deleting the lock file cannot bypass the singleton. SQLite WAL and `busy_timeout` are not an instance lock. The operating system releases this advisory lock when the process exits, and a leftover lock file does not mean an instance is still running. If Compose mounts the same `./data` into a second full instance, the later container is expected to fail.
 
 The Dashboard task id returned by a file upload, pre-chunk import, or URL import can be queried after a normal restart. Task progress and results are retained for seven days, with at most 1,000 completed, failed, or interrupted task records kept. Work that was pending or processing when AstrBot stops is reported as `interrupted`; it is not resumed automatically. Its task slot and upload staging directory are released during cancellation. The document list remains the source of truth for material that completed before the interruption.
+
+## Vector store backends
+
+Each knowledge base keeps its document store and metadata in SQLite; only the
+vector index is backend-specific. Select the backend with
+`knowledge_base.vector_store` (default `faiss`):
+
+| Value   | Index file    | Notes                                                             |
+| ------- | ------------- | ----------------------------------------------------------------- |
+| `faiss` | `index.faiss` | Default. Single-node local FAISS index.                           |
+| `exact` | `index.npz`   | Pure NumPy exact search; no FAISS install; suited to small bases. |
+
+Changing the backend does not migrate an existing index: the new backend looks
+for its own file, so reindex or re-upload after switching. The `VectorStore`
+contract (insert, batch insert, retrieve, delete, count, close) lives in
+`astrbot/core/db/vec_db/base.py`, and `create_vector_store` is the single
+selection point, so a networked backend such as pgvector or sqlite-vec can be
+added later without changing the knowledge base.
 
 ## Attach to a session
 

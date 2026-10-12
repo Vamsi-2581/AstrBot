@@ -437,7 +437,14 @@ class AstrBotCoreLifecycle:
         self.platform_message_history_manager = PlatformMessageHistoryManager(self.db)
 
         # 初始化知识库管理器
-        self.kb_manager = KnowledgeBaseManager(self.provider_manager)
+        kb_config = self.astrbot_config.get("knowledge_base") or {}
+        vector_store = (
+            kb_config.get("vector_store") if isinstance(kb_config, dict) else None
+        )
+        self.kb_manager = KnowledgeBaseManager(
+            self.provider_manager,
+            vector_store=str(vector_store or "faiss"),
+        )
 
         # 初始化 CronJob 管理器
         self.cron_manager = CronJobManager(self.db)
