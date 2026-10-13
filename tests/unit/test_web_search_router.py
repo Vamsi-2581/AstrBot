@@ -25,6 +25,12 @@ def test_canonical_url_keeps_distinct_hosts_apart():
     )
 
 
+def test_canonical_url_tolerates_a_malformed_port():
+    assert router.canonical_url("https://example.com:not-a-port/a") == (
+        "https://example.com:not-a-port/a"
+    )
+
+
 def test_reciprocal_rank_fusion_prefers_shared_results():
     first = [
         _result("https://shared.example/1"),

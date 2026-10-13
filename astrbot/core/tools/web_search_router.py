@@ -272,6 +272,7 @@ def canonical_url(url: str) -> str:
     raw = url.strip()
     try:
         parsed = urlparse(raw)
+        port = parsed.port
     except ValueError:
         return raw
     host = (parsed.hostname or "").lower()
@@ -279,7 +280,7 @@ def canonical_url(url: str) -> str:
         return raw
     if host.startswith("www."):
         host = host[4:]
-    netloc = f"{host}:{parsed.port}" if parsed.port is not None else host
+    netloc = f"{host}:{port}" if port is not None else host
     path = parsed.path or ""
     if path != "/" and path.endswith("/"):
         path = path.rstrip("/")
