@@ -49,6 +49,7 @@ Shared locks live under `.agents/shared/`:
 | `audit-product`         | Baseline or module product audit; Chinese Markdown report + diagrams  |
 | `plan-issue`            | Issue or pasted request → research, clarify, file-path plan           |
 | `simplifier`            | Smallest current change; YAGNI ladder; over-engineering delete-list   |
+| `dashboard-ui`          | Build or modify the Dashboard (Vue 3 + Vuetify 4) UI                  |
 
 Do not add a skill that only restates `AGENTS.md`. Split a skill when a
 second, independently loadable workflow appears.
@@ -106,3 +107,19 @@ ladder (MIT). Invoke it as `simplifier` (`$simplifier` in Codex). Keep the
 overlay in `simplifier/SKILL.md` and the pin in `simplifier/VENDOR.json`. Do
 not install the upstream plugin, hooks, intensity levels, or companion
 skills, and do not copy this skill into `.opencode/` or `.codex/`.
+
+`dashboard-ui` is an AstrBot-authored overlay that fuses several MIT-licensed
+Vue/Vuetify agent skills (`skilld-dev/vue-ecosystem-skills`, `vuejs-ai/skills`,
+`agents-inc/skills`, `antfu/skills`) into this repository's Dashboard
+conventions. Keep the workflow in `dashboard-ui/SKILL.md`, the library facts
+and provenance in `dashboard-ui/REFERENCE.md`, and the Codex metadata in
+`dashboard-ui/agents/openai.yaml`. It is not a verbatim vendor, so it has no
+`VENDOR.json`; record absorbed sources and reviewed commits in
+`REFERENCE.md`. Do not copy it into `.opencode/` or `.codex/`, and do not add
+a second Vue/Vuetify skill that restates it. Verify it with
+`make check-dashboard-ui` (or `node
+.agents/skills/dashboard-ui/scripts/check-skill.mjs`), which checks the
+frontmatter, headings, referenced paths, and pinned versions. The official
+Vuetify MCP setup for OpenCode and Codex is documented in
+`dashboard-ui/REFERENCE.md`; the local OpenCode client config lives in the
+gitignored `.opencode/opencode.json`.

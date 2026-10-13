@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Dashboard UI'
+  short_description: 'Build AstrBot Dashboard UI with Vue 3 and Vuetify 4'
+  default_prompt: 'Use $dashboard-ui to change the AstrBot Dashboard: follow the design-system guard and AstrBot theme tokens, then run the dashboard checks.'
