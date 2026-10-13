@@ -25,11 +25,17 @@ async def test_select_parser_prefers_tika_when_configured() -> None:
 async def test_select_parser_routes_images_to_ocr() -> None:
     parser = await select_parser(
         ".png",
-        extraction_config={"ocr_languages": "chi_sim"},
+        extraction_config={"ocr_enable": True, "ocr_languages": "chi_sim"},
     )
 
     assert isinstance(parser, ImageOCRParser)
     assert parser.languages == "chi_sim"
+
+
+@pytest.mark.asyncio
+async def test_select_parser_skips_ocr_when_disabled() -> None:
+    with pytest.raises(ValueError):
+        await select_parser(".png", extraction_config={"ocr_enable": False})
 
 
 @pytest.mark.asyncio

@@ -15,8 +15,8 @@ async def select_parser(
     """Choose a parser for one file extension.
 
     When ``tika_url`` is configured the external Tika service handles every
-    format. Otherwise image files use the optional OCR parser and built-in
-    parsers handle the rest.
+    format. Otherwise image files use the optional OCR parser only when
+    ``ocr_enable`` is set, and built-in parsers handle the rest.
 
     Args:
         ext: Lower-case file extension including the dot.
@@ -35,7 +35,7 @@ async def select_parser(
 
         return TikaParser(tika_url)
 
-    if ext in IMAGE_EXTENSIONS:
+    if ext in IMAGE_EXTENSIONS and config.get("ocr_enable"):
         from .ocr_parser import ImageOCRParser
 
         return ImageOCRParser(languages=str(config.get("ocr_languages") or "eng"))
