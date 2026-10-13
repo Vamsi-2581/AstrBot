@@ -1,4 +1,4 @@
-/* Auto-generated MDI subset – 277 icons */
+/* Auto-generated MDI subset – 281 icons */
 /* Do not edit manually. Run: pnpm run subset-icons */
 
 @font-face {
@@ -286,6 +286,10 @@
 
 .mdi-cog-outline::before {
   content: "\F08BB";
+}
+
+.mdi-compare-horizontal::before {
+  content: "\F1492";
 }
 
 .mdi-compare-vertical::before {
@@ -644,6 +648,10 @@
   content: "\F0337";
 }
 
+.mdi-link-off::before {
+  content: "\F0338";
+}
+
 .mdi-link-variant::before {
   content: "\F0339";
 }
@@ -678,6 +686,10 @@
 
 .mdi-lock-plus-outline::before {
   content: "\F16B2";
+}
+
+.mdi-login-variant::before {
+  content: "\F05FC";
 }
 
 .mdi-logout::before {
@@ -926,6 +938,10 @@
 
 .mdi-shape-outline::before {
   content: "\F0832";
+}
+
+.mdi-share-variant-outline::before {
+  content: "\F1514";
 }
 
 .mdi-shield-account-outline::before {
