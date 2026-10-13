@@ -161,6 +161,19 @@ ChatUI supports these common workflows:
 - Switch between streaming/normal response modes and SSE/WebSocket transport modes. On touch or other coarse-pointer devices, the nested Transport and Language menus open on click instead of hover.
 - Browse the current project workspace from ChatUI. Text previews use Shiki syntax highlighting and follow the active light or dark theme; binary files show metadata only.
 
+### Sharing a conversation
+
+In the conversation list, hover a conversation and select the share button to create a read-only link for it. The link opens without signing in, and anyone who has it can read the transcript, so share it carefully.
+
+- Expiry choices are 1, 7, 30, or 90 days, or never.
+- The raw link is shown once when created and cannot be recovered; copy it immediately.
+- The public page shows only that conversation's text transcript (no attachments), is read-only, and cannot reach your other data.
+- The same dialog lists existing links for the conversation and lets you revoke any of them; revoked or expired links show as unavailable.
+- Very long conversations show only the most recent messages, with a notice at the top of the page.
+
+> [!WARNING]
+> The share link is itself a credential. Anyone holding it can read the conversation, so do not share conversations that contain sensitive information.
+
 ### High-risk tools in ChatUI
 
 The shield-key button beside the message box enables high-risk tools for one
