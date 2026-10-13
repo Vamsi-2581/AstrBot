@@ -2718,6 +2718,10 @@ export type ListChatSessionsData = {
   query?: {
     page?: number;
     page_size?: number;
+    /**
+     * Filter sessions by title (case-insensitive partial match).
+     */
+    search?: string;
     username?: string;
   };
   url: '/api/v1/chat/sessions';

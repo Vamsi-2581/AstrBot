@@ -89,6 +89,7 @@
   "conversation": {
     "loading": "Loading conversations",
     "loadFailed": "Could not load conversations",
+    "searchPlaceholder": "Search conversations",
     "newConversation": "New Conversation",
     "noHistory": "No conversation history",
     "systemStatus": "System Status",

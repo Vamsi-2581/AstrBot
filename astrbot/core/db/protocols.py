@@ -789,6 +789,7 @@ class PlatformSessionStore(Protocol):
         page: int = 1,
         page_size: int = 20,
         exclude_project_sessions: bool = False,
+        search: str | None = None,
     ) -> tuple[list[dict], int]: ...
 
     async def update_platform_session(

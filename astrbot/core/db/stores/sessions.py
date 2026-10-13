@@ -9,6 +9,12 @@ from astrbot.core.db.po import ChatUIProject, PlatformSession, SessionProjectRel
 from astrbot.core.db.stores.mixin import DatabaseStoreMixin, store_session
 
 
+def _escape_like(value: str) -> str:
+    """Escape LIKE wildcards so a user query matches literally."""
+
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class PlatformSessionStoreMixin(DatabaseStoreMixin):
     async def create_platform_session(
         self,
@@ -93,6 +99,7 @@ class PlatformSessionStoreMixin(DatabaseStoreMixin):
         creator: str,
         platform_id: str | None = None,
         exclude_project_sessions: bool = False,
+        search: str | None = None,
     ):
         query = (
             select(
@@ -117,6 +124,13 @@ class PlatformSessionStoreMixin(DatabaseStoreMixin):
             query = query.where(PlatformSession.platform_id == platform_id)
         if exclude_project_sessions:
             query = query.where(col(ChatUIProject.project_id).is_(None))
+        if search:
+            query = query.where(
+                col(PlatformSession.display_name).ilike(
+                    f"%{_escape_like(search)}%",
+                    escape="\\",
+                )
+            )
 
         return query
 
@@ -148,6 +162,7 @@ class PlatformSessionStoreMixin(DatabaseStoreMixin):
         page: int = 1,
         page_size: int = 20,
         exclude_project_sessions: bool = False,
+        search: str | None = None,
     ) -> tuple[list[dict], int]:
         """Get paginated Platform sessions for a creator with total count."""
         async with store_session(self) as session:
@@ -158,6 +173,7 @@ class PlatformSessionStoreMixin(DatabaseStoreMixin):
                 creator=creator,
                 platform_id=platform_id,
                 exclude_project_sessions=exclude_project_sessions,
+                search=search,
             )
 
             total_result = await session.execute(
