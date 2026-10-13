@@ -85,9 +85,9 @@ class Observability:
         """
 
         provider = provider_id or "unknown"
+        usage = stats.token_usage
         if self.metrics_enabled:
             labels = {"provider": provider}
-            usage = stats.token_usage
             tokens = self.registry.counter(
                 "astrbot_llm_tokens_total",
                 "Tokens reported by completed agent runs.",
