@@ -307,6 +307,10 @@
             "description": "OCR languages",
             "hint": "Tesseract language argument, for example eng, chi_sim, or eng+chi_sim."
           }
+        },
+        "vector_store": {
+          "description": "Vector store backend",
+          "hint": "faiss is the default single-node local index; exact uses pure NumPy exact search and needs no FAISS install, suited to small knowledge bases. Changing the backend does not migrate an existing index."
         }
       }
     },

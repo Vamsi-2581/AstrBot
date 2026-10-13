@@ -52,7 +52,7 @@ from .parsers.ocr import OCREngineUnavailable
 from .parsers.util import IMAGE_EXTENSIONS, select_parser
 
 if TYPE_CHECKING:
-    from astrbot.core.db.vec_db.faiss import FaissVecDB
+    from astrbot.core.db.vec_db.base import VectorStore
 
 KB_SOURCE_MAX_BYTES = 128 * 1024 * 1024
 KB_URL_RESPONSE_MAX_BYTES = KB_SOURCE_MAX_BYTES + 8 * 1024 * 1024
@@ -85,7 +85,7 @@ def _compact_chunks(chunks: list[str]) -> list[str]:
 
 
 class KBHelper:
-    vec_db: FaissVecDB
+    vec_db: VectorStore
     kb: KnowledgeBase
     init_error: str | None
 
@@ -97,6 +97,7 @@ class KBHelper:
         kb_root_dir: str,
         chunker: BaseChunker,
         extraction_config: dict | None = None,
+        vector_store: str = "faiss",
     ) -> None:
         self.kb_db = kb_db
         self.kb = kb
@@ -104,6 +105,7 @@ class KBHelper:
         self.kb_root_dir = kb_root_dir
         self.chunker = chunker
         self.extraction_config = extraction_config or {}
+        self.vector_store = vector_store
         self.init_error = None
 
         self.kb_dir = Path(self.kb_root_dir) / self.kb.kb_id
@@ -159,14 +161,18 @@ class KBHelper:
             return None
         return rp
 
-    async def _ensure_vec_db(self) -> FaissVecDB:
-        from astrbot.core.db.vec_db.faiss import FaissVecDB
+    async def _ensure_vec_db(self) -> VectorStore:
+        from astrbot.core.db.vec_db import (
+            create_vector_store,
+            vector_index_filename,
+        )
+        from astrbot.core.db.vec_db.base import VectorStore
 
         existing = getattr(self, "vec_db", None)
-        if isinstance(existing, FaissVecDB):
+        if isinstance(existing, VectorStore):
             return existing
         if existing is not None:
-            raise TypeError("knowledge base vector store is not FaissVecDB")
+            raise TypeError("knowledge base vector store does not satisfy VectorStore")
         if not self.kb.embedding_provider_id:
             raise ValueError(f"知识库 {self.kb.kb_name} 未配置 Embedding Provider")
 
@@ -179,9 +185,11 @@ class KBHelper:
                 f"知识库 {self.kb.kb_name}({self.kb.kb_id}) 初始化重排序能力失败，将跳过重排序: {e}",
             )
 
-        vec_db = FaissVecDB(
+        vector_store = getattr(self, "vector_store", "faiss")
+        vec_db = create_vector_store(
+            vector_store,
             doc_store_path=str(self.kb_dir / "doc.db"),
-            index_store_path=str(self.kb_dir / "index.faiss"),
+            index_store_path=str(self.kb_dir / vector_index_filename(vector_store)),
             embedding_provider=ep,
             rerank_provider=rp,
         )
@@ -549,7 +557,7 @@ class KBHelper:
         doc_id: str,
         file_name: str,
     ) -> None:
-        vec_db: FaissVecDB = self.vec_db  # type: ignore
+        vec_db: VectorStore = self.vec_db
         try:
             await self.kb_db.update_kb_stats(kb_id=self.kb.kb_id, vec_db=vec_db)
             await self.refresh_kb()
@@ -1051,7 +1059,7 @@ class KBHelper:
         saved_media: list[KBMedia],
     ) -> None:
         vec_db = await self._ensure_vec_db()
-        await vec_db.document_storage.relabel_kb_doc_id(staging_id, live_doc_id)
+        await vec_db.relabel_kb_doc_id(staging_id, live_doc_id)
         staging_dir = self.kb_medias_dir / staging_id
         live_dir = self.kb_medias_dir / live_doc_id
         if staging_dir.exists():
@@ -1217,7 +1225,7 @@ class KBHelper:
         """Drop orphan staging vectors and rebuild live docs that lost chunks."""
         vec_db = await self._ensure_vec_db()
         live_ids = await self.kb_db.list_document_ids_by_kb(self.kb.kb_id)
-        stored_ids = await vec_db.document_storage.list_kb_doc_ids()
+        stored_ids = await vec_db.list_kb_doc_ids()
         orphans = stored_ids - live_ids
         for orphan_id in orphans:
             await vec_db.delete_documents(metadata_filters={"kb_doc_id": orphan_id})
@@ -1297,7 +1305,7 @@ class KBHelper:
 
     async def delete_chunk(self, chunk_id: str, doc_id: str) -> None:
         """删除单个文本块及其相关数据"""
-        vec_db: FaissVecDB = self.vec_db  # type: ignore
+        vec_db: VectorStore = self.vec_db
         await vec_db.delete(chunk_id)
         self._invalidate_bm25_cache()
         await self.kb_db.update_kb_stats(
@@ -1333,8 +1341,8 @@ class KBHelper:
         limit: int = 100,
     ) -> list[dict]:
         """获取文档的所有块及其元数据"""
-        vec_db: FaissVecDB = self.vec_db  # type: ignore
-        chunks = await vec_db.document_storage.get_documents(
+        vec_db: VectorStore = self.vec_db
+        chunks = await vec_db.get_documents(
             metadata_filters={"kb_doc_id": doc_id},
             offset=offset,
             limit=limit,
@@ -1356,7 +1364,7 @@ class KBHelper:
 
     async def get_chunk_count_by_doc_id(self, doc_id: str) -> int:
         """获取文档的块数量"""
-        vec_db: FaissVecDB = self.vec_db  # type: ignore
+        vec_db: VectorStore = self.vec_db
         count = await vec_db.count_documents(metadata_filter={"kb_doc_id": doc_id})
         return count
 
@@ -1491,7 +1499,7 @@ class KBHelper:
                 user_message="文档不存在",
             )
         embedding_provider = await self.get_ep()
-        index_dimension = vec_db.embedding_storage.dimension
+        index_dimension = vec_db.dimension
         if embedding_provider.get_dim() != index_dimension:
             raise KnowledgeBaseUploadError(
                 stage="reindex",

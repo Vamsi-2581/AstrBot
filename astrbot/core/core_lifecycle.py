@@ -453,9 +453,13 @@ class AstrBotCoreLifecycle:
         extraction_config = (
             kb_config.get("extraction") if isinstance(kb_config, dict) else None
         )
+        vector_store = (
+            kb_config.get("vector_store") if isinstance(kb_config, dict) else None
+        )
         self.kb_manager = KnowledgeBaseManager(
             self.provider_manager,
             extraction_config=extraction_config,
+            vector_store=str(vector_store or "faiss"),
         )
 
         # 初始化 CronJob 管理器
