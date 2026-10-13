@@ -102,6 +102,15 @@ export interface AuthLoginData {
   [key: string]: unknown;
 }
 
+export interface OidcStatusData {
+  enable: boolean;
+  button_label: string;
+}
+
+export interface OidcStartData {
+  authorize_url: string;
+}
+
 export interface AuthSetupStatusData {
   setup_required?: boolean;
   skip_default_password_auth?: boolean;
@@ -227,6 +236,13 @@ export interface ChatMessageMutationData {
   truncated_after_message?: boolean;
   needs_regenerate?: boolean;
   [key: string]: unknown;
+}
+
+export interface ChatFeaturesData {
+  multi_model: {
+    enable: boolean;
+    max_models: number;
+  };
 }
 
 export interface ChatBatchDeleteData {
@@ -649,6 +665,40 @@ export interface ChatSessionPage {
   page: number;
   page_size: number;
   total: number;
+}
+
+export interface ChatShareData {
+  share_id: string;
+  token: string;
+  created_at: string | null;
+  expires_at: string | null;
+}
+
+export interface ChatShareSummary {
+  share_id: string;
+  created_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+  active: boolean;
+}
+
+export interface ChatShareListData {
+  shares: ChatShareSummary[];
+}
+
+export interface SharedConversationMessage {
+  role: string;
+  text: string;
+  created_at: string | null;
+}
+
+export interface SharedConversationData {
+  title: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  expires_at: string | null;
+  truncated: boolean;
+  messages: SharedConversationMessage[];
 }
 
 export interface CronJobListParams {

@@ -7,6 +7,7 @@ from astrbot import logger
 from astrbot.core.exceptions import KnowledgeBaseUploadError
 from astrbot.core.provider.provider import EmbeddingProvider, RerankProvider
 
+from .base import EmbeddingStorageBackend
 from .document_storage import DocumentStorage
 from .embedding_storage import EmbeddingStorage
 from .result import Result
@@ -24,12 +25,23 @@ class FaissVecDB:
         self.index_store_path = index_store_path
         self.embedding_provider = embedding_provider
         self.document_storage = DocumentStorage(doc_store_path)
-        self.embedding_storage = EmbeddingStorage(
+        self.embedding_storage = self._create_embedding_storage(
             embedding_provider.get_dim(),
             index_store_path,
         )
-        self.embedding_provider = embedding_provider
         self.rerank_provider = rerank_provider
+
+    def _create_embedding_storage(
+        self,
+        dimension: int,
+        index_store_path: str,
+    ) -> EmbeddingStorageBackend:
+        """Build the vector index storage for this backend.
+
+        Subclasses override this to swap the index implementation while reusing
+        the shared document storage and orchestration.
+        """
+        return EmbeddingStorage(dimension, index_store_path)
 
     async def initialize(self) -> None:
         await self.document_storage.initialize()
@@ -316,3 +328,31 @@ class FaissVecDB:
         doc_ids: list[int] = [doc["id"] for doc in docs]
         await self.embedding_storage.delete(doc_ids)
         await self.document_storage.delete_documents(metadata_filters=metadata_filters)
+
+    @property
+    def dimension(self) -> int:
+        """Embedding dimension of this index."""
+        return self.embedding_storage.dimension
+
+    async def get_documents(
+        self,
+        metadata_filters: dict | None = None,
+        ids: list | None = None,
+        offset: int | None = 0,
+        limit: int | None = 100,
+    ) -> list[dict]:
+        """Return stored chunk documents matching a metadata filter."""
+        return await self.document_storage.get_documents(
+            metadata_filters=metadata_filters or {},
+            ids=ids,
+            offset=offset,
+            limit=limit,
+        )
+
+    async def list_kb_doc_ids(self) -> set[str]:
+        """Return the distinct knowledge-base document IDs referenced by chunks."""
+        return await self.document_storage.list_kb_doc_ids()
+
+    async def relabel_kb_doc_id(self, from_doc_id: str, to_doc_id: str) -> None:
+        """Rewrite chunk metadata ``kb_doc_id`` from staging to live."""
+        await self.document_storage.relabel_kb_doc_id(from_doc_id, to_doc_id)

@@ -262,7 +262,7 @@ def test_bot_message_accumulator_merges_streaming_reasoning_and_tool_results():
     accumulator.add_plain("lo", chain_type=None, streaming=True)
     accumulator.add_plain("thinking", chain_type="reasoning", streaming=True)
     accumulator.add_plain(
-        '{"id":"call-1","name":"web_search_baidu"}',
+        '{"id":"call-1","name":"web_search"}',
         chain_type="tool_call",
         streaming=True,
     )
@@ -283,7 +283,7 @@ def test_bot_message_accumulator_merges_streaming_reasoning_and_tool_results():
             "tool_calls": [
                 {
                     "id": "call-1",
-                    "name": "web_search_baidu",
+                    "name": "web_search",
                     "result": "done",
                     "finished_ts": 123,
                 }
@@ -296,7 +296,7 @@ def test_bot_message_accumulator_flushes_unfinished_tool_calls_when_requested():
     accumulator = BotMessageAccumulator()
 
     accumulator.add_plain(
-        '{"id":"call-2","name":"web_search_tavily"}',
+        '{"id":"call-2","name":"web_search"}',
         chain_type="tool_call",
         streaming=True,
     )
@@ -304,7 +304,7 @@ def test_bot_message_accumulator_flushes_unfinished_tool_calls_when_requested():
     assert accumulator.build_message_parts(include_pending_tool_calls=True) == [
         {
             "type": "tool_call",
-            "tool_calls": [{"id": "call-2", "name": "web_search_tavily"}],
+            "tool_calls": [{"id": "call-2", "name": "web_search"}],
         }
     ]
     assert accumulator.pending_tool_calls == {}
@@ -321,7 +321,7 @@ def test_extract_web_search_refs_filters_supported_results_and_adds_favicon():
                 "type": "tool_call",
                 "tool_calls": [
                     {
-                        "name": "web_search_baidu",
+                        "name": "web_search",
                         "result": (
                             '{"results":[{"index":"1","url":"https://example.com",'
                             '"title":"Example","snippet":"snippet"}]}'
@@ -677,6 +677,7 @@ async def test_build_chat_stream_saves_plain_response_and_emits_saved_events(
         {},
         "mid-1",
         "webchat",
+        None,
     )
     remove_back_queue.assert_called_once_with("mid-1")
 
@@ -743,7 +744,7 @@ async def test_build_chat_stream_collects_tool_call_refs_and_agent_stats_on_end(
                 {
                     "message_id": "mid-2",
                     "type": "plain",
-                    "data": '{"id":"call-1","name":"web_search_baidu"}',
+                    "data": '{"id":"call-1","name":"web_search"}',
                     "streaming": True,
                     "chain_type": "tool_call",
                 },
@@ -794,7 +795,7 @@ async def test_build_chat_stream_collects_tool_call_refs_and_agent_stats_on_end(
         {
             "message_id": "mid-2",
             "type": "plain",
-            "data": '{"id":"call-1","name":"web_search_baidu"}',
+            "data": '{"id":"call-1","name":"web_search"}',
             "streaming": True,
             "chain_type": "tool_call",
         }
@@ -851,7 +852,7 @@ async def test_build_chat_stream_collects_tool_call_refs_and_agent_stats_on_end(
                     "tool_calls": [
                         {
                             "id": "call-1",
-                            "name": "web_search_baidu",
+                            "name": "web_search",
                             "result": '{"results":[{"index":"1","url":"https://example.com","title":"Example","snippet":"Snippet"}]}',
                             "finished_ts": 123,
                         }
@@ -862,6 +863,7 @@ async def test_build_chat_stream_collects_tool_call_refs_and_agent_stats_on_end(
             {},
             "mid-2",
             "webchat",
+            None,
         ),
         call(
             "session-2",
@@ -870,6 +872,7 @@ async def test_build_chat_stream_collects_tool_call_refs_and_agent_stats_on_end(
             {},
             "mid-2",
             "webchat",
+            None,
         ),
     ]
 
@@ -940,6 +943,7 @@ async def test_chat_run_persists_native_refs_and_publishes_them():
         {"used": [native_refs["used"][0]]},
         run.llm_checkpoint_id,
         run.platform_history_id,
+        None,
     )
     assert any(payload["type"] == "refs" for payload in published)
 
@@ -1091,6 +1095,7 @@ async def test_build_chat_stream_emits_attachment_saved_event_for_image(monkeypa
         {},
         "mid-3",
         "webchat",
+        None,
     )
     assert any('"type": "attachment_saved"' in event for event in events)
 

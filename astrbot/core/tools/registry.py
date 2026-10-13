@@ -19,6 +19,7 @@ BUILTIN_TOOL_MODULES = (
     "astrbot.core.tools.message_tools",
     "astrbot.core.tools.skill_tools",
     "astrbot.core.tools.web_search_tools",
+    "astrbot.core.tools.web_search_router",
     "astrbot.core.tools.work_tools",
 )
 

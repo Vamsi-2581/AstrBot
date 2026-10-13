@@ -85,3 +85,33 @@ data/logs/event_loop_watchdog.log
 `astrbot.log` 中的堆栈不再包含 loguru 局部变量转储，栈帧里的绝对路径会被替换为 `[REDACTED_PATH]`。出口只脱敏已识别模式（密钥字段、Bearer、URL、绝对路径）。Cookie、私聊内容和自定义 secret 不保证被剥离。
 
 提交日志前仍需人工检查并遮盖 API Key、Token、Cookie、私聊内容等敏感信息。
+
+## 运行指标与追踪
+
+AstrBot 可以暴露运行指标和 OpenTelemetry 追踪，二者默认关闭，不影响标准安装。
+可在 WebUI 的 `设置 → 系统` 中配置，或编辑 `data/cmd_config.json`：
+
+```json
+"observability": {
+  "enable": false,
+  "metrics_enable": false,
+  "tracing_enable": false,
+  "service_name": "astrbot"
+}
+```
+
+- `enable` 是总开关，其他选项仅在它为 `true` 时生效。
+- `metrics_enable` 在 WebUI 端口的 `GET /metrics` 上输出 Prometheus 文本指标。
+  该端点无需鉴权；关闭时返回 `404`，因此只应在可信网络或反向代理后暴露。
+- `tracing_enable` 通过 OpenTelemetry API 为消息流水线和每次 Agent 运行生成
+  span。AstrBot 不内置导出器；需要自行安装并配置 OpenTelemetry SDK，或使用
+  `opentelemetry-instrument` 启动进程来导出。`service_name` 设置上报的服务名。
+
+指标端点包含：
+
+- `astrbot_events_received_total{platform}` 与 `astrbot_events_processed_total`。
+- `astrbot_event_bus_backlog` 与 `astrbot_webchat_queue_depth` 两个 gauge。
+- `astrbot_agent_steps_total` 与 `astrbot_llm_calls_total{provider}`。
+- `astrbot_llm_tokens_total{provider,type}`。
+- `astrbot_llm_time_to_first_token_seconds` 与
+  `astrbot_llm_call_duration_seconds` 两个 histogram。

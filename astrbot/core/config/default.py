@@ -157,7 +157,9 @@ DEFAULT_CONFIG = {
         "image_caption_prompt": "Please describe the image using Chinese.",
         "provider_pool": ["*"],  # "*" 表示使用所有可用的提供者
         "web_search": False,
-        "websearch_provider": "tavily",
+        "websearch_route": ["searxng", "duckduckgo"],
+        "websearch_oversample": 8,
+        "websearch_searxng_url": "",
         "websearch_tavily_key": [],
         "websearch_bocha_key": [],
         "websearch_brave_key": [],
@@ -313,6 +315,20 @@ DEFAULT_CONFIG = {
         "port": 6185,
         "disable_access_log": True,
         "trust_proxy_headers": False,
+        "chatui_multi_model": {
+            "enable": False,
+            "max_models": 3,
+        },
+        "oidc": {
+            "enable": False,
+            "issuer": "",
+            "client_id": "",
+            "client_secret": "",
+            "redirect_uri": "",
+            "scopes": "openid profile email",
+            "auto_create": True,
+            "button_label": "SSO",
+        },
         "auth_rate_limit": {
             "enable": True,
             "average_interval": 1.0,
@@ -375,6 +391,12 @@ DEFAULT_CONFIG = {
         "log_path": "logs/astrbot.trace.log",
         "log_max_mb": 20,
     },
+    "observability": {
+        "enable": False,
+        "metrics_enable": False,
+        "tracing_enable": False,
+        "service_name": "astrbot",
+    },
     "pip_install_arg": "",
     "pypi_index_url": "https://mirrors.aliyun.com/pypi/simple/",
     "timezone": "Asia/Shanghai",
@@ -385,6 +407,12 @@ DEFAULT_CONFIG = {
         "fusion_top_k": 20,  # 知识库检索融合阶段返回结果数量
         "final_top_k": 5,  # 知识库检索最终返回结果数量
         "agentic_mode": False,
+        "extraction": {
+            "ocr_enable": False,
+            "ocr_languages": "eng",
+            "tika_url": "",
+        },
+        "vector_store": "faiss",
     },
     "disable_metrics": False,
 }
@@ -3909,6 +3937,28 @@ CONFIG_METADATA_3 = {
                         "type": "bool",
                         "hint": "启用后，知识库检索将作为 LLM Tool，由模型自主决定何时调用知识库进行查询。需要模型支持函数调用能力。",
                     },
+                    "knowledge_base.extraction.tika_url": {
+                        "description": "外部 Tika 提取服务地址",
+                        "type": "string",
+                        "hint": "填写后，知识库文档解析改为调用该 Apache Tika（或兼容）服务，可处理更多格式与扫描件。留空则使用内置解析器。",
+                    },
+                    "knowledge_base.extraction.ocr_enable": {
+                        "description": "启用 OCR 提取扫描件文本",
+                        "type": "bool",
+                        "hint": "开启后，图片与无文本的扫描 PDF 会尝试使用 Tesseract OCR 提取文字。需要自行安装 pytesseract 与 Tesseract。",
+                    },
+                    "knowledge_base.extraction.ocr_languages": {
+                        "description": "OCR 语言",
+                        "type": "string",
+                        "hint": "Tesseract 语言参数，例如 eng、chi_sim 或 eng+chi_sim。",
+                        "condition": {"knowledge_base.extraction.ocr_enable": True},
+                    },
+                    "knowledge_base.vector_store": {
+                        "description": "向量存储后端",
+                        "type": "string",
+                        "options": ["faiss", "exact"],
+                        "hint": "faiss 为默认的单节点本地索引；exact 使用纯 NumPy 精确检索，无需安装 FAISS，适合小型知识库。更改后端不会自动迁移已有索引。",
+                    },
                 },
                 "condition": {
                     "agent_runner.runner_type": "local",
@@ -3925,18 +3975,36 @@ CONFIG_METADATA_3 = {
                         "description": "启用网页搜索",
                         "type": "bool",
                     },
-                    "provider_settings.websearch_provider": {
-                        "description": "网页搜索提供商",
-                        "type": "string",
+                    "provider_settings.websearch_route": {
+                        "description": "网页搜索来源（按优先级排序，可多选）",
+                        "type": "list",
                         "options": [
+                            "searxng",
+                            "duckduckgo",
                             "tavily",
-                            "baidu_ai_search",
                             "bocha",
                             "brave",
                             "exa",
                             "firecrawl",
+                            "baidu_ai_search",
                             "anysearch",
                         ],
+                        "condition": {
+                            "provider_settings.web_search": True,
+                        },
+                    },
+                    "provider_settings.websearch_oversample": {
+                        "description": "每来源候选倍数",
+                        "type": "int",
+                        "hint": "每个来源按 目标结果数 × 该倍数 取候选，再经 canonical 去重与 RRF 融合。",
+                        "condition": {
+                            "provider_settings.web_search": True,
+                        },
+                    },
+                    "provider_settings.websearch_searxng_url": {
+                        "description": "SearXNG 实例地址",
+                        "type": "string",
+                        "hint": "自托管 SearXNG 需在实例 settings.yml 的 search.formats 中启用 json，否则返回 403。",
                         "condition": {
                             "provider_settings.web_search": True,
                         },
@@ -3947,7 +4015,6 @@ CONFIG_METADATA_3 = {
                         "items": {"type": "string"},
                         "hint": "可添加多个 Key 进行轮询。",
                         "condition": {
-                            "provider_settings.websearch_provider": "tavily",
                             "provider_settings.web_search": True,
                         },
                     },
@@ -3957,7 +4024,6 @@ CONFIG_METADATA_3 = {
                         "items": {"type": "string"},
                         "hint": "可添加多个 Key 进行轮询。",
                         "condition": {
-                            "provider_settings.websearch_provider": "bocha",
                             "provider_settings.web_search": True,
                         },
                     },
@@ -3967,7 +4033,6 @@ CONFIG_METADATA_3 = {
                         "items": {"type": "string"},
                         "hint": "可添加多个 Key 进行轮询。",
                         "condition": {
-                            "provider_settings.websearch_provider": "brave",
                             "provider_settings.web_search": True,
                         },
                     },
@@ -3977,7 +4042,6 @@ CONFIG_METADATA_3 = {
                         "items": {"type": "string"},
                         "hint": "可添加多个 Key 进行轮询。",
                         "condition": {
-                            "provider_settings.websearch_provider": "firecrawl",
                             "provider_settings.web_search": True,
                         },
                     },
@@ -3986,7 +4050,6 @@ CONFIG_METADATA_3 = {
                         "type": "string",
                         "hint": "参考：https://console.bce.baidu.com/iam/#/iam/apikey/list",
                         "condition": {
-                            "provider_settings.websearch_provider": "baidu_ai_search",
                             "provider_settings.web_search": True,
                         },
                     },
@@ -3996,7 +4059,6 @@ CONFIG_METADATA_3 = {
                         "items": {"type": "string"},
                         "hint": "可添加多个 Key 进行轮询。Get a key at https://dashboard.exa.ai",
                         "condition": {
-                            "provider_settings.websearch_provider": "exa",
                             "provider_settings.web_search": True,
                         },
                     },
@@ -4006,7 +4068,6 @@ CONFIG_METADATA_3 = {
                         "items": {"type": "string"},
                         "hint": "可添加多个 Key 进行轮询。留空则使用匿名模式（每日免费额度）。申请地址：https://anysearch.com/console/api-keys",
                         "condition": {
-                            "provider_settings.websearch_provider": "anysearch",
                             "provider_settings.web_search": True,
                         },
                     },
@@ -5089,6 +5150,52 @@ CONFIG_METADATA_3_SYSTEM = {
                         "type": "bool",
                         "hint": "关闭时忽略 X-Forwarded-For/X-Real-IP，仅使用连接地址。",
                     },
+                    "dashboard.chatui_multi_model.enable": {
+                        "description": "启用 ChatUI 多模型并行对话",
+                        "type": "bool",
+                        "hint": "开启后，ChatUI 可为一个提示词同时选择多个模型，并排查看各自回答。默认关闭。",
+                    },
+                    "dashboard.chatui_multi_model.max_models": {
+                        "description": "多模型并行数量上限",
+                        "type": "int",
+                        "hint": "一次提示词最多并行运行的模型数量，范围 2-8。",
+                        "condition": {"dashboard.chatui_multi_model.enable": True},
+                    },
+                    "dashboard.oidc.enable": {
+                        "description": "启用 OIDC 单点登录",
+                        "type": "bool",
+                        "hint": "开启后，登录页显示 SSO 按钮，可通过外部身份提供方登录。本地密码与 TOTP 不受影响。",
+                    },
+                    "dashboard.oidc.issuer": {
+                        "description": "OIDC Issuer",
+                        "type": "string",
+                        "hint": "提供方的 issuer 地址，例如 https://idp.example.com。AstrBot 会读取其 /.well-known/openid-configuration。",
+                        "condition": {"dashboard.oidc.enable": True},
+                    },
+                    "dashboard.oidc.client_id": {
+                        "description": "OIDC Client ID",
+                        "type": "string",
+                        "hint": "在身份提供方注册的客户端 ID。",
+                        "condition": {"dashboard.oidc.enable": True},
+                    },
+                    "dashboard.oidc.client_secret": {
+                        "description": "OIDC Client Secret",
+                        "type": "string",
+                        "hint": "客户端密钥，仅用于服务器端换取 token，不会下发到浏览器。",
+                        "condition": {"dashboard.oidc.enable": True},
+                    },
+                    "dashboard.oidc.redirect_uri": {
+                        "description": "OIDC 回调地址",
+                        "type": "string",
+                        "hint": "固定的服务器回调地址，需与提供方注册一致，例如 https://astrbot.example.com/api/v1/auth/oidc/callback。留空时使用 callback_api_base 拼接。",
+                        "condition": {"dashboard.oidc.enable": True},
+                    },
+                    "dashboard.oidc.auto_create": {
+                        "description": "首次登录自动创建账户",
+                        "type": "bool",
+                        "hint": "开启后，通过身份提供方验证的新用户会自动创建 Dashboard 账户（不授予任何角色）。关闭时仅允许已绑定的身份登录。",
+                        "condition": {"dashboard.oidc.enable": True},
+                    },
                     "dashboard.auth_rate_limit.enable": {
                         "description": "启用登录验证速率限制",
                         "type": "bool",
@@ -5164,6 +5271,32 @@ CONFIG_METADATA_3_SYSTEM = {
                         "description": "Trace 日志大小上限 (MB)",
                         "type": "int",
                         "hint": "超过大小后自动轮转，默认 20MB。",
+                    },
+                    "observability.enable": {
+                        "description": "启用运行指标与追踪",
+                        "type": "bool",
+                        "hint": "开启后可选择暴露 Prometheus 指标或 OpenTelemetry 追踪。默认关闭，不影响默认安装。",
+                    },
+                    "observability.metrics_enable": {
+                        "description": "暴露 Prometheus 指标端点",
+                        "type": "bool",
+                        "hint": "开启后，WebUI 端口的 GET /metrics 返回 Prometheus 文本格式指标。请仅在可信网络中暴露该端点。",
+                        "condition": {"observability.enable": True},
+                    },
+                    "observability.tracing_enable": {
+                        "description": "启用 OpenTelemetry 追踪",
+                        "type": "bool",
+                        "hint": "通过 OpenTelemetry API 生成消息流水线与 Agent 运行的 span。需要自行安装并配置 OpenTelemetry SDK，或使用 opentelemetry-instrument 启动，才会导出追踪数据。",
+                        "condition": {"observability.enable": True},
+                    },
+                    "observability.service_name": {
+                        "description": "OpenTelemetry 服务名",
+                        "type": "string",
+                        "hint": "追踪 span 中使用的服务名，默认为 astrbot。",
+                        "condition": {
+                            "observability.enable": True,
+                            "observability.tracing_enable": True,
+                        },
                     },
                     "pip_install_arg": {
                         "description": "pip 安装额外参数",

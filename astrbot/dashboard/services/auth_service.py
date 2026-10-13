@@ -23,7 +23,12 @@ from astrbot.core.auth.models import (
     Subject,
 )
 from astrbot.core.config.astrbot_config import AstrBotConfig
-from astrbot.core.db.po import AuthAuditLog, AuthRoleBinding, DashboardAccount
+from astrbot.core.db.po import (
+    AuthAuditLog,
+    AuthRoleBinding,
+    DashboardAccount,
+    DashboardExternalIdentity,
+)
 from astrbot.core.db.protocols import DatabaseSessionStore
 from astrbot.core.utils.auth_password import (
     hash_dashboard_password,
@@ -55,6 +60,7 @@ from astrbot.dashboard.password_state import (
     set_dashboard_password_hashes,
     set_dashboard_password_security_state,
 )
+from astrbot.dashboard.services.oidc_service import OidcClient, OidcError
 
 DASHBOARD_JWT_COOKIE_NAME = "astrbot_dashboard_jwt"
 DASHBOARD_JWT_COOKIE_MAX_AGE = 7 * 24 * 60 * 60
@@ -233,6 +239,7 @@ class AuthService:
         self.demo_mode = demo_mode
         self.totp_runtime_state = totp_runtime_state
         self._account_mutation_lock = asyncio.Lock()
+        self._oidc_states: dict[str, tuple[dict[str, Any], float]] = {}
         self.token_validator = token_validator or DashboardTokenValidator(
             self.config["dashboard"].get("jwt_secret", "")
         )
@@ -1014,6 +1021,284 @@ class AuthService:
                 totp_secret=account.totp_secret,
             )
         return result
+
+    _OIDC_STATE_TTL_SECONDS = 600
+    _OIDC_STATE_MAX_ENTRIES = 1024
+
+    def _oidc_config(self) -> dict[str, Any]:
+        dashboard = self.config.get("dashboard", {})
+        oidc = dashboard.get("oidc") if isinstance(dashboard, dict) else None
+        return oidc if isinstance(oidc, dict) else {}
+
+    @staticmethod
+    def _oidc_enabled(oidc: dict[str, Any]) -> bool:
+        return (
+            bool(oidc.get("enable"))
+            and bool(str(oidc.get("issuer") or "").strip())
+            and bool(str(oidc.get("client_id") or "").strip())
+        )
+
+    def _oidc_redirect_uri(self, oidc: dict[str, Any]) -> str:
+        explicit = str(oidc.get("redirect_uri") or "").strip()
+        if explicit:
+            return explicit
+        base = str(self.config.get("callback_api_base") or "").strip()
+        if base:
+            return base.rstrip("/") + "/api/v1/auth/oidc/callback"
+        return ""
+
+    def _store_oidc_state(self, state: str, data: dict[str, Any]) -> None:
+        now = datetime.datetime.now(datetime.UTC).timestamp()
+        self._oidc_states = {
+            key: value for key, value in self._oidc_states.items() if value[1] > now
+        }
+        # ``/auth/oidc/start`` is unauthenticated, so cap the pending-state map
+        # to keep a flood of start requests from growing it without bound.
+        if len(self._oidc_states) >= self._OIDC_STATE_MAX_ENTRIES:
+            overflow = len(self._oidc_states) - self._OIDC_STATE_MAX_ENTRIES + 1
+            for key in sorted(
+                self._oidc_states, key=lambda item: self._oidc_states[item][1]
+            )[:overflow]:
+                self._oidc_states.pop(key, None)
+        self._oidc_states[state] = (data, now + self._OIDC_STATE_TTL_SECONDS)
+
+    def _pop_oidc_state(self, state: str) -> dict[str, Any] | None:
+        entry = self._oidc_states.pop(state, None)
+        if entry is None:
+            return None
+        data, expiry = entry
+        if expiry <= datetime.datetime.now(datetime.UTC).timestamp():
+            return None
+        return data
+
+    async def oidc_status(self) -> AuthServiceResult:
+        """Report whether the SSO login button should be shown."""
+        oidc = self._oidc_config()
+        return AuthServiceResult(
+            data={
+                "enable": self._oidc_enabled(oidc),
+                "button_label": str(oidc.get("button_label") or "SSO"),
+            }
+        )
+
+    async def oidc_start(self) -> AuthServiceResult:
+        """Build the provider authorization URL with state and PKCE."""
+        oidc = self._oidc_config()
+        if not self._oidc_enabled(oidc):
+            return self.error("OIDC login is not enabled", status_code=404)
+        redirect_uri = self._oidc_redirect_uri(oidc)
+        if not redirect_uri:
+            return self.error("OIDC redirect URI is not configured", status_code=500)
+        try:
+            client = OidcClient(oidc)
+            (
+                authorize_url,
+                state,
+                nonce,
+                code_verifier,
+            ) = await client.build_authorization_url(redirect_uri)
+        except OidcError:
+            return self.error("SSO login is unavailable", status_code=502)
+        self._store_oidc_state(
+            state,
+            {
+                "code_verifier": code_verifier,
+                "nonce": nonce,
+                "redirect_uri": redirect_uri,
+            },
+        )
+        return AuthServiceResult(data={"authorize_url": authorize_url})
+
+    async def oidc_callback(self, code: str, state: str) -> AuthServiceResult:
+        """Complete the authorization-code flow and issue a Dashboard session."""
+        oidc = self._oidc_config()
+        if not self._oidc_enabled(oidc):
+            return self.error("OIDC login is not enabled", status_code=404)
+        entry = self._pop_oidc_state(state) if state else None
+        if entry is None or not code:
+            return self.error("SSO login expired", status_code=400)
+
+        try:
+            client = OidcClient(oidc)
+            tokens = await client.exchange_code(
+                code,
+                entry["redirect_uri"],
+                entry["code_verifier"],
+            )
+            claims = await client.verify_id_token(
+                str(tokens.get("id_token") or ""),
+                entry["nonce"],
+            )
+        except OidcError:
+            return self.error("SSO login failed", status_code=401)
+
+        subject = str(claims.get("sub") or "")
+        if not subject:
+            return self.error("SSO login failed", status_code=401)
+        provider = str(oidc.get("issuer") or "").rstrip("/")
+        email = claims.get("email")
+        email_value = str(email) if isinstance(email, str) and email else None
+
+        identity = await self._find_external_identity(provider, subject)
+        if identity is not None:
+            account = await self._find_account_by_id(identity.account_id)
+        elif bool(oidc.get("auto_create", True)):
+            account = await self._create_external_account(claims, subject)
+            if account is not None:
+                await self._link_external_identity(
+                    account.account_id, provider, subject, email_value
+                )
+        else:
+            return self.error(
+                "SSO login is not permitted for this account", status_code=403
+            )
+
+        if account is None or not account.is_active:
+            return self.error("SSO login failed", status_code=401)
+
+        await self._touch_external_login(provider, subject)
+        async with self.db.get_db() as session:
+            async with session.begin():
+                persisted = (
+                    await session.execute(
+                        select(DashboardAccount).where(
+                            col(DashboardAccount.account_id) == account.account_id
+                        )
+                    )
+                ).scalar_one_or_none()
+                if persisted is None or not persisted.is_active:
+                    return self.error("SSO login failed", status_code=401)
+                persisted.last_login_at = datetime.datetime.now(datetime.UTC)
+                account = persisted
+
+        token = self.generate_jwt(
+            account.username,
+            account_id=account.account_id,
+            auth_strength="oidc",
+        )
+        return AuthServiceResult(
+            data={
+                "token": token,
+                "username": account.username,
+                "change_pwd_hint": False,
+                "password_upgrade_required": False,
+            },
+            jwt_token=token,
+        )
+
+    async def _find_external_identity(
+        self, provider: str, subject: str
+    ) -> DashboardExternalIdentity | None:
+        async with self.db.get_db() as session:
+            result = await session.execute(
+                select(DashboardExternalIdentity).where(
+                    col(DashboardExternalIdentity.provider) == provider,
+                    col(DashboardExternalIdentity.subject) == subject,
+                )
+            )
+            return result.scalar_one_or_none()
+
+    async def _find_account_by_id(self, account_id: str) -> DashboardAccount | None:
+        async with self.db.get_db() as session:
+            result = await session.execute(
+                select(DashboardAccount).where(
+                    col(DashboardAccount.account_id) == account_id
+                )
+            )
+            return result.scalar_one_or_none()
+
+    async def _link_external_identity(
+        self,
+        account_id: str,
+        provider: str,
+        subject: str,
+        email: str | None,
+    ) -> None:
+        async with self.db.get_db() as session:
+            async with session.begin():
+                existing = (
+                    await session.execute(
+                        select(DashboardExternalIdentity).where(
+                            col(DashboardExternalIdentity.provider) == provider,
+                            col(DashboardExternalIdentity.subject) == subject,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if existing is None:
+                    session.add(
+                        DashboardExternalIdentity(
+                            account_id=account_id,
+                            provider=provider,
+                            subject=subject,
+                            email=email,
+                        )
+                    )
+
+    async def _touch_external_login(self, provider: str, subject: str) -> None:
+        async with self.db.get_db() as session:
+            async with session.begin():
+                identity = (
+                    await session.execute(
+                        select(DashboardExternalIdentity).where(
+                            col(DashboardExternalIdentity.provider) == provider,
+                            col(DashboardExternalIdentity.subject) == subject,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if identity is not None:
+                    identity.last_login_at = datetime.datetime.now(datetime.UTC)
+
+    async def _create_external_account(
+        self, claims: dict[str, Any], subject: str
+    ) -> DashboardAccount | None:
+        """Create a passwordless Dashboard account for a verified identity.
+
+        No role binding is created, so a first-time SSO login never receives
+        privileges from an unverified claim.
+        """
+        base = self._oidc_username_seed(claims, subject)
+        async with self.db.get_db() as session:
+            async with session.begin():
+                username = base
+                suffix = 1
+                while (
+                    await session.execute(
+                        select(DashboardAccount).where(
+                            col(DashboardAccount.username) == username
+                        )
+                    )
+                ).scalar_one_or_none() is not None:
+                    suffix += 1
+                    username = f"{base}-{suffix}"[:64]
+                account = DashboardAccount(
+                    username=username,
+                    password_hash=hash_dashboard_password(secrets.token_urlsafe(32)),
+                    created_by="oidc",
+                )
+                session.add(account)
+                await session.flush()
+                await session.refresh(account)
+                return account
+
+    @staticmethod
+    def _oidc_username_seed(claims: dict[str, Any], subject: str) -> str:
+        candidates = [
+            claims.get("preferred_username"),
+            claims.get("email"),
+            claims.get("name"),
+        ]
+        for candidate in candidates:
+            if not isinstance(candidate, str) or not candidate.strip():
+                continue
+            if "@" in candidate:
+                candidate = candidate.split("@", 1)[0]
+            sanitized = "".join(
+                char for char in candidate if char.isalnum() or char in "._-"
+            )
+            sanitized = sanitized.strip("._-")[:64]
+            if sanitized:
+                return sanitized
+        return f"oidc-{subject[:32]}"
 
     async def edit_account(
         self, post_data: object, *, account_id: str | None = None

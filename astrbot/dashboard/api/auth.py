@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 
 import jwt
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from astrbot.core.auth.models import AuthContext as CoreAuthContext
 from astrbot.core.auth.models import Resource, Subject
@@ -676,7 +676,7 @@ def use_secure_dashboard_cookie(request: Request) -> bool:
 
 def _set_dashboard_jwt_cookie(
     request: Request,
-    response: JSONResponse,
+    response: Response,
     token: str,
 ) -> None:
     response.set_cookie(
@@ -862,6 +862,35 @@ async def login(
     service: AuthService = Depends(get_auth_service),
 ):
     return await _login(request, payload, service)
+
+
+@router.get("/auth/oidc/status")
+async def oidc_status(
+    service: AuthService = Depends(get_auth_service),
+):
+    return _auth_service_response_from_result(await service.oidc_status())
+
+
+@router.get("/auth/oidc/start")
+async def oidc_start(
+    service: AuthService = Depends(get_auth_service),
+):
+    return _auth_service_response_from_result(await service.oidc_start())
+
+
+@router.get("/auth/oidc/callback")
+async def oidc_callback(
+    request: Request,
+    code: str = "",
+    state: str = "",
+    service: AuthService = Depends(get_auth_service),
+):
+    result = await service.oidc_callback(code, state)
+    if result.jwt_token:
+        response = RedirectResponse(url="/#/", status_code=302)
+        _set_dashboard_jwt_cookie(request, response, result.jwt_token)
+        return response
+    return RedirectResponse(url="/#/auth/login?oidc_error=1", status_code=302)
 
 
 @router.post("/auth/logout")

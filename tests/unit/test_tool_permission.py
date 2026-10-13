@@ -80,16 +80,10 @@ def test_builtin_web_search_tools_require_web_search_action():
     manager = FunctionToolManager()
 
     for name in (
-        "web_search_baidu",
-        "web_search_tavily",
+        "web_search",
         "tavily_extract_web_page",
-        "web_search_bocha",
-        "web_search_brave",
-        "web_search_exa",
-        "web_search_firecrawl",
         "firecrawl_extract_web_page",
         "exa_get_contents",
-        "web_search_anysearch",
     ):
         tool = manager.get_builtin_tool(name)
         assert FunctionToolExecutor._required_actions(tool) == ("tool.web_search",)

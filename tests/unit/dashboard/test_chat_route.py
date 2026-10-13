@@ -183,7 +183,7 @@ def test_open_api_websocket_bridge_uses_chat_preferences_for_search_refs(
                 "type": "tool_call",
                 "tool_calls": [
                     {
-                        "name": "web_search_baidu",
+                        "name": "web_search",
                         "result": json.dumps(
                             {
                                 "results": [

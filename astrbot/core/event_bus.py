@@ -12,9 +12,11 @@ class:
 
 import asyncio
 import time
+from contextlib import nullcontext
 
 from astrbot import logger
 from astrbot.core.astrbot_config_mgr import AstrBotConfigManager
+from astrbot.core.observability import get_observability
 from astrbot.core.pipeline.scheduler import PipelineScheduler
 from astrbot.core.utils.error_redaction import redact_sensitive_text
 
@@ -44,6 +46,7 @@ class EventBus:
     async def dispatch(self) -> None:
         while True:
             event: AstrMessageEvent = await self.event_queue.get()
+            get_observability().record_event(event.get_platform_name())
             try:
                 routing_umo = self._routing_umo(event)
                 conf_info = self.astrbot_config_mgr.get_conf_info(routing_umo)
@@ -87,10 +90,22 @@ class EventBus:
         scheduler: PipelineScheduler,
         event: AstrMessageEvent,
     ) -> None:
+        observability = get_observability()
+        # Only build the span attributes when tracing is actually enabled.
+        span = (
+            observability.span(
+                "pipeline.execute",
+                {"platform": event.get_platform_name()},
+            )
+            if observability.tracing_enabled
+            else nullcontext()
+        )
         try:
-            await scheduler.execute(event)
+            with span:
+                await scheduler.execute(event)
         finally:
             self._semaphore.release()
+            observability.record_event_processed()
 
     def _on_task_done(self, task: asyncio.Task) -> None:
         """pipeline 任务结束回调: 移除强引用并暴露未捕获的异常"""

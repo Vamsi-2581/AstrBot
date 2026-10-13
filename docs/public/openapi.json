@@ -1156,7 +1156,7 @@
         "tags": ["Chat"],
         "summary": "List webchat sessions",
         "operationId": "listChatSessions",
-        "description": "API-key requests return a paginated object and require username. Dashboard requests with page or page_size return the same paginated object (sessions, page, page_size, total), scoped to the authenticated user. Dashboard requests without pagination parameters retain the legacy array response, limited to 100 sessions. Paginated requests default to page 1 and page_size 20, with page_size clamped to 1-100.",
+        "description": "API-key requests return a paginated object and require username. Dashboard requests with page, page_size, or search return the same paginated object (sessions, page, page_size, total), scoped to the authenticated user. Dashboard requests without pagination parameters retain the legacy array response, limited to 100 sessions. Paginated requests default to page 1 and page_size 20, with page_size clamped to 1-100. The search parameter filters by title.",
         "x-astrbot-scope": "chat",
         "parameters": [
           {
@@ -1166,6 +1166,15 @@
             "$ref": "#/components/parameters/PageSize"
           },
           {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter sessions by title (case-insensitive partial match)."
+          },
+          {
             "name": "username",
             "in": "query",
             "schema": {
@@ -1173,6 +1182,20 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          }
+        }
+      }
+    },
+    "/api/v1/chat/features": {
+      "get": {
+        "tags": ["Chat"],
+        "summary": "Get ChatUI feature flags",
+        "description": "Returns ChatUI feature flags derived from the runtime configuration, including whether multi-model parallel chat is enabled and its cap.",
+        "operationId": "getChatFeatures",
+        "x-astrbot-scope": "chat",
         "responses": {
           "200": {
             "$ref": "#/components/responses/Ok"
@@ -1320,6 +1343,103 @@
         "responses": {
           "200": {
             "$ref": "#/components/responses/Ok"
+          }
+        }
+      }
+    },
+    "/api/v1/chat/sessions/{session_id}/share": {
+      "post": {
+        "tags": ["Chat"],
+        "summary": "Create a read-only share link for a webchat session",
+        "description": "Returns the raw share token once. Only its hash is stored; the link can be revoked and may expire.",
+        "operationId": "createChatShare",
+        "x-astrbot-scope": "chat",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatShareCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          }
+        }
+      }
+    },
+    "/api/v1/chat/sessions/{session_id}/shares": {
+      "get": {
+        "tags": ["Chat"],
+        "summary": "List share links for a webchat session",
+        "operationId": "listChatShares",
+        "x-astrbot-scope": "chat",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          }
+        }
+      }
+    },
+    "/api/v1/chat/shares/{share_id}": {
+      "delete": {
+        "tags": ["Chat"],
+        "summary": "Revoke a share link",
+        "operationId": "revokeChatShare",
+        "x-astrbot-scope": "chat",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{token}": {
+      "get": {
+        "tags": ["Chat"],
+        "summary": "Read a shared conversation transcript",
+        "description": "Unauthenticated read-only access to one shared transcript. Returns the shared session's text messages only, never other sessions or file tokens. Unknown, revoked, or expired tokens return 404.",
+        "operationId": "getSharedConversation",
+        "security": [],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "404": {
+            "description": "Share not found"
           }
         }
       }
@@ -6159,6 +6279,18 @@
         "properties": {
           "display_name": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ChatShareCreateRequest": {
+        "type": "object",
+        "properties": {
+          "expires_in_days": {
+            "type": "integer",
+            "enum": [0, 1, 7, 30, 90],
+            "default": 7,
+            "description": "0 means the link never expires."
           }
         },
         "additionalProperties": false

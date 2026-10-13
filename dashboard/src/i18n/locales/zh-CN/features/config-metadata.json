@@ -287,6 +287,24 @@
         "agentic_mode": {
           "description": "Agentic 知识库检索",
           "hint": "启用后,知识库检索将作为 LLM Tool,由模型自主决定何时调用知识库进行查询。需要模型支持函数调用能力。"
+        },
+        "extraction": {
+          "tika_url": {
+            "description": "外部 Tika 提取服务地址",
+            "hint": "填写后，知识库文档解析改为调用该 Apache Tika（或兼容）服务，可处理更多格式与扫描件。留空则使用内置解析器。"
+          },
+          "ocr_enable": {
+            "description": "启用 OCR 提取扫描件文本",
+            "hint": "开启后，图片与无文本的扫描 PDF 会尝试使用 Tesseract OCR 提取文字。需要自行安装 pytesseract 与 Tesseract。"
+          },
+          "ocr_languages": {
+            "description": "OCR 语言",
+            "hint": "Tesseract 语言参数，例如 eng、chi_sim 或 eng+chi_sim。"
+          }
+        },
+        "vector_store": {
+          "description": "向量存储后端",
+          "hint": "faiss 为默认的单节点本地索引；exact 使用纯 NumPy 精确检索，无需安装 FAISS，适合小型知识库。更改后端不会自动迁移已有索引。"
         }
       }
     },
@@ -297,8 +315,17 @@
         "web_search": {
           "description": "启用网页搜索"
         },
-        "websearch_provider": {
-          "description": "网页搜索提供商"
+        "websearch_route": {
+          "description": "网页搜索来源（按优先级排序，可多选）",
+          "hint": "并行查询所选来源，按 canonical URL 去重后以 RRF 融合。顺序即优先级。"
+        },
+        "websearch_oversample": {
+          "description": "每来源候选倍数",
+          "hint": "每个来源按 目标结果数 × 该倍数 取候选，再融合。"
+        },
+        "websearch_searxng_url": {
+          "description": "SearXNG 实例地址",
+          "hint": "自托管 SearXNG 需在实例 settings.yml 的 search.formats 中启用 json，否则返回 403。"
         },
         "websearch_tavily_key": {
           "description": "Tavily API Key",
@@ -1514,6 +1541,42 @@
           "description": "信任代理请求头获取客户端 IP",
           "hint": "关闭时忽略 X-Forwarded-For/X-Real-IP，仅使用连接地址。"
         },
+        "chatui_multi_model": {
+          "enable": {
+            "description": "启用 ChatUI 多模型并行对话",
+            "hint": "开启后，ChatUI 可为一个提示词同时选择多个模型，并排查看各自回答。默认关闭。"
+          },
+          "max_models": {
+            "description": "多模型并行数量上限",
+            "hint": "一次提示词最多并行运行的模型数量，范围 2-8。"
+          }
+        },
+        "oidc": {
+          "enable": {
+            "description": "启用 OIDC 单点登录",
+            "hint": "开启后，登录页显示 SSO 按钮。本地密码与 TOTP 登录不受影响。"
+          },
+          "issuer": {
+            "description": "OIDC Issuer",
+            "hint": "提供方的 issuer 地址，例如 https://idp.example.com。AstrBot 会读取其 /.well-known/openid-configuration。"
+          },
+          "client_id": {
+            "description": "OIDC Client ID",
+            "hint": "在身份提供方注册的客户端 ID。"
+          },
+          "client_secret": {
+            "description": "OIDC Client Secret",
+            "hint": "客户端密钥，仅用于服务器端换取 token，不会下发到浏览器。"
+          },
+          "redirect_uri": {
+            "description": "OIDC 回调地址",
+            "hint": "固定的服务器回调地址，需与提供方注册一致，例如 https://astrbot.example.com/api/v1/auth/oidc/callback。留空时使用 callback_api_base 拼接。"
+          },
+          "auto_create": {
+            "description": "首次登录自动创建账户",
+            "hint": "开启后，通过身份提供方验证的新用户会自动创建 Dashboard 账户（不授予任何角色）。关闭时仅允许已绑定的身份登录。"
+          }
+        },
         "auth_rate_limit": {
           "enable": {
             "description": "启用登录验证速率限制",
@@ -1648,6 +1711,24 @@
         "log_max_mb": {
           "description": "Trace 日志大小上限 (MB)",
           "hint": "超过大小后自动轮转，默认 20MB。"
+        }
+      },
+      "observability": {
+        "enable": {
+          "description": "启用运行指标与追踪",
+          "hint": "开启后可选择暴露 Prometheus 指标或 OpenTelemetry 追踪。默认关闭，不影响默认安装。"
+        },
+        "metrics_enable": {
+          "description": "暴露 Prometheus 指标端点",
+          "hint": "开启后，WebUI 端口的 GET /metrics 返回 Prometheus 文本格式指标。请仅在可信网络中暴露该端点。"
+        },
+        "tracing_enable": {
+          "description": "启用 OpenTelemetry 追踪",
+          "hint": "通过 OpenTelemetry API 生成消息流水线与 Agent 运行的 span。需要自行安装并配置 OpenTelemetry SDK，或使用 opentelemetry-instrument 启动，才会导出追踪数据。"
+        },
+        "service_name": {
+          "description": "OpenTelemetry 服务名",
+          "hint": "追踪 span 中使用的服务名，默认为 astrbot。"
         }
       }
     }

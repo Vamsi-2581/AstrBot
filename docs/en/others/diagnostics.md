@@ -85,3 +85,38 @@ When diagnosing a problem, collect as much of the following as possible:
 Stack traces in `astrbot.log` no longer include loguru local-variable dumps, and absolute paths in frames are replaced with `[REDACTED_PATH]`. The sink only redacts recognized patterns (secret fields, Bearer tokens, URLs, and absolute paths). Cookies, private chat content, and custom secrets are not guaranteed to be stripped.
 
 Before sharing logs, still review and redact API keys, tokens, cookies, private chat content, and other sensitive information.
+
+## Operational Metrics and Tracing
+
+AstrBot can expose operational metrics and OpenTelemetry traces. Both are off by
+default so the standard install is unchanged. Configure them in the WebUI under
+`Settings → System`, or in `data/cmd_config.json`:
+
+```json
+"observability": {
+  "enable": false,
+  "metrics_enable": false,
+  "tracing_enable": false,
+  "service_name": "astrbot"
+}
+```
+
+- `enable` is the master switch. The other options only take effect when it is
+  true.
+- `metrics_enable` serves Prometheus text metrics at `GET /metrics` on the
+  WebUI port. The endpoint is unauthenticated and returns `404` when disabled,
+  so only expose it on a trusted network or behind a reverse proxy.
+- `tracing_enable` emits spans through the OpenTelemetry API for the message
+  pipeline and each agent run. AstrBot does not bundle an exporter; install and
+  configure an OpenTelemetry SDK, or start the process with
+  `opentelemetry-instrument`, to export the spans. `service_name` sets the
+  reported service name.
+
+The metrics endpoint reports:
+
+- `astrbot_events_received_total{platform}` and `astrbot_events_processed_total`.
+- `astrbot_event_bus_backlog` and `astrbot_webchat_queue_depth` gauges.
+- `astrbot_agent_steps_total` and `astrbot_llm_calls_total{provider}`.
+- `astrbot_llm_tokens_total{provider,type}`.
+- `astrbot_llm_time_to_first_token_seconds` and
+  `astrbot_llm_call_duration_seconds` histograms.

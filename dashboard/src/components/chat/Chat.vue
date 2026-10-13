@@ -83,6 +83,21 @@
         />
       </div>
 
+      <div v-if="!isSidebarCollapsed" class="session-search">
+        <v-text-field
+          :model-value="sessionSearchInput"
+          density="compact"
+          variant="solo-filled"
+          flat
+          hide-details
+          clearable
+          prepend-inner-icon="mdi-magnify"
+          :placeholder="tm('conversation.searchPlaceholder')"
+          :aria-label="tm('conversation.searchPlaceholder')"
+          @update:model-value="onSessionSearchInput"
+        />
+      </div>
+
       <div
         v-if="!isSidebarCollapsed"
         ref="sidebarContent"
@@ -107,6 +122,14 @@
             sessionTitle(session)
           }}</span>
           <div class="session-actions" @click.stop>
+            <v-btn
+              icon="mdi-share-variant-outline"
+              size="x-small"
+              variant="text"
+              class="session-action-btn"
+              :title="tm('actions.share')"
+              @click="openShareDialog(session)"
+            />
             <v-btn
               icon="mdi-pencil-outline"
               size="x-small"
@@ -369,6 +392,9 @@
             :current-session="currentSession"
             :reply-to="chatInputReplyTarget"
             :send-shortcut="sendShortcut"
+            :multi-model-enabled="multiModelEnabled"
+            :multi-model-max="multiModelMax"
+            :multi-model-selection="multiModelSelection"
             :placeholder="tm('input.projectPlaceholder')"
             @send="sendCurrentMessage"
             @stop="stopCurrentSession"
@@ -387,6 +413,7 @@
             @clear-reply="replyTarget = null"
             @config-changed="handleChatConfigChange"
             @toggle-web-chat-tools="toggleWebChatTools"
+            @update:multi-model-selection="multiModelSelection = $event"
           />
         </section>
       </ProjectView>
@@ -444,6 +471,7 @@
             <ChatMessageList
               v-model:edit-draft="messageEditDraft"
               :messages="activeMessages"
+              :branch-labels="branchLabels"
               :is-dark="isDark"
               :is-streaming="
                 Boolean(currSessionId && isSessionRunning(currSessionId))
@@ -476,6 +504,7 @@
               @open-thread="openThreadPanel"
               @open-reasoning="openReasoningPanel"
               @open-refs="openRefsSidebar"
+              @select-branch="setBranchSelection"
             />
           </div>
         </section>
@@ -511,6 +540,9 @@
             :current-session="currentSession"
             :reply-to="chatInputReplyTarget"
             :send-shortcut="sendShortcut"
+            :multi-model-enabled="multiModelEnabled"
+            :multi-model-max="multiModelMax"
+            :multi-model-selection="multiModelSelection"
             @send="sendCurrentMessage"
             @stop="stopCurrentSession"
             @toggle-streaming="toggleStreaming"
@@ -528,6 +560,7 @@
             @clear-reply="replyTarget = null"
             @config-changed="handleChatConfigChange"
             @toggle-web-chat-tools="toggleWebChatTools"
+            @update:multi-model-selection="multiModelSelection = $event"
           />
         </section>
       </template>
@@ -612,6 +645,10 @@
       @confirm="submitStepUp"
       @cancel="cancelWebChatTools"
     />
+    <ShareSessionDialog
+      v-model="shareDialogOpen"
+      :session-id="shareSessionId"
+    />
   </div>
 </template>
 
@@ -640,11 +677,13 @@ import ChatInput from '@/components/chat/ChatInput.vue';
 import DashboardStepUpDialog from '@/components/shared/DashboardStepUpDialog.vue';
 import ChatMessageList from '@/components/chat/ChatMessageList.vue';
 import ChatLoadError from '@/components/chat/ChatLoadError.vue';
+import ShareSessionDialog from '@/components/chat/ShareSessionDialog.vue';
 import type { RegenerateModelSelection } from '@/components/chat/RegenerateMenu.vue';
 import ReasoningSidebar from '@/components/chat/ReasoningSidebar.vue';
 import ThreadPanel from '@/components/chat/ThreadPanel.vue';
 import RefsSidebar from '@/components/chat/message_list_comps/RefsSidebar.vue';
 import { useSessions, type Session } from '@/composables/useSessions';
+import type { MultiModelSelection } from '@/components/chat/MultiModelMenu.vue';
 import {
   messageBlocks as buildMessageBlocks,
   useMessages,
@@ -698,13 +737,32 @@ const { languageOptions, currentLanguage, switchLanguage, locale } =
 const {
   sessions,
   sessionsPagination,
+  sessionSearch,
   currSessionId,
   getSessions,
+  setSessionSearch,
   newSession,
   newChat,
   deleteSession,
   updateSessionTitle,
 } = useSessions(props.chatboxMode);
+
+const sessionSearchInput = ref(sessionSearch.value);
+let sessionSearchTimer: ReturnType<typeof setTimeout> | null = null;
+function onSessionSearchInput(value: string) {
+  sessionSearchInput.value = value ?? '';
+  if (sessionSearchTimer) {
+    clearTimeout(sessionSearchTimer);
+  }
+  sessionSearchTimer = setTimeout(() => {
+    void setSessionSearch(sessionSearchInput.value);
+  }, 250);
+}
+onBeforeUnmount(() => {
+  if (sessionSearchTimer) {
+    clearTimeout(sessionSearchTimer);
+  }
+});
 const {
   projects,
   selectedProjectId,
@@ -870,6 +928,9 @@ const {
   loadSessionMessages,
   loadEarlierMessages,
   createLocalExchange,
+  createLocalBranchRecord,
+  branchLabels,
+  setBranchSelection,
   sendMessageStream,
   editMessage,
   continueEditedMessage,
@@ -945,6 +1006,24 @@ const {
   },
 });
 
+const multiModelEnabled = ref(false);
+const multiModelMax = ref(3);
+const multiModelSelection = ref<MultiModelSelection[]>([]);
+
+async function loadChatFeatures() {
+  try {
+    const response = await chatApi.getFeatures();
+    const data = response.data.data;
+    multiModelEnabled.value = Boolean(data?.multi_model?.enable);
+    multiModelMax.value = data?.multi_model?.max_models || 3;
+    if (!multiModelEnabled.value) {
+      multiModelSelection.value = [];
+    }
+  } catch (error) {
+    console.error('Failed to load chat features:', error);
+  }
+}
+
 const activeSessionPagination = computed(() =>
   currSessionId.value
     ? paginationBySession.get(currSessionId.value)
@@ -964,6 +1043,13 @@ const {
 watch(webChatStepUpExpiresAt, (expiresAt) => {
   if (expiresAt === null) webChatStepUpTokens.value = null;
 });
+
+const shareDialogOpen = ref(false);
+const shareSessionId = ref('');
+function openShareDialog(session: Session) {
+  shareSessionId.value = session.session_id;
+  shareDialogOpen.value = true;
+}
 
 watch(currSessionId, (sessionId, previousSessionId) => {
   if (!previousSessionId || sessionId === previousSessionId) return;
@@ -1193,7 +1279,12 @@ onMounted(async () => {
   window.addEventListener('beforeunload', flushDraft);
   loadingSessions.value = true;
   try {
-    await Promise.all([getSessions(), getProjects(), loadTokenProviders()]);
+    await Promise.all([
+      getSessions(),
+      getProjects(),
+      loadTokenProviders(),
+      loadChatFeatures(),
+    ]);
     const routeSessionId = getRouteSessionId();
     if (routeSessionId === 'models') {
       activeWorkspace.value = 'providers';
@@ -1544,7 +1635,19 @@ async function sendCurrentMessage() {
 
     const messageId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
     const selection = getSelectedProviderSelection();
-    writeSessionProviderSelection(sessionId, selection);
+    const branchModels =
+      multiModelEnabled.value && multiModelSelection.value.length > 1
+        ? multiModelSelection.value
+        : [];
+    const primaryModel = branchModels[0];
+    if (primaryModel) {
+      writeSessionProviderSelection(sessionId, {
+        providerId: primaryModel.provider,
+        modelName: primaryModel.model,
+      });
+    } else {
+      writeSessionProviderSelection(sessionId, selection);
+    }
     const { userRecord, botRecord } = createLocalExchange({
       sessionId,
       messageId,
@@ -1563,18 +1666,78 @@ async function sendCurrentMessage() {
     clearStaged({ revokeUrls: false });
     scrollToBottom();
 
-    sendMessageStream({
-      sessionId,
-      messageId,
-      parts: outgoingParts,
-      transport: transportMode.value,
-      enableStreaming: enableStreaming.value,
-      enableReasoning: enableReasoning.value,
-      selectedProvider: selection?.providerId || '',
-      selectedModel: selection?.modelName || '',
-      userRecord,
-      botRecord,
-    });
+    if (branchModels.length > 1) {
+      const groupId = messageId;
+      const total = branchModels.length;
+      const primaryBranch = {
+        group_id: groupId,
+        index: 0,
+        total,
+        provider: primaryModel.provider,
+        model: primaryModel.model,
+      };
+      botRecord.branchGroup = primaryBranch;
+      const labels = branchLabels.get(groupId) || [];
+      labels[0] = primaryModel.model || primaryModel.provider;
+      branchLabels.set(groupId, labels);
+
+      sendMessageStream({
+        sessionId,
+        messageId,
+        parts: outgoingParts,
+        transport: 'sse',
+        enableStreaming: enableStreaming.value,
+        enableReasoning: enableReasoning.value,
+        selectedProvider: primaryModel.provider,
+        selectedModel: primaryModel.model,
+        userRecord,
+        botRecord,
+        branch: primaryBranch,
+      });
+
+      branchModels.slice(1).forEach((model, offset) => {
+        const index = offset + 1;
+        const branchId = `${messageId}-branch-${index}`;
+        const branch = {
+          group_id: groupId,
+          index,
+          total,
+          provider: model.provider,
+          model: model.model,
+        };
+        const branchRecord = createLocalBranchRecord(
+          sessionId,
+          branchId,
+          branch,
+        );
+        sendMessageStream({
+          sessionId,
+          messageId: branchId,
+          parts: outgoingParts,
+          transport: 'sse',
+          enableStreaming: enableStreaming.value,
+          enableReasoning: enableReasoning.value,
+          selectedProvider: model.provider,
+          selectedModel: model.model,
+          botRecord: branchRecord,
+          skipUserHistory: true,
+          branch,
+        });
+      });
+    } else {
+      sendMessageStream({
+        sessionId,
+        messageId,
+        parts: outgoingParts,
+        transport: transportMode.value,
+        enableStreaming: enableStreaming.value,
+        enableReasoning: enableReasoning.value,
+        selectedProvider: selection?.providerId || '',
+        selectedModel: selection?.modelName || '',
+        userRecord,
+        botRecord,
+      });
+    }
   } catch (error) {
     console.error('Failed to send message:', error);
   } finally {
@@ -2171,6 +2334,10 @@ function toggleTheme() {
 
 .chevron-collapsed {
   transform: rotate(180deg);
+}
+
+.session-search {
+  padding: 4px 12px 0;
 }
 
 .session-list {

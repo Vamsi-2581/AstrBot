@@ -10,6 +10,7 @@ from astrbot.core.db.po.auth import (
     AuthRoleBinding,
     AuthStepUpCredential,
     DashboardAccount,
+    DashboardExternalIdentity,
     DashboardTrustedDevice,
 )
 from astrbot.core.db.po.commands import CommandConfig, CommandConflict
@@ -33,6 +34,7 @@ from astrbot.core.db.po.session_bridge import (
     SessionBridgeRule,
 )
 from astrbot.core.db.po.sessions import PlatformSession, UmoAlias
+from astrbot.core.db.po.shares import ConversationShare
 from astrbot.core.db.po.statistics import PlatformStat, ProviderStat
 from astrbot.core.db.po.webchat import WebChatThread
 
@@ -48,9 +50,11 @@ TABLE_MODELS: tuple[type, ...] = (
     ChatUIProject,
     CommandConfig,
     CommandConflict,
+    ConversationShare,
     ConversationV2,
     CronJob,
     DashboardAccount,
+    DashboardExternalIdentity,
     DashboardTrustedDevice,
     KnowledgeBaseTask,
     MemoryEpisode,

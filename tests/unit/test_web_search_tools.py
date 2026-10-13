@@ -3,19 +3,23 @@ from types import SimpleNamespace
 
 import pytest
 
+from astrbot.core.tools import web_search_router
 from astrbot.core.tools import web_search_tools as tools
 
 
 @pytest.mark.asyncio
-async def test_firecrawl_search_maps_web_results(monkeypatch):
-    async def fake_firecrawl_search(provider_settings, payload):
-        assert provider_settings["websearch_firecrawl_key"] == ["firecrawl-key"]
-        assert payload == {
-            "query": "AstrBot",
-            "limit": 3,
-            "sources": ["web"],
-            "country": "US",
-        }
+async def test_web_search_tool_returns_fused_payload(monkeypatch):
+    from astrbot.core.tools import web_search_router
+
+    calls = {}
+
+    async def fake_search(route, provider_settings, *, query, max_results, oversample):
+        calls.update(
+            route=route,
+            query=query,
+            max_results=max_results,
+            oversample=oversample,
+        )
         return [
             tools.SearchResult(
                 title="AstrBot",
@@ -24,14 +28,20 @@ async def test_firecrawl_search_maps_web_results(monkeypatch):
             )
         ]
 
-    monkeypatch.setattr(tools, "_firecrawl_search", fake_firecrawl_search)
-    tool = tools.FirecrawlWebSearchTool()
+    monkeypatch.setattr(web_search_router, "search", fake_search)
+    tool = web_search_router.WebSearchTool()
     context = _context_with_provider_settings(
-        {"websearch_firecrawl_key": ["firecrawl-key"]}
+        {"websearch_route": ["searxng", "duckduckgo"], "websearch_oversample": 4}
     )
 
-    result = await tool.call(context, query="AstrBot", limit=3, country="US")
+    result = await tool.call(context, query="AstrBot", max_results=3)
 
+    assert calls == {
+        "route": ("searxng", "duckduckgo"),
+        "query": "AstrBot",
+        "max_results": 3,
+        "oversample": 4,
+    }
     assert json.loads(result)["results"] == [
         {
             "title": "AstrBot",
@@ -40,6 +50,32 @@ async def test_firecrawl_search_maps_web_results(monkeypatch):
             "index": json.loads(result)["results"][0]["index"],
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_web_search_tool_reports_missing_route():
+    tool = web_search_router.WebSearchTool()
+    context = _context_with_provider_settings({})
+
+    result = await tool.call(context, query="AstrBot")
+
+    assert result.startswith("Error: web search route")
+
+
+@pytest.mark.asyncio
+async def test_web_search_tool_reports_unconfigured_route(monkeypatch):
+    from astrbot.core.tools import web_search_router
+
+    async def fake_search(route, provider_settings, *, query, max_results, oversample):
+        raise web_search_router.NoSearchSourceError("none")
+
+    monkeypatch.setattr(web_search_router, "search", fake_search)
+    tool = web_search_router.WebSearchTool()
+    context = _context_with_provider_settings({"websearch_route": ["tavily"]})
+
+    result = await tool.call(context, query="AstrBot")
+
+    assert result.startswith("Error: no configured web search source")
 
 
 @pytest.mark.asyncio
@@ -123,40 +159,6 @@ async def test_firecrawl_search_maps_v2_grouped_web_data(monkeypatch):
             title="AstrBot", url="https://example.com", snippet="Search result"
         )
     ]
-
-
-@pytest.mark.asyncio
-async def test_firecrawl_search_payload_omits_tbs_and_uses_default_limit(monkeypatch):
-    async def fake_firecrawl_search(provider_settings, payload):
-        assert payload == {
-            "query": "AstrBot",
-            "limit": 5,
-            "sources": ["web"],
-            "country": "US",
-        }
-        return [
-            tools.SearchResult(
-                title="AstrBot",
-                url="https://example.com",
-                snippet="Search result",
-            )
-        ]
-
-    monkeypatch.setattr(tools, "_firecrawl_search", fake_firecrawl_search)
-    tool = tools.FirecrawlWebSearchTool()
-    context = _context_with_provider_settings(
-        {"websearch_firecrawl_key": ["firecrawl-key"]}
-    )
-
-    result = await tool.call(
-        context,
-        query="AstrBot",
-        tbs="qdr:d",
-        country="US",
-    )
-
-    assert json.loads(result)["results"][0]["url"] == "https://example.com"
-    assert "tbs" not in tool.parameters["properties"]
 
 
 @pytest.mark.asyncio
@@ -705,32 +707,6 @@ def _context_with_provider_settings(provider_settings):
 
 
 @pytest.mark.asyncio
-async def test_exa_search_maps_results(monkeypatch):
-    async def fake_exa_search(provider_settings, payload):
-        assert provider_settings["websearch_exa_key"] == ["exa-key"]
-        assert payload["query"] == "AstrBot"
-        assert payload["numResults"] == 5
-        return [
-            tools.SearchResult(
-                title="AstrBot",
-                url="https://example.com",
-                snippet="AI Agent Assistant",
-            )
-        ]
-
-    monkeypatch.setattr(tools, "_exa_search", fake_exa_search)
-    tool = tools.ExaWebSearchTool()
-    context = _context_with_provider_settings({"websearch_exa_key": ["exa-key"]})
-
-    result = await tool.call(context, query="AstrBot", num_results=5)
-
-    parsed = json.loads(result)
-    assert parsed["results"][0]["title"] == "AstrBot"
-    assert parsed["results"][0]["url"] == "https://example.com"
-    assert parsed["results"][0]["snippet"] == "AI Agent Assistant"
-
-
-@pytest.mark.asyncio
 async def test_exa_search_raw_api_call(monkeypatch):
     session = _FakeFirecrawlSession(
         _FakeFirecrawlResponse(
@@ -946,37 +922,6 @@ async def test_anysearch_search_does_not_failover_on_server_error_500(monkeypatc
         )
 
     assert len(session.calls) == 1
-
-
-@pytest.mark.asyncio
-async def test_anysearch_search_tool_clamps_max_results(monkeypatch):
-    session = _FakeFirecrawlSession(
-        _FakeFirecrawlResponse(status=200, json_data={"data": {"results": []}})
-    )
-
-    def fake_client_session(*, trust_env):
-        session.trust_env = trust_env
-        return session
-
-    monkeypatch.setattr(tools.aiohttp, "ClientSession", fake_client_session)
-
-    tool = tools.AnySearchWebSearchTool()
-    context = _context_with_provider_settings({"websearch_anysearch_key": ["test-key"]})
-
-    await tool.call(context, query="test", max_results=99)
-    assert session.posted["json"]["max_results"] == 10
-
-    await tool.call(context, query="test", max_results=0)
-    assert session.posted["json"]["max_results"] == 1
-
-    await tool.call(
-        context,
-        query="test",
-        params={"symbol": "AAPL"},
-        zone="global",
-    )
-    assert session.posted["json"]["params"] == {"symbol": "AAPL"}
-    assert "zone" not in session.posted["json"]
 
 
 @pytest.mark.asyncio

@@ -293,6 +293,24 @@
         "agentic_mode": {
           "description": "Agentic Knowledge Base Retrieval",
           "hint": "When enabled, knowledge base retrieval becomes an LLM Tool, allowing the model to autonomously decide when to query the knowledge base. Requires the model to support function calling."
+        },
+        "extraction": {
+          "tika_url": {
+            "description": "External Tika extraction service URL",
+            "hint": "When set, document parsing calls this Apache Tika (or compatible) service, which handles more formats and scanned files. Leave empty to use the built-in parsers."
+          },
+          "ocr_enable": {
+            "description": "Enable OCR for scanned documents",
+            "hint": "When enabled, images and text-free scanned PDFs attempt Tesseract OCR. Requires pytesseract and Tesseract to be installed."
+          },
+          "ocr_languages": {
+            "description": "OCR languages",
+            "hint": "Tesseract language argument, for example eng, chi_sim, or eng+chi_sim."
+          }
+        },
+        "vector_store": {
+          "description": "Vector store backend",
+          "hint": "faiss is the default single-node local index; exact uses pure NumPy exact search and needs no FAISS install, suited to small knowledge bases. Changing the backend does not migrate an existing index."
         }
       }
     },
@@ -303,8 +321,17 @@
         "web_search": {
           "description": "Enable Web Search"
         },
-        "websearch_provider": {
-          "description": "Web Search Provider"
+        "websearch_route": {
+          "description": "Web Search Sources (ordered, multi-select)",
+          "hint": "Sources are queried in parallel, deduplicated by canonical URL, and fused with RRF. Order is priority."
+        },
+        "websearch_oversample": {
+          "description": "Per-source candidate multiplier",
+          "hint": "Each source fetches target results × this multiplier before fusion."
+        },
+        "websearch_searxng_url": {
+          "description": "SearXNG Instance URL",
+          "hint": "A self-hosted SearXNG must enable json in search.formats in its settings.yml, otherwise it returns 403."
         },
         "websearch_tavily_key": {
           "description": "Tavily API Key",
@@ -1520,6 +1547,42 @@
           "description": "Trust Proxy Headers for Client IP",
           "hint": "When disabled, ignore X-Forwarded-For/X-Real-IP and use the connection address only."
         },
+        "chatui_multi_model": {
+          "enable": {
+            "description": "Enable multi-model parallel chat in ChatUI",
+            "hint": "When enabled, ChatUI can run one prompt across several models and show their answers together. Off by default."
+          },
+          "max_models": {
+            "description": "Maximum parallel models",
+            "hint": "Maximum number of models to run for one prompt, between 2 and 8."
+          }
+        },
+        "oidc": {
+          "enable": {
+            "description": "Enable OIDC single sign-on",
+            "hint": "When enabled, the login page shows an SSO button. Local password and TOTP login are unaffected."
+          },
+          "issuer": {
+            "description": "OIDC issuer",
+            "hint": "Provider issuer URL, for example https://idp.example.com. AstrBot reads its /.well-known/openid-configuration."
+          },
+          "client_id": {
+            "description": "OIDC client ID",
+            "hint": "Client ID registered with the identity provider."
+          },
+          "client_secret": {
+            "description": "OIDC client secret",
+            "hint": "Client secret, used only server-side for the token exchange and never sent to the browser."
+          },
+          "redirect_uri": {
+            "description": "OIDC callback URL",
+            "hint": "Fixed server callback URL that must match the provider registration, for example https://astrbot.example.com/api/v1/auth/oidc/callback. When empty it is derived from callback_api_base."
+          },
+          "auto_create": {
+            "description": "Create accounts on first login",
+            "hint": "When enabled, a new user verified by the identity provider gets a Dashboard account (with no role). When disabled, only pre-linked identities may log in."
+          }
+        },
         "auth_rate_limit": {
           "enable": {
             "description": "Enable Login Rate Limiting",
@@ -1654,6 +1717,24 @@
         "log_max_mb": {
           "description": "Trace Log Max Size (MB)",
           "hint": "Rotate when exceeding this size; default 20MB."
+        }
+      },
+      "observability": {
+        "enable": {
+          "description": "Enable operational metrics and tracing",
+          "hint": "When enabled you can expose Prometheus metrics or OpenTelemetry tracing. Off by default so the default install is unchanged."
+        },
+        "metrics_enable": {
+          "description": "Expose the Prometheus metrics endpoint",
+          "hint": "When enabled, GET /metrics on the WebUI port returns Prometheus text metrics. Only expose this endpoint on a trusted network."
+        },
+        "tracing_enable": {
+          "description": "Enable OpenTelemetry tracing",
+          "hint": "Emits message-pipeline and agent-run spans through the OpenTelemetry API. Install and configure an OpenTelemetry SDK, or start with opentelemetry-instrument, to export them."
+        },
+        "service_name": {
+          "description": "OpenTelemetry service name",
+          "hint": "Service name used for trace spans. Defaults to astrbot."
         }
       }
     }

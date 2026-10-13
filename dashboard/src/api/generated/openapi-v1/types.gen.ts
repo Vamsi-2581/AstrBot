@@ -361,6 +361,13 @@ export type ChatSessionPatchRequest = {
   display_name?: string;
 };
 
+export type ChatShareCreateRequest = {
+  /**
+   * 0 means the link never expires.
+   */
+  expires_in_days?: 0 | 1 | 7 | 30 | 90;
+};
+
 export type ChatMessagePatchRequest = {
   content: {
     [key: string]: unknown;
@@ -1468,6 +1475,50 @@ export type LoginResponses = {
 };
 
 export type LoginResponse = LoginResponses[keyof LoginResponses];
+
+export type GetOidcStatusData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/auth/oidc/status';
+};
+
+export type GetOidcStatusResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type GetOidcStatusResponse =
+  GetOidcStatusResponses[keyof GetOidcStatusResponses];
+
+export type StartOidcLoginData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/auth/oidc/start';
+};
+
+export type StartOidcLoginResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type StartOidcLoginResponse =
+  StartOidcLoginResponses[keyof StartOidcLoginResponses];
+
+export type OidcCallbackData = {
+  body?: never;
+  path?: never;
+  query: {
+    code: string;
+    state: string;
+  };
+  url: '/api/v1/auth/oidc/callback';
+};
 
 export type LogoutData = {
   body?: never;
@@ -2718,6 +2769,10 @@ export type ListChatSessionsData = {
   query?: {
     page?: number;
     page_size?: number;
+    /**
+     * Filter sessions by title (case-insensitive partial match).
+     */
+    search?: string;
     username?: string;
   };
   url: '/api/v1/chat/sessions';
@@ -2732,6 +2787,23 @@ export type ListChatSessionsResponses = {
 
 export type ListChatSessionsResponse =
   ListChatSessionsResponses[keyof ListChatSessionsResponses];
+
+export type GetChatFeaturesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/chat/features';
+};
+
+export type GetChatFeaturesResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type GetChatFeaturesResponse =
+  GetChatFeaturesResponses[keyof GetChatFeaturesResponses];
 
 export type CreateChatSessionData = {
   body?: never;
@@ -2847,6 +2919,89 @@ export type StopChatSessionResponses = {
 
 export type StopChatSessionResponse =
   StopChatSessionResponses[keyof StopChatSessionResponses];
+
+export type CreateChatShareData = {
+  body: ChatShareCreateRequest;
+  path: {
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/chat/sessions/{session_id}/share';
+};
+
+export type CreateChatShareResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type CreateChatShareResponse =
+  CreateChatShareResponses[keyof CreateChatShareResponses];
+
+export type ListChatSharesData = {
+  body?: never;
+  path: {
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/chat/sessions/{session_id}/shares';
+};
+
+export type ListChatSharesResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type ListChatSharesResponse =
+  ListChatSharesResponses[keyof ListChatSharesResponses];
+
+export type RevokeChatShareData = {
+  body?: never;
+  path: {
+    share_id: string;
+  };
+  query?: never;
+  url: '/api/v1/chat/shares/{share_id}';
+};
+
+export type RevokeChatShareResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type RevokeChatShareResponse =
+  RevokeChatShareResponses[keyof RevokeChatShareResponses];
+
+export type GetSharedConversationData = {
+  body?: never;
+  path: {
+    token: string;
+  };
+  query?: never;
+  url: '/api/v1/shares/{token}';
+};
+
+export type GetSharedConversationErrors = {
+  /**
+   * Share not found
+   */
+  404: unknown;
+};
+
+export type GetSharedConversationResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type GetSharedConversationResponse =
+  GetSharedConversationResponses[keyof GetSharedConversationResponses];
 
 export type ResumeChatRunData = {
   body?: never;

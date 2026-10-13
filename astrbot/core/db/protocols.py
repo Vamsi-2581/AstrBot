@@ -17,6 +17,7 @@ if TYPE_CHECKING:
         ChatUIProject,
         CommandConfig,
         CommandConflict,
+        ConversationShare,
         ConversationV2,
         CronJob,
         KnowledgeBaseTask,
@@ -789,6 +790,7 @@ class PlatformSessionStore(Protocol):
         page: int = 1,
         page_size: int = 20,
         exclude_project_sessions: bool = False,
+        search: str | None = None,
     ) -> tuple[list[dict], int]: ...
 
     async def update_platform_session(
@@ -798,6 +800,39 @@ class PlatformSessionStore(Protocol):
     ) -> None: ...
 
     async def delete_platform_session(self, session_id: str) -> None: ...
+
+
+@runtime_checkable
+class ConversationShareStore(Protocol):
+    """Operations for revocable read-only conversation shares."""
+
+    async def create_conversation_share(
+        self,
+        *,
+        token_hash: str,
+        session_id: str,
+        creator: str,
+        expires_at: datetime.datetime | None = None,
+    ) -> ConversationShare: ...
+
+    async def get_conversation_share_by_token_hash(
+        self,
+        token_hash: str,
+    ) -> ConversationShare | None: ...
+
+    async def get_conversation_share(
+        self,
+        share_id: str,
+    ) -> ConversationShare | None: ...
+
+    async def list_conversation_shares(
+        self,
+        *,
+        session_id: str,
+        creator: str,
+    ) -> list[ConversationShare]: ...
+
+    async def revoke_conversation_share(self, share_id: str) -> bool: ...
 
 
 @runtime_checkable

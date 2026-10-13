@@ -4,6 +4,7 @@ import pytest
 
 from astrbot.core.db.po.sessions import PlatformSession
 from astrbot.core.db.sqlite import SQLiteDatabase
+from astrbot.core.db.stores.sessions import _escape_like
 from astrbot.core.platform_message_history_mgr import PlatformMessageHistoryManager
 from astrbot.dashboard.services.chat_service import ChatService, ChatServiceError
 from astrbot.dashboard.services.open_api_service import (
@@ -95,6 +96,52 @@ async def test_get_chat_sessions_paginates_scopes_and_clamps(temp_db: SQLiteData
         await service.get_chat_sessions(
             username="owner", page="x", page_size=20, platform_id=None
         )
+
+
+def test_escape_like_escapes_wildcards() -> None:
+    assert _escape_like("50%_x\\y") == "50\\%\\_x\\\\y"
+
+
+@pytest.mark.asyncio
+async def test_get_chat_sessions_filters_by_title(temp_db: SQLiteDatabase):
+    """Filter owner sessions by title, case-insensitively and scoped."""
+    await _seed_owner_sessions(temp_db, 5)
+    await temp_db.create_platform_session(
+        creator="other",
+        platform_id="webchat",
+        session_id="foreign",
+        display_name="Session 3",
+    )
+    await temp_db.create_platform_session(
+        creator="owner",
+        platform_id="webchat",
+        session_id="percent",
+        display_name="100% done",
+    )
+    service = _open_api_service(temp_db)
+
+    matched = await service.get_chat_sessions(
+        username="owner", page=1, page_size=30, platform_id=None, search="session 3"
+    )
+    assert matched["total"] == 1
+    assert [item["session_id"] for item in matched["sessions"]] == ["session-003"]
+
+    upper = await service.get_chat_sessions(
+        username="owner", page=1, page_size=30, platform_id=None, search="SESSION 1"
+    )
+    assert [item["session_id"] for item in upper["sessions"]] == ["session-001"]
+
+    # A wildcard character is literal, not a match-everything pattern.
+    literal = await service.get_chat_sessions(
+        username="owner", page=1, page_size=30, platform_id=None, search="%"
+    )
+    assert [item["session_id"] for item in literal["sessions"]] == ["percent"]
+
+    unscoped = await service.get_chat_sessions(
+        username="owner", page=1, page_size=30, platform_id=None, search=""
+    )
+    assert unscoped["total"] == 6
+    assert all(item["creator"] == "owner" for item in unscoped["sessions"])
 
 
 @pytest.mark.asyncio

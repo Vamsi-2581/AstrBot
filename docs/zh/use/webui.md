@@ -51,6 +51,29 @@ BTW 双循环的设置从配置文件页的 AI 面板移到了 `更多功能 →
 
 如果登录页检测到 WebUI/运行时版本不匹配，或者运行时/代码版本不匹配，会弹出提示对话框，帮助你先处理静态资源版本不一致的问题。
 
+## 单点登录 (OIDC)
+
+AstrBot 可以通过外部 OpenID Connect 提供方认证 Dashboard 用户。该功能默认关闭，本地
+密码与 TOTP 登录保持不变。可在 `data/cmd_config.json` 的 `dashboard.oidc` 中配置
+（也可在 Dashboard 配置编辑器中配置）：
+
+| 配置项          | 作用                                                                     |
+| --------------- | ------------------------------------------------------------------------ |
+| `enable`        | 在登录页显示 SSO 按钮。                                                  |
+| `issuer`        | 提供方 issuer 地址；AstrBot 读取其 `/.well-known/openid-configuration`。 |
+| `client_id`     | 在提供方注册的客户端 ID。                                                |
+| `client_secret` | 服务端换取 token 用的密钥，不会下发到浏览器。                            |
+| `redirect_uri`  | 固定的回调地址，例如 `https://host/api/v1/auth/oidc/callback`。          |
+| `scopes`        | 请求的 scope，默认 `openid profile email`。                              |
+| `auto_create`   | 首次验证登录时自动创建 Dashboard 账户（不授予任何角色）。                |
+| `button_label`  | SSO 按钮显示的文字。                                                     |
+
+流程使用授权码模式加 PKCE，配合一次性 `state` 与 `nonce` 以及固定回调地址。AstrBot
+会通过提供方 JWKS 校验 ID token 签名，并按 `(issuer, subject)` 将外部身份绑定到稳定
+的 `account_id`。邮箱仅用于展示，绝不据此授予权限。自动创建的账户不会获得任何角色
+绑定，需要运维通过现有授权规则授予权限。当 `auto_create` 关闭时，只有已绑定的身份
+可以登录。回调失败或 `state` 被重放时，登录页只显示通用错误。
+
 ## 界面与外观
 
 Dashboard 使用响应式侧栏和主内容区：在桌面端可以折叠侧栏并调整其宽度，窄屏会改为覆盖式导航。登录、初始化和已登录页面都可通过外观菜单选择浅色、深色或跟随系统；该偏好只保存在当前浏览器中，不会修改 AstrBot 配置文件。

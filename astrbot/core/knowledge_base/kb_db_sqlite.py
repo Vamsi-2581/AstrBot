@@ -25,7 +25,7 @@ from astrbot.core.knowledge_base.models import (
 from astrbot.core.utils.astrbot_path import get_astrbot_knowledge_base_path
 
 if TYPE_CHECKING:
-    from astrbot.core.db.vec_db.faiss import FaissVecDB
+    from astrbot.core.db.vec_db.base import VectorStore
 
 _FILE_IDENTITY_POSIX_MAX = 700
 
@@ -324,7 +324,7 @@ class KBSQLiteDatabase:
     async def delete_document_by_id(
         self,
         doc_id: str,
-        vec_db: FaissVecDB,
+        vec_db: VectorStore,
         kb_files_dir: Path | None = None,
     ) -> None:
         """删除单个文档及其相关数据（包括多媒体记录）"""
@@ -378,7 +378,7 @@ class KBSQLiteDatabase:
             result = await session.execute(stmt)
             return result.scalar_one_or_none()
 
-    async def update_kb_stats(self, kb_id: str, vec_db: FaissVecDB) -> None:
+    async def update_kb_stats(self, kb_id: str, vec_db: VectorStore) -> None:
         """更新知识库统计信息"""
         chunk_cnt = await vec_db.count_documents(metadata_filter={"kb_id": kb_id})
 

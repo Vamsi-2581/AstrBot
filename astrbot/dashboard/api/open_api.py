@@ -273,13 +273,18 @@ async def chat_sessions(
             resource=object_resource("webchat-user", auth.username),
         )
         try:
-            if "page" in request.query_params or "page_size" in request.query_params:
+            if (
+                "page" in request.query_params
+                or "page_size" in request.query_params
+                or "search" in request.query_params
+            ):
                 return ok(
                     await service.get_chat_sessions(
                         username=auth.username,
                         page=request.query_params.get("page", 1),
                         page_size=request.query_params.get("page_size", 20),
                         platform_id=request.query_params.get("platform_id"),
+                        search=request.query_params.get("search"),
                     )
                 )
             return ok(
@@ -311,6 +316,7 @@ async def chat_sessions(
                 page=request.query_params.get("page", 1),
                 page_size=request.query_params.get("page_size", 20),
                 platform_id=request.query_params.get("platform_id"),
+                search=request.query_params.get("search"),
             )
         )
     except OpenApiServiceError as exc:

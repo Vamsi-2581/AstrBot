@@ -1481,7 +1481,7 @@ class TestBuiltinToolInjection:
                 "provider_settings",
                 {
                     "web_search": True,
-                    "websearch_provider": "baidu_ai_search",
+                    "websearch_route": ["searxng", "duckduckgo"],
                 },
             )
         }
@@ -1493,19 +1493,17 @@ class TestBuiltinToolInjection:
         )
 
     def test_catalog_includes_enabled_web_search_tools(self, mock_event, mock_context):
-        search_tool = _named_tool("web_search_baidu")
+        search_tool = _named_tool("web_search")
         tmgr = mock_context.get_llm_tool_manager.return_value
         tmgr.get_full_tool_set.return_value = ToolSet()
         tmgr.iter_builtin_tools.return_value = [search_tool]
         req = ProviderRequest()
         self._assemble(mock_event, mock_context, req)
         assert req.func_tool is not None
-        assert req.func_tool.get_tool("web_search_baidu") is search_tool
+        assert req.func_tool.get_tool("web_search") is search_tool
 
-    def test_catalog_includes_firecrawl_search_and_extract_tools(
-        self, mock_event, mock_context
-    ):
-        search_tool = _named_tool("web_search_firecrawl")
+    def test_catalog_includes_route_extract_tools(self, mock_event, mock_context):
+        search_tool = _named_tool("web_search")
         extract_tool = _named_tool("firecrawl_extract_web_page")
         tmgr = mock_context.get_llm_tool_manager.return_value
         tmgr.get_full_tool_set.return_value = ToolSet()
@@ -1513,7 +1511,7 @@ class TestBuiltinToolInjection:
         mock_context.get_config.return_value = {
             "provider_settings": {
                 "web_search": True,
-                "websearch_provider": "firecrawl",
+                "websearch_route": ["firecrawl"],
             }
         }
         req = ProviderRequest()
@@ -1521,18 +1519,21 @@ class TestBuiltinToolInjection:
             mock_event, req, mock_context, _catalog_config()
         )
         assert req.func_tool is not None
-        assert req.func_tool.get_tool("web_search_firecrawl") is search_tool
+        assert req.func_tool.get_tool("web_search") is search_tool
         assert req.func_tool.get_tool("firecrawl_extract_web_page") is extract_tool
 
-    def test_catalog_includes_anysearch_tool(self, mock_event, mock_context):
-        search_tool = _named_tool("web_search_anysearch")
+    def test_catalog_omits_extract_tools_outside_the_route(
+        self, mock_event, mock_context
+    ):
+        search_tool = _named_tool("web_search")
+        extract_tool = _named_tool("exa_get_contents")
         tmgr = mock_context.get_llm_tool_manager.return_value
         tmgr.get_full_tool_set.return_value = ToolSet()
-        tmgr.iter_builtin_tools.return_value = [search_tool]
+        tmgr.iter_builtin_tools.return_value = [search_tool, extract_tool]
         mock_context.get_config.return_value = {
             "provider_settings": {
                 "web_search": True,
-                "websearch_provider": "anysearch",
+                "websearch_route": ["duckduckgo"],
             }
         }
         req = ProviderRequest()
@@ -1540,13 +1541,14 @@ class TestBuiltinToolInjection:
             mock_event, req, mock_context, _catalog_config()
         )
         assert req.func_tool is not None
-        assert req.func_tool.get_tool("web_search_anysearch") is search_tool
+        assert req.func_tool.get_tool("web_search") is search_tool
+        assert req.func_tool.get_tool("exa_get_contents") is None
 
     def test_apply_web_search_citation_prompt_for_webchat(self, mock_event):
         module = ama
         req = ProviderRequest(system_prompt="base")
         search_tool = MagicMock(spec=FunctionTool)
-        search_tool.name = "web_search_tavily"
+        search_tool.name = "web_search"
         req.func_tool = ToolSet()
         req.func_tool.add_tool(search_tool)
         mock_event.get_platform_name.return_value = "webchat"
@@ -1559,7 +1561,7 @@ class TestBuiltinToolInjection:
         module = ama
         req = ProviderRequest(system_prompt="")
         search_tool = MagicMock(spec=FunctionTool)
-        search_tool.name = "web_search_tavily"
+        search_tool.name = "web_search"
         req.func_tool = ToolSet()
         req.func_tool.add_tool(search_tool)
         mock_event.get_platform_name.return_value = "webchat"
@@ -1573,7 +1575,7 @@ class TestBuiltinToolInjection:
         module = ama
         req = ProviderRequest(system_prompt="")
         search_tool = MagicMock(spec=FunctionTool)
-        search_tool.name = "web_search_tavily"
+        search_tool.name = "web_search"
         req.func_tool = ToolSet()
         req.func_tool.add_tool(search_tool)
         mock_event.get_platform_name.return_value = "test_platform"
@@ -1960,14 +1962,14 @@ class TestEnsurePromptAndSkills:
         mock_context.get_config.return_value = {
             "provider_settings": {
                 "web_search": True,
-                "websearch_provider": "baidu_ai_search",
+                "websearch_route": ["baidu_ai_search"],
             }
         }
         config = module.MainAgentBuildConfig(
             tool_call_timeout=60,
             provider_settings={
                 "web_search": True,
-                "websearch_provider": "baidu_ai_search",
+                "websearch_route": ["baidu_ai_search"],
             },
             computer_use_runtime="none",
             add_cron_tools=False,
@@ -1994,7 +1996,7 @@ class TestEnsurePromptAndSkills:
         assert result is not None
         try:
             assert result.provider_request.func_tool is not None
-            assert "web_search_baidu" not in result.provider_request.func_tool.names()
+            assert "web_search" not in result.provider_request.func_tool.names()
         finally:
             if result.reset_coro:
                 result.reset_coro.close()
