@@ -17,8 +17,8 @@ class OCREngineUnavailable(RuntimeError):
 
 def _run_ocr(content: bytes, languages: str) -> str:
     try:
-        import pytesseract
-        from PIL import Image
+        import pytesseract  # type: ignore[reportMissingImports]
+        from PIL import Image  # type: ignore[reportMissingImports]
     except Exception as exc:  # pragma: no cover - import guard
         raise OCREngineUnavailable(
             "OCR is enabled but pytesseract/Pillow is not installed"
