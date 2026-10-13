@@ -19,6 +19,9 @@ class VectorStore(Protocol):
 
     async def initialize(self) -> None: ...
 
+    @property
+    def dimension(self) -> int: ...
+
     async def insert(
         self,
         content: str,
@@ -51,5 +54,17 @@ class VectorStore(Protocol):
     async def delete_documents(self, metadata_filters: dict) -> None: ...
 
     async def count_documents(self, metadata_filter: dict | None = None) -> int: ...
+
+    async def get_documents(
+        self,
+        metadata_filters: dict | None = None,
+        ids: list | None = None,
+        offset: int | None = 0,
+        limit: int | None = 100,
+    ) -> list[dict]: ...
+
+    async def list_kb_doc_ids(self) -> set[str]: ...
+
+    async def relabel_kb_doc_id(self, from_doc_id: str, to_doc_id: str) -> None: ...
 
     async def close(self) -> None: ...
