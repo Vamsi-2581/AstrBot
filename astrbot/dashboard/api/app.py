@@ -13,6 +13,7 @@ from astrbot.core.agent.mcp_client import validate_mcp_server_config
 from astrbot.core.computer.process_sandbox import detect_local_runtime_info
 from astrbot.core.core_runtime import CoreControl, CoreRuntime
 from astrbot.core.db.sqlite import SQLiteDatabase
+from astrbot.core.observability import Observability, configure_observability
 from astrbot.core.skills.skill_manager import SkillManager
 from astrbot.dashboard.responses import ApiError, DashboardValidationError, error
 from astrbot.dashboard.services.api_key_service import ApiKeyService
@@ -69,12 +70,28 @@ from astrbot.dashboard.services.webchat_service import WebChatService
 
 from .error_handling import internal_error_response
 from .health import router as health_router
+from .observability import router as observability_router
 from .plugin_files import router as plugin_files_router
 from .plugin_page_assets import router as plugin_page_assets_router
 from .router import API_V1_PREFIX, build_api_router
 from .static_files import router as static_files_router
 
 CLEAR_SITE_DATA_HEADERS = {"Clear-Site-Data": '"cache"'}
+
+
+def _build_observability(runtime: CoreRuntime) -> Observability:
+    """Configure observability and wire the runtime-owned gauge collectors."""
+
+    observability = configure_observability(runtime.astrbot_config)
+    event_queue = getattr(runtime, "event_queue", None)
+    if event_queue is not None:
+        observability.register_backlog_source(event_queue.qsize)
+    queue_manager = getattr(runtime.services, "webchat_queue_manager", None)
+    if queue_manager is not None:
+        observability.register_webchat_queue_source(
+            lambda: sum(queue.qsize() for queue in queue_manager.back_queues.values())
+        )
+    return observability
 
 
 def create_dashboard_asgi_app(
@@ -95,6 +112,8 @@ def create_dashboard_asgi_app(
     app.state.astrbot_config = runtime.astrbot_config
     app.state.runtime = runtime
     app.state.core_control = core_control
+    observability = _build_observability(runtime)
+    app.state.observability = observability
     app.state.db = db
     app.state.jwt_secret = jwt_secret
     dashboard_token_validator = DashboardTokenValidator(jwt_secret)
@@ -447,6 +466,7 @@ def create_dashboard_asgi_app(
         )
 
     app.include_router(health_router)
+    app.include_router(observability_router)
     app.include_router(build_api_router())
     app.include_router(plugin_page_assets_router)
     app.include_router(plugin_files_router)
