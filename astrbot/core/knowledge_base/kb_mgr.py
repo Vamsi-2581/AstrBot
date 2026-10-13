@@ -24,8 +24,10 @@ class KnowledgeBaseManager:
     def __init__(
         self,
         provider_manager: ProviderManager,
+        extraction_config: dict | None = None,
     ) -> None:
         self.provider_manager = provider_manager
+        self.extraction_config = extraction_config or {}
         self._session_deleted_callback_registered = False
 
         self.kb_insts: dict[str, KBHelper] = {}
@@ -227,6 +229,7 @@ class KnowledgeBaseManager:
             provider_manager=self.provider_manager,
             kb_root_dir=get_astrbot_knowledge_base_path(),
             chunker=CHUNKER,
+            extraction_config=getattr(self, "extraction_config", None),
         )
         retrieval_manager = getattr(self, "retrieval_manager", None)
         if retrieval_manager is not None:

@@ -293,6 +293,20 @@
         "agentic_mode": {
           "description": "Agentic Knowledge Base Retrieval",
           "hint": "When enabled, knowledge base retrieval becomes an LLM Tool, allowing the model to autonomously decide when to query the knowledge base. Requires the model to support function calling."
+        },
+        "extraction": {
+          "tika_url": {
+            "description": "External Tika extraction service URL",
+            "hint": "When set, document parsing calls this Apache Tika (or compatible) service, which handles more formats and scanned files. Leave empty to use the built-in parsers."
+          },
+          "ocr_enable": {
+            "description": "Enable OCR for scanned documents",
+            "hint": "When enabled, images and text-free scanned PDFs attempt Tesseract OCR. Requires pytesseract and Tesseract to be installed."
+          },
+          "ocr_languages": {
+            "description": "OCR languages",
+            "hint": "Tesseract language argument, for example eng, chi_sim, or eng+chi_sim."
+          }
         }
       }
     },

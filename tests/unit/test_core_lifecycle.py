@@ -724,7 +724,7 @@ class TestAstrBotCoreLifecycleInitialize:
         )
         monkeypatch.setattr(
             "astrbot.core.core_lifecycle.KnowledgeBaseManager",
-            lambda *_args: knowledge_base_manager,
+            lambda *_args, **_kwargs: knowledge_base_manager,
         )
         monkeypatch.setattr(
             "astrbot.core.core_lifecycle.CoreExecutionContext",
