@@ -1,6 +1,5 @@
 import asyncio
 import json
-import uuid
 from dataclasses import dataclass as std_dataclass
 from dataclasses import field
 from urllib.parse import parse_qsl, urljoin, urlparse
@@ -24,7 +23,6 @@ WEB_SEARCH_TOOL_NAMES = [
     "exa_get_contents",
 ]
 _WEB_SEARCH_ENABLED_CONFIG = {"provider_settings.web_search": True}
-_WEB_SEARCH_DEFAULT_MAX_RESULTS = 7
 _DEFAULT_HTTP_TIMEOUT = aiohttp.ClientTimeout(total=20, connect=10, sock_read=20)
 
 
@@ -174,22 +172,6 @@ def _get_runtime(context) -> tuple[dict, dict, str]:
         _runtime_provider_settings(execution_context, provider_settings),
         event.unified_msg_origin,
     )
-
-
-def _search_result_payload(results: list[SearchResult]) -> str:
-    ref_uuid = str(uuid.uuid4())[:4]
-    ret_ls = []
-    for idx, result in enumerate(results, 1):
-        index = f"{ref_uuid}.{idx}"
-        ret_ls.append(
-            {
-                "title": f"{result.title}",
-                "url": f"{result.url}",
-                "snippet": f"{result.snippet}",
-                "index": index,
-            }
-        )
-    return json.dumps({"results": ret_ls}, ensure_ascii=False)
 
 
 async def _tavily_search(
@@ -796,7 +778,9 @@ def _decode_duckduckgo_url(href: str) -> str:
     if href.startswith("//"):
         href = f"https:{href}"
     parsed = urlparse(href)
-    if parsed.netloc.endswith("duckduckgo.com") and parsed.path.startswith("/l/"):
+    hostname = (parsed.hostname or "").lower()
+    is_duckduckgo = hostname == "duckduckgo.com" or hostname.endswith(".duckduckgo.com")
+    if is_duckduckgo and parsed.path.startswith("/l/"):
         target = dict(parse_qsl(parsed.query)).get("uddg")
         if target:
             return target
@@ -1108,84 +1092,9 @@ async def _anysearch_search(
     raise Exception("AnySearch web search failed with all configured keys.")
 
 
-@builtin_tool(config=_WEB_SEARCH_ENABLED_CONFIG, required_actions=("tool.web_search",))
-@pydantic_dataclass
-class WebSearchTool(FunctionTool[AstrAgentContext]):
-    """Aggregate web search across every source in the configured route."""
-
-    name: str = "web_search"
-    description: str = (
-        "A web search tool that queries every source configured in the web search "
-        "route in parallel, deduplicates results by canonical URL, and fuses them "
-        "with reciprocal rank fusion. Use it to gather current information, news, "
-        "and detailed web content."
-    )
-    parameters: dict = Field(
-        default_factory=lambda: {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "Required. Search query."},
-                "max_results": {
-                    "type": "integer",
-                    "description": (
-                        "Optional. The maximum number of fused results to return. "
-                        "Default is 7."
-                    ),
-                },
-            },
-            "required": ["query"],
-        }
-    )
-
-    async def call(self, context, **kwargs) -> ToolExecResult:
-        from astrbot.core.tools import web_search_router
-
-        _, provider_settings, _ = _get_runtime(context)
-        route = web_search_router.normalize_route(
-            provider_settings.get("websearch_route")
-        )
-        if not route:
-            return "Error: web search route is not configured in AstrBot."
-
-        try:
-            max_results = int(
-                kwargs.get("max_results", _WEB_SEARCH_DEFAULT_MAX_RESULTS)
-            )
-        except TypeError, ValueError:
-            max_results = _WEB_SEARCH_DEFAULT_MAX_RESULTS
-        if max_results < 1:
-            max_results = _WEB_SEARCH_DEFAULT_MAX_RESULTS
-
-        try:
-            oversample = int(
-                provider_settings.get(
-                    "websearch_oversample", web_search_router.DEFAULT_OVERSAMPLE
-                )
-            )
-        except TypeError, ValueError:
-            oversample = web_search_router.DEFAULT_OVERSAMPLE
-
-        try:
-            results = await web_search_router.search(
-                route,
-                provider_settings,
-                query=kwargs["query"],
-                max_results=max_results,
-                oversample=oversample,
-            )
-        except web_search_router.NoSearchSourceError:
-            return "Error: no configured web search source in route: " + ", ".join(
-                route
-            )
-        if not results:
-            return "Error: web search does not return any results."
-        return _search_result_payload(results)
-
-
 __all__ = [
     "ExaGetContentsTool",
     "FirecrawlExtractWebPageTool",
     "TavilyExtractWebPageTool",
     "WEB_SEARCH_TOOL_NAMES",
-    "WebSearchTool",
 ]

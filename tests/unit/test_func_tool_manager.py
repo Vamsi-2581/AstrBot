@@ -9,10 +9,8 @@ from astrbot.core.tools import function_tool_manager as ftm
 from astrbot.core.tools.computer_tools.shell import ExecuteShellTool
 from astrbot.core.tools.function_tool_manager import FunctionToolManager
 from astrbot.core.tools.message_tools import SendMessageToUserTool, SendPokeToUserTool
-from astrbot.core.tools.web_search_tools import (
-    FirecrawlExtractWebPageTool,
-    WebSearchTool,
-)
+from astrbot.core.tools.web_search_router import WebSearchTool
+from astrbot.core.tools.web_search_tools import FirecrawlExtractWebPageTool
 from tests.fixtures.auth import attach_authorized_tool_context
 
 

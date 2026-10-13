@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from astrbot.core.tools import web_search_router
 from astrbot.core.tools import web_search_tools as tools
 
 
@@ -28,7 +29,7 @@ async def test_web_search_tool_returns_fused_payload(monkeypatch):
         ]
 
     monkeypatch.setattr(web_search_router, "search", fake_search)
-    tool = tools.WebSearchTool()
+    tool = web_search_router.WebSearchTool()
     context = _context_with_provider_settings(
         {"websearch_route": ["searxng", "duckduckgo"], "websearch_oversample": 4}
     )
@@ -53,7 +54,7 @@ async def test_web_search_tool_returns_fused_payload(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_web_search_tool_reports_missing_route():
-    tool = tools.WebSearchTool()
+    tool = web_search_router.WebSearchTool()
     context = _context_with_provider_settings({})
 
     result = await tool.call(context, query="AstrBot")
@@ -69,7 +70,7 @@ async def test_web_search_tool_reports_unconfigured_route(monkeypatch):
         raise web_search_router.NoSearchSourceError("none")
 
     monkeypatch.setattr(web_search_router, "search", fake_search)
-    tool = tools.WebSearchTool()
+    tool = web_search_router.WebSearchTool()
     context = _context_with_provider_settings({"websearch_route": ["tavily"]})
 
     result = await tool.call(context, query="AstrBot")

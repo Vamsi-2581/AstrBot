@@ -10,12 +10,21 @@ without affecting the other sources.
 from __future__ import annotations
 
 import asyncio
+import json
+import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
+from pydantic import Field
+from pydantic.dataclasses import dataclass as pydantic_dataclass
+
 from astrbot import logger
+from astrbot.core.agent.tool import FunctionTool, ToolExecResult
+from astrbot.core.astr_agent_context import AstrAgentContext
+from astrbot.core.tools.registry import builtin_tool
 from astrbot.core.tools.web_search_tools import (
+    _WEB_SEARCH_ENABLED_CONFIG,
     SearchResult,
     _anysearch_search,
     _baidu_search,
@@ -24,6 +33,7 @@ from astrbot.core.tools.web_search_tools import (
     _duckduckgo_search,
     _exa_search,
     _firecrawl_search,
+    _get_runtime,
     _searxng_search,
     _tavily_search,
 )
@@ -32,6 +42,7 @@ from astrbot.core.utils.error_redaction import safe_error
 DEFAULT_RRF_K = 60
 DEFAULT_OVERSAMPLE = 8
 SOURCE_TIMEOUT_SECONDS = 20.0
+_WEB_SEARCH_DEFAULT_MAX_RESULTS = 7
 
 _TRACKING_QUERY_KEYS = frozenset({"gclid", "fbclid"})
 _TRACKING_QUERY_PREFIXES = ("utm_",)
@@ -405,6 +416,90 @@ async def search(
     return reciprocal_rank_fusion(non_empty, limit=target)
 
 
+def _search_result_payload(results: list[SearchResult]) -> str:
+    ref_uuid = str(uuid.uuid4())[:4]
+    ret_ls = []
+    for idx, result in enumerate(results, 1):
+        index = f"{ref_uuid}.{idx}"
+        ret_ls.append(
+            {
+                "title": f"{result.title}",
+                "url": f"{result.url}",
+                "snippet": f"{result.snippet}",
+                "index": index,
+            }
+        )
+    return json.dumps({"results": ret_ls}, ensure_ascii=False)
+
+
+@builtin_tool(config=_WEB_SEARCH_ENABLED_CONFIG, required_actions=("tool.web_search",))
+@pydantic_dataclass
+class WebSearchTool(FunctionTool[AstrAgentContext]):
+    """Aggregate web search across every source in the configured route."""
+
+    name: str = "web_search"
+    description: str = (
+        "A web search tool that queries every source configured in the web search "
+        "route in parallel, deduplicates results by canonical URL, and fuses them "
+        "with reciprocal rank fusion. Use it to gather current information, news, "
+        "and detailed web content."
+    )
+    parameters: dict = Field(
+        default_factory=lambda: {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Required. Search query."},
+                "max_results": {
+                    "type": "integer",
+                    "description": (
+                        "Optional. The maximum number of fused results to return. "
+                        "Default is 7."
+                    ),
+                },
+            },
+            "required": ["query"],
+        }
+    )
+
+    async def call(self, context, **kwargs) -> ToolExecResult:
+        _, provider_settings, _ = _get_runtime(context)
+        route = normalize_route(provider_settings.get("websearch_route"))
+        if not route:
+            return "Error: web search route is not configured in AstrBot."
+
+        try:
+            max_results = int(
+                kwargs.get("max_results", _WEB_SEARCH_DEFAULT_MAX_RESULTS)
+            )
+        except TypeError, ValueError:
+            max_results = _WEB_SEARCH_DEFAULT_MAX_RESULTS
+        if max_results < 1:
+            max_results = _WEB_SEARCH_DEFAULT_MAX_RESULTS
+
+        try:
+            oversample = int(
+                provider_settings.get("websearch_oversample", DEFAULT_OVERSAMPLE)
+            )
+        except TypeError, ValueError:
+            oversample = DEFAULT_OVERSAMPLE
+
+        try:
+            results = await search(
+                route,
+                provider_settings,
+                query=kwargs["query"],
+                max_results=max_results,
+                oversample=oversample,
+            )
+        except NoSearchSourceError:
+            return "Error: no configured web search source in route: " + ", ".join(
+                route
+            )
+        if not results:
+            return "Error: web search does not return any results."
+        return _search_result_payload(results)
+
+
 __all__ = [
     "DEFAULT_OVERSAMPLE",
     "DEFAULT_RRF_K",
@@ -412,6 +507,7 @@ __all__ = [
     "SEARCH_SOURCES",
     "SearchSource",
     "SOURCE_TIMEOUT_SECONDS",
+    "WebSearchTool",
     "canonical_url",
     "normalize_route",
     "reciprocal_rank_fusion",
