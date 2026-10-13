@@ -61,6 +61,11 @@ class CoreRuntime:
 class CoreControl(Protocol):
     """Lifecycle operations intentionally exposed to Dashboard services."""
 
+    @property
+    def is_ready(self) -> bool:
+        """Whether core startup completed and traffic may be admitted."""
+        ...
+
     async def reload_pipeline_scheduler(self, conf_id: str) -> None: ...
 
     async def remove_pipeline_scheduler(self, conf_id: str) -> None: ...
