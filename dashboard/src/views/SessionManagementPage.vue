@@ -76,156 +76,22 @@
         <v-divider></v-divider>
 
         <v-card-text class="pa-0">
-          <v-data-table-server
+          <SessionRulesTable
             v-model:items-per-page="itemsPerPage"
             v-model:page="currentPage"
-            v-model="selectedItems"
+            v-model:selected-items="selectedItems"
             :headers="headers"
             :items="filteredRulesList"
             :loading="loading"
             :items-length="totalItems"
-            class="elevation-0 session-rules-table"
-            show-select
             :item-value="tableItemValue"
-            return-object
+            :is-sender-target="isSenderTarget"
             @update:options="onTableOptionsUpdate"
-          >
-            <!-- UMO 信息 -->
-            <template #item.umo_info="{ item }">
-              <code v-if="isSenderRule(item)" class="text-body-2">{{
-                item.sender_id
-              }}</code>
-              <UmoDisplay
-                v-else
-                :umo="item.umo"
-                :platform="item.platform"
-                :message-type="item.message_type"
-                :session-id="item.session_id"
-                :auto-name="item.auto_name"
-                :user-alias="item.user_alias"
-                :custom-name="item.rules?.session_service_config?.custom_name"
-                editable
-                :edit-tooltip="tm('buttons.editCustomName')"
-                @edit="openQuickEditName(item)"
-              />
-            </template>
-
-            <!-- 规则概览 -->
-            <template #item.rules_overview="{ item }">
-              <div v-if="isSenderRule(item)" class="d-flex flex-wrap ga-1">
-                <v-chip
-                  v-if="item.rules.session_service_config?.blocked === true"
-                  size="x-small"
-                  color="error"
-                  variant="outlined"
-                >
-                  {{ tm('customRules.blocked') }}
-                </v-chip>
-                <v-chip
-                  v-if="
-                    typeof item.rules.session_service_config?.llm_enabled ===
-                    'boolean'
-                  "
-                  size="x-small"
-                  color="primary"
-                  variant="outlined"
-                >
-                  {{ tm('customRules.llmEnabled') }}
-                </v-chip>
-              </div>
-              <div v-else class="d-flex flex-wrap ga-1">
-                <v-chip
-                  v-if="item.rules.session_service_config"
-                  size="x-small"
-                  color="primary"
-                  variant="outlined"
-                >
-                  {{ tm('customRules.serviceConfig') }}
-                </v-chip>
-                <v-chip
-                  v-if="item.rules.session_plugin_config"
-                  size="x-small"
-                  color="secondary"
-                  variant="outlined"
-                >
-                  {{ tm('customRules.pluginConfig') }}
-                </v-chip>
-                <v-chip
-                  v-if="item.rules.kb_config"
-                  size="x-small"
-                  color="info"
-                  variant="outlined"
-                >
-                  {{ tm('customRules.kbConfig') }}
-                </v-chip>
-                <v-chip
-                  v-if="hasProviderConfig(item.rules)"
-                  size="x-small"
-                  color="warning"
-                  variant="outlined"
-                >
-                  {{ tm('customRules.providerConfig') }}
-                </v-chip>
-              </div>
-            </template>
-
-            <!-- 操作按钮 -->
-            <template #item.actions="{ item }">
-              <v-btn
-                size="small"
-                variant="tonal"
-                color="primary"
-                class="mr-1"
-                :aria-label="tm('buttons.editRule')"
-                @click="openRuleEditor(item)"
-              >
-                <v-icon>mdi-pencil</v-icon>
-                <v-tooltip activator="parent" location="top">{{
-                  tm('buttons.editRule')
-                }}</v-tooltip>
-              </v-btn>
-              <v-btn
-                size="small"
-                variant="tonal"
-                color="error"
-                :aria-label="tm('buttons.deleteAllRules')"
-                @click="confirmDeleteRules(item)"
-              >
-                <v-icon>mdi-delete</v-icon>
-                <v-tooltip activator="parent" location="top">{{
-                  tm('buttons.deleteAllRules')
-                }}</v-tooltip>
-              </v-btn>
-            </template>
-
-            <!-- 空状态 -->
-            <template #no-data>
-              <div class="text-center py-8">
-                <v-icon size="64" color="on-surface-variant"
-                  >mdi-file-document-edit-outline</v-icon
-                >
-                <div class="text-h6 mt-4">
-                  {{ tm('customRules.noRules') }}
-                </div>
-                <div class="text-body-2 text-medium-emphasis">
-                  {{
-                    isSenderTarget
-                      ? tm('customRules.noSenderRulesDesc')
-                      : tm('customRules.noRulesDesc')
-                  }}
-                </div>
-                <v-btn
-                  color="primary"
-                  variant="tonal"
-                  class="mt-4"
-                  @click="openAddRuleDialog"
-                >
-                  <v-icon start>mdi-plus</v-icon>
-                  {{ tm('buttons.addRule') }}
-                </v-btn>
-              </div>
-            </template>
-          </v-data-table-server>
+            @edit-rule="openRuleEditor"
+            @delete-rules="confirmDeleteRules"
+            @edit-custom-name="openQuickEditName"
+            @add-rule="openAddRuleDialog"
+          />
         </v-card-text>
       </v-card>
       <!-- 批量操作面板 -->
@@ -417,706 +283,81 @@
       </v-card>
 
       <!-- 分组编辑对话框 -->
-      <v-dialog
+      <SessionGroupDialog
         v-model="groupDialog"
-        max-width="800"
-        scrollable
-        @after-enter="loadAvailableUmos"
-      >
-        <v-card class="app-dialog session-group-dialog__card">
-          <v-card-title class="py-3 px-4">
-            {{
-              groupDialogMode === 'create'
-                ? tm('groups.create')
-                : tm('groups.edit')
-            }}
-          </v-card-title>
-          <v-card-text class="session-group-dialog__content">
-            <v-text-field
-              v-model="editingGroup.name"
-              :label="tm('groups.name')"
-              variant="outlined"
-              hide-details
-              class="mb-4"
-            ></v-text-field>
-            <v-row density="comfortable">
-              <!-- 左侧：可选会话 -->
-              <v-col cols="5">
-                <div class="text-subtitle-2 mb-2">
-                  {{
-                    tm('groups.availableSessions', {
-                      count: unselectedUmos.length,
-                    })
-                  }}
-                </div>
-                <v-text-field
-                  v-model="groupMemberSearch"
-                  :placeholder="tm('groups.searchPlaceholder')"
-                  variant="outlined"
-                  density="compact"
-                  hide-details
-                  class="mb-2"
-                  clearable
-                  prepend-inner-icon="mdi-magnify"
-                ></v-text-field>
-                <v-list density="compact" class="transfer-list">
-                  <v-list-item
-                    v-for="umo in filteredUnselectedUmos"
-                    :key="umo"
-                    class="transfer-item"
-                    @click="addToGroup(umo)"
-                  >
-                    <template #prepend>
-                      <v-icon size="small" color="on-surface-variant"
-                        >mdi-plus</v-icon
-                      >
-                    </template>
-                    <v-list-item-title>
-                      <UmoDisplay
-                        v-bind="getAvailableUmoDisplayProps(umo)"
-                        compact
-                        :show-info="false"
-                        :show-platform="false"
-                      />
-                    </v-list-item-title>
-                    <template #append>
-                      <v-chip
-                        v-if="getAvailableUmoInfo(umo).platform"
-                        size="x-small"
-                        :color="
-                          getPlatformColor(getAvailableUmoInfo(umo).platform)
-                        "
-                        class="umo-list-platform"
-                      >
-                        {{ getAvailableUmoInfo(umo).platform }}
-                      </v-chip>
-                    </template>
-                  </v-list-item>
-                  <v-list-item
-                    v-if="filteredUnselectedUmos.length === 0 && !loadingUmos"
-                  >
-                    <v-list-item-title
-                      class="text-caption text-medium-emphasis text-center"
-                      >{{ tm('groups.noMatch') }}</v-list-item-title
-                    >
-                  </v-list-item>
-                  <v-list-item v-if="loadingUmos">
-                    <v-list-item-title class="text-center"
-                      ><v-progress-circular
-                        indeterminate
-                        size="20"
-                      ></v-progress-circular
-                    ></v-list-item-title>
-                  </v-list-item>
-                </v-list>
-              </v-col>
-              <!-- 中间：操作按钮 -->
-              <v-col
-                cols="2"
-                class="d-flex flex-column align-center justify-center"
-              >
-                <v-btn
-                  icon
-                  size="small"
-                  variant="tonal"
-                  color="primary"
-                  class="mb-2"
-                  :disabled="unselectedUmos.length === 0"
-                  :aria-label="tm('groups.addToGroup')"
-                  @click="addAllToGroup"
-                >
-                  <v-icon>mdi-chevron-double-right</v-icon>
-                </v-btn>
-                <v-btn
-                  icon
-                  size="small"
-                  variant="tonal"
-                  color="error"
-                  :disabled="editingGroup.umos.length === 0"
-                  :aria-label="tm('buttons.clear')"
-                  @click="removeAllFromGroup"
-                >
-                  <v-icon>mdi-chevron-double-left</v-icon>
-                </v-btn>
-              </v-col>
-              <!-- 右侧：已选会话 -->
-              <v-col cols="5">
-                <div class="text-subtitle-2 mb-2">
-                  {{
-                    tm('groups.selectedSessions', {
-                      count: editingGroup.umos.length,
-                    })
-                  }}
-                </div>
-                <v-text-field
-                  v-model="groupSelectedSearch"
-                  :placeholder="tm('groups.searchPlaceholder')"
-                  variant="outlined"
-                  density="compact"
-                  hide-details
-                  class="mb-2"
-                  clearable
-                  prepend-inner-icon="mdi-magnify"
-                ></v-text-field>
-                <v-list density="compact" class="transfer-list">
-                  <v-list-item
-                    v-for="umo in filteredSelectedUmos"
-                    :key="umo"
-                    class="transfer-item"
-                    @click="removeFromGroup(umo)"
-                  >
-                    <template #prepend>
-                      <v-icon size="small" color="error">mdi-minus</v-icon>
-                    </template>
-                    <v-list-item-title>
-                      <UmoDisplay
-                        v-bind="getAvailableUmoDisplayProps(umo)"
-                        compact
-                        :show-info="false"
-                        :show-platform="false"
-                      />
-                    </v-list-item-title>
-                    <template #append>
-                      <v-chip
-                        v-if="getAvailableUmoInfo(umo).platform"
-                        size="x-small"
-                        :color="
-                          getPlatformColor(getAvailableUmoInfo(umo).platform)
-                        "
-                        class="umo-list-platform"
-                      >
-                        {{ getAvailableUmoInfo(umo).platform }}
-                      </v-chip>
-                    </template>
-                  </v-list-item>
-                  <v-list-item v-if="editingGroup.umos.length === 0">
-                    <v-list-item-title
-                      class="text-caption text-medium-emphasis text-center"
-                      >{{ tm('groups.noMembers') }}</v-list-item-title
-                    >
-                  </v-list-item>
-                </v-list>
-              </v-col>
-            </v-row>
-          </v-card-text>
-          <v-card-actions class="px-4 pb-4 session-group-dialog__actions">
-            <v-spacer></v-spacer>
-            <v-btn variant="text" @click="groupDialog = false">{{
-              tm('buttons.cancel')
-            }}</v-btn>
-            <v-btn color="primary" variant="tonal" @click="saveGroup">{{
-              tm('buttons.save')
-            }}</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+        :mode="groupDialogMode"
+        :name="editingGroup.name"
+        :selected-umos="editingGroup.umos"
+        :unselected-umos="unselectedUmos"
+        :loading-umos="loadingUmos"
+        :member-search="groupMemberSearch"
+        :selected-search="groupSelectedSearch"
+        :umo-info-map="availableUmoInfoMap"
+        @update:name="updateGroupName"
+        @update:member-search="updateGroupMemberSearch"
+        @update:selected-search="updateGroupSelectedSearch"
+        @add-umo="addToGroup"
+        @remove-umo="removeFromGroup"
+        @add-all="addAllToGroup"
+        @remove-all="removeAllFromGroup"
+        @save="saveGroup"
+        @load-available="loadAvailableUmos"
+      />
 
       <!-- 添加规则对话框 - 选择 UMO -->
-      <v-dialog v-model="addRuleDialog" max-width="600">
-        <v-card class="app-dialog">
-          <v-card-title class="d-flex align-center py-3 px-4">
-            <span>{{ tm('addRule.title') }}</span>
-            <v-spacer></v-spacer>
-            <v-btn
-              icon
-              variant="text"
-              :aria-label="tm('buttons.cancel')"
-              @click="addRuleDialog = false"
-            >
-              <v-icon>mdi-close</v-icon>
-            </v-btn>
-          </v-card-title>
-
-          <v-card-text class="pa-4">
-            <v-alert type="info" variant="tonal" class="mb-4">
-              {{
-                isSenderTarget
-                  ? tm('addRule.senderDescription')
-                  : tm('addRule.description')
-              }}
-            </v-alert>
-
-            <v-text-field
-              v-if="isSenderTarget"
-              v-model="selectedNewSenderId"
-              :label="tm('addRule.senderId')"
-              :hint="tm('addRule.senderIdHint')"
-              :error-messages="
-                senderIdInvalid ? tm('addRule.senderIdError') : undefined
-              "
-              persistent-hint
-              variant="outlined"
-            />
-            <v-autocomplete
-              v-else
-              v-model="selectedNewUmo"
-              :items="availableUmos"
-              :loading="loadingUmos"
-              :label="tm('addRule.selectUmo')"
-              variant="outlined"
-              clearable
-              :no-data-text="tm('addRule.noUmos')"
-            >
-              <template #item="{ props, item }">
-                <v-list-item v-bind="props">
-                  <template #title>
-                    <UmoDisplay
-                      v-bind="getAvailableUmoDisplayProps(item)"
-                      compact
-                      :show-info="false"
-                      :show-platform="false"
-                    />
-                  </template>
-                  <template #append>
-                    <v-chip
-                      v-if="getAvailableUmoInfo(item).platform"
-                      size="x-small"
-                      :color="
-                        getPlatformColor(getAvailableUmoInfo(item).platform)
-                      "
-                      class="umo-list-platform"
-                    >
-                      {{ getAvailableUmoInfo(item).platform }}
-                    </v-chip>
-                  </template>
-                </v-list-item>
-              </template>
-              <template #selection="{ item }">
-                <v-chip
-                  v-if="item && getUmoSelectionText(item)"
-                  size="small"
-                  variant="tonal"
-                  color="primary"
-                  class="umo-selection-chip"
-                >
-                  {{ getUmoSelectionText(item) }}
-                </v-chip>
-              </template>
-            </v-autocomplete>
-          </v-card-text>
-
-          <v-card-actions class="px-4 pb-4">
-            <v-spacer></v-spacer>
-            <v-btn variant="text" @click="addRuleDialog = false">{{
-              tm('buttons.cancel')
-            }}</v-btn>
-            <v-btn
-              color="primary"
-              variant="tonal"
-              :disabled="!canCreateNewRule"
-              @click="createNewRule"
-            >
-              {{ tm('buttons.next') }}
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+      <SessionAddRuleDialog
+        v-model="addRuleDialog"
+        v-model:selected-new-umo="selectedNewUmo"
+        v-model:selected-new-sender-id="selectedNewSenderId"
+        :is-sender-target="isSenderTarget"
+        :available-umos="availableUmos"
+        :loading-umos="loadingUmos"
+        :umo-info-map="availableUmoInfoMap"
+        @create="createNewRule"
+      />
 
       <!-- 规则编辑对话框 -->
-      <v-dialog v-model="ruleDialog" max-width="550" scrollable>
-        <v-card v-if="selectedUmo" class="d-flex flex-column" height="600">
-          <v-card-title class="py-3 px-6 d-flex align-center border-b">
-            <span>{{ tm('ruleEditor.title') }}</span>
-            <v-chip
-              size="x-small"
-              class="ml-2 font-weight-regular"
-              variant="outlined"
-            >
-              {{
-                isSenderRule(selectedUmo)
-                  ? selectedUmo.sender_id
-                  : selectedUmo.umo
-              }}
-            </v-chip>
-            <v-spacer></v-spacer>
-            <v-btn
-              icon="mdi-close"
-              variant="text"
-              @click="closeRuleEditor"
-            ></v-btn>
-          </v-card-title>
-
-          <v-card-text class="pa-0 overflow-y-auto">
-            <div class="px-6 py-4">
-              <!-- Service Config Section -->
-              <div class="d-flex align-center mb-4">
-                <h3 class="font-weight-bold mb-0">
-                  {{ tm('ruleEditor.serviceConfig.title') }}
-                </h3>
-              </div>
-
-              <v-row v-if="isSenderRule(selectedUmo)" density="comfortable">
-                <v-col cols="12">
-                  <v-checkbox
-                    v-model="senderOverlay.blocked"
-                    :label="tm('ruleEditor.serviceConfig.blocked')"
-                    color="error"
-                    hide-details
-                    class="mb-2"
-                  />
-                </v-col>
-                <v-col cols="12">
-                  <v-select
-                    v-model="senderLlmMode"
-                    :items="senderLlmModeOptions"
-                    item-title="label"
-                    item-value="value"
-                    :label="tm('ruleEditor.serviceConfig.llmMode')"
-                    variant="outlined"
-                    hide-details
-                  />
-                </v-col>
-              </v-row>
-              <v-row v-else density="comfortable">
-                <v-col cols="12">
-                  <v-checkbox
-                    v-model="serviceConfig.session_enabled"
-                    :label="tm('ruleEditor.serviceConfig.sessionEnabled')"
-                    color="success"
-                    hide-details
-                    class="mb-2"
-                  />
-                </v-col>
-                <v-col cols="12" md="6">
-                  <v-checkbox
-                    v-model="serviceConfig.llm_enabled"
-                    :label="tm('ruleEditor.serviceConfig.llmEnabled')"
-                    color="primary"
-                    hide-details
-                  />
-                </v-col>
-                <v-col cols="12" md="6">
-                  <v-checkbox
-                    v-model="serviceConfig.tts_enabled"
-                    :label="tm('ruleEditor.serviceConfig.ttsEnabled')"
-                    color="secondary"
-                    hide-details
-                  />
-                </v-col>
-                <v-col cols="12">
-                  <v-checkbox
-                    v-model="serviceConfig.session_blocked"
-                    :label="tm('ruleEditor.serviceConfig.sessionBlocked')"
-                    color="error"
-                    hide-details
-                  />
-                </v-col>
-                <v-col cols="12" class="mt-2">
-                  <v-text-field
-                    v-model="serviceConfig.custom_name"
-                    :label="tm('ruleEditor.serviceConfig.customName')"
-                    variant="outlined"
-                    hide-details
-                    clearable
-                  />
-                </v-col>
-              </v-row>
-
-              <div class="d-flex justify-end mt-4">
-                <v-btn
-                  color="primary"
-                  variant="tonal"
-                  size="small"
-                  :loading="saving"
-                  prepend-icon="mdi-content-save"
-                  @click="saveServiceConfig"
-                >
-                  {{ tm('buttons.save') }}
-                </v-btn>
-              </div>
-
-              <template v-if="!isSenderRule(selectedUmo)">
-                <!-- Provider Config Section -->
-                <div class="d-flex align-center mb-4 mt-4">
-                  <h3 class="font-weight-bold mb-0">
-                    {{ tm('ruleEditor.providerConfig.title') }}
-                  </h3>
-                </div>
-
-                <v-row density="comfortable">
-                  <v-col cols="12">
-                    <v-select
-                      v-model="providerConfig.chat_completion"
-                      :items="chatProviderOptions"
-                      item-title="label"
-                      item-value="value"
-                      :label="tm('ruleEditor.providerConfig.chatProvider')"
-                      variant="outlined"
-                      hide-details
-                      class="mb-2"
-                    />
-                  </v-col>
-                  <v-col cols="12">
-                    <v-select
-                      v-model="providerConfig.speech_to_text"
-                      :items="sttProviderOptions"
-                      item-title="label"
-                      item-value="value"
-                      :label="tm('ruleEditor.providerConfig.sttProvider')"
-                      variant="outlined"
-                      hide-details
-                      :disabled="availableSttProviders.length === 0"
-                      class="mb-2"
-                    />
-                  </v-col>
-                  <v-col cols="12">
-                    <v-select
-                      v-model="providerConfig.text_to_speech"
-                      :items="ttsProviderOptions"
-                      item-title="label"
-                      item-value="value"
-                      :label="tm('ruleEditor.providerConfig.ttsProvider')"
-                      variant="outlined"
-                      hide-details
-                      :disabled="availableTtsProviders.length === 0"
-                    />
-                  </v-col>
-                </v-row>
-
-                <div class="d-flex justify-end mt-4">
-                  <v-btn
-                    color="primary"
-                    variant="tonal"
-                    size="small"
-                    :loading="saving"
-                    prepend-icon="mdi-content-save"
-                    @click="saveProviderConfig"
-                  >
-                    {{ tm('buttons.save') }}
-                  </v-btn>
-                </div>
-
-                <!-- Prompt Config Section -->
-                <div class="d-flex align-center mb-4 mt-4">
-                  <h3 class="font-weight-bold mb-0">
-                    {{ tm('ruleEditor.promptConfig.title') }}
-                  </h3>
-                </div>
-
-                <v-row density="comfortable">
-                  <v-col cols="12">
-                    <v-select
-                      v-model="serviceConfig.prompt_id"
-                      :items="promptOptions"
-                      item-title="label"
-                      item-value="value"
-                      :label="tm('ruleEditor.promptConfig.selectPrompt')"
-                      variant="outlined"
-                      hide-details
-                      clearable
-                    />
-                  </v-col>
-                  <v-col cols="12">
-                    <v-alert
-                      type="info"
-                      variant="tonal"
-                      class="mt-2"
-                      icon="mdi-information-outline"
-                    >
-                      {{ tm('ruleEditor.promptConfig.hint') }}
-                    </v-alert>
-                  </v-col>
-                </v-row>
-
-                <div class="d-flex justify-end mt-4">
-                  <v-btn
-                    color="primary"
-                    variant="tonal"
-                    size="small"
-                    :loading="saving"
-                    prepend-icon="mdi-content-save"
-                    @click="saveServiceConfig"
-                  >
-                    {{ tm('buttons.save') }}
-                  </v-btn>
-                </div>
-
-                <!-- Plugin Config Section -->
-                <div class="d-flex align-center mb-4 mt-4">
-                  <h3 class="font-weight-bold mb-0">
-                    {{ tm('ruleEditor.pluginConfig.title') }}
-                  </h3>
-                </div>
-
-                <v-row density="comfortable">
-                  <v-col cols="12">
-                    <v-select
-                      v-model="pluginConfig.disabled_plugins"
-                      :items="pluginOptions"
-                      item-title="label"
-                      item-value="value"
-                      :label="tm('ruleEditor.pluginConfig.disabledPlugins')"
-                      variant="outlined"
-                      hide-details
-                      multiple
-                      chips
-                      closable-chips
-                      clearable
-                    />
-                  </v-col>
-                  <v-col cols="12">
-                    <v-alert
-                      type="info"
-                      variant="tonal"
-                      class="mt-2"
-                      icon="mdi-information-outline"
-                    >
-                      {{ tm('ruleEditor.pluginConfig.hint') }}
-                    </v-alert>
-                  </v-col>
-                </v-row>
-
-                <div class="d-flex justify-end mt-4">
-                  <v-btn
-                    color="primary"
-                    variant="tonal"
-                    size="small"
-                    :loading="saving"
-                    prepend-icon="mdi-content-save"
-                    @click="savePluginConfig"
-                  >
-                    {{ tm('buttons.save') }}
-                  </v-btn>
-                </div>
-
-                <!-- KB Config Section -->
-                <div class="d-flex align-center mb-4 mt-4">
-                  <h3 class="font-weight-bold mb-0">
-                    {{ tm('ruleEditor.kbConfig.title') }}
-                  </h3>
-                </div>
-
-                <v-row density="comfortable">
-                  <v-col cols="12">
-                    <v-select
-                      v-model="kbConfig.kb_ids"
-                      :items="kbOptions"
-                      item-title="label"
-                      item-value="value"
-                      :disabled="availableKbs.length === 0"
-                      :label="tm('ruleEditor.kbConfig.selectKbs')"
-                      variant="outlined"
-                      hide-details
-                      multiple
-                      chips
-                      closable-chips
-                      clearable
-                    />
-                  </v-col>
-                  <v-col cols="12" md="6">
-                    <v-text-field
-                      v-model.number="kbConfig.top_k"
-                      :label="tm('ruleEditor.kbConfig.topK')"
-                      variant="outlined"
-                      hide-details
-                      type="number"
-                      min="1"
-                      max="20"
-                      class="mt-3"
-                    />
-                  </v-col>
-                  <v-col cols="12" md="6">
-                    <v-checkbox
-                      v-model="kbConfig.enable_rerank"
-                      :label="tm('ruleEditor.kbConfig.enableRerank')"
-                      color="primary"
-                      hide-details
-                      class="mt-3"
-                    />
-                  </v-col>
-                </v-row>
-
-                <div class="d-flex justify-end mt-4">
-                  <v-btn
-                    color="primary"
-                    variant="tonal"
-                    size="small"
-                    :loading="saving"
-                    prepend-icon="mdi-content-save"
-                    @click="saveKbConfig"
-                  >
-                    {{ tm('buttons.save') }}
-                  </v-btn>
-                </div>
-              </template>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-dialog>
+      <SessionRuleEditorDialog
+        v-model="ruleDialog"
+        :selected-umo="selectedUmo"
+        :saving="saving"
+        :sender-overlay="senderOverlay"
+        :service-config="serviceConfig"
+        :provider-config="providerConfig"
+        :plugin-config="pluginConfig"
+        :kb-config="kbConfig"
+        :chat-provider-options="chatProviderOptions"
+        :stt-provider-options="sttProviderOptions"
+        :tts-provider-options="ttsProviderOptions"
+        :prompt-options="promptOptions"
+        :plugin-options="pluginOptions"
+        :kb-options="kbOptions"
+        :has-stt-providers="availableSttProviders.length > 0"
+        :has-tts-providers="availableTtsProviders.length > 0"
+        :has-kbs="availableKbs.length > 0"
+        @save-service-config="saveServiceConfig"
+        @save-provider-config="saveProviderConfig"
+        @save-plugin-config="savePluginConfig"
+        @save-kb-config="saveKbConfig"
+        @close="closeRuleEditor"
+      />
 
       <!-- 确认删除对话框 -->
-      <v-dialog v-model="deleteDialog" max-width="400">
-        <v-card class="app-dialog">
-          <v-card-title class="text-h6">{{
-            tm('deleteConfirm.title')
-          }}</v-card-title>
-          <v-card-text>
-            {{
-              deleteTarget && isSenderRule(deleteTarget)
-                ? tm('deleteConfirm.senderMessage')
-                : tm('deleteConfirm.message')
-            }}
-            <br /><br />
-            <code>{{
-              deleteTarget && isSenderRule(deleteTarget)
-                ? deleteTarget.sender_id
-                : deleteTarget?.umo
-            }}</code>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn variant="text" @click="deleteDialog = false">{{
-              tm('buttons.cancel')
-            }}</v-btn>
-            <v-btn
-              color="error"
-              variant="tonal"
-              :loading="deleting"
-              @click="deleteAllRules"
-              >{{ tm('buttons.delete') }}</v-btn
-            >
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+      <SessionDeleteConfirmDialog
+        v-model="deleteDialog"
+        :target="deleteTarget"
+        :deleting="deleting"
+        @confirm="deleteAllRules"
+      />
 
       <!-- 批量删除确认对话框 -->
-      <v-dialog v-model="batchDeleteDialog" max-width="500">
-        <v-card>
-          <v-card-title class="text-h6">{{
-            tm('batchDeleteConfirm.title')
-          }}</v-card-title>
-          <v-card-text>
-            {{
-              tm('batchDeleteConfirm.message', { count: selectedItems.length })
-            }}
-            <div class="session-selection-list mt-3">
-              <v-chip
-                v-for="item in selectedItems"
-                :key="item.umo"
-                size="small"
-                class="ma-1"
-                variant="outlined"
-              >
-                {{ getUmoDisplayText(item) }}
-              </v-chip>
-            </div>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn variant="text" @click="batchDeleteDialog = false">{{
-              tm('buttons.cancel')
-            }}</v-btn>
-            <v-btn
-              color="error"
-              variant="tonal"
-              :loading="deleting"
-              @click="batchDeleteRules"
-            >
-              {{ tm('buttons.delete') }}
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+      <SessionBatchDeleteDialog
+        v-model="batchDeleteDialog"
+        :selected-items="selectedItems"
+        :deleting="deleting"
+        :umo-info-map="availableUmoInfoMap"
+        @confirm="batchDeleteRules"
+      />
 
       <!-- 提示信息 -->
       <v-snackbar
@@ -1130,38 +371,12 @@
       </v-snackbar>
 
       <!-- 快速编辑备注名对话框 -->
-      <v-dialog v-model="quickEditNameDialog" max-width="400">
-        <v-card>
-          <v-card-title class="py-3 px-4">{{
-            tm('quickEditName.title')
-          }}</v-card-title>
-          <v-card-text class="pa-4">
-            <v-text-field
-              v-model="quickEditNameValue"
-              :label="tm('ruleEditor.serviceConfig.customName')"
-              variant="outlined"
-              hide-details
-              clearable
-              autofocus
-              @keyup.enter="saveQuickEditName"
-            />
-          </v-card-text>
-          <v-card-actions class="px-4 pb-4">
-            <v-spacer></v-spacer>
-            <v-btn variant="text" @click="quickEditNameDialog = false">{{
-              tm('buttons.cancel')
-            }}</v-btn>
-            <v-btn
-              color="primary"
-              variant="tonal"
-              :loading="saving"
-              @click="saveQuickEditName"
-            >
-              {{ tm('buttons.save') }}
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+      <SessionQuickEditNameDialog
+        v-model="quickEditNameDialog"
+        v-model:value="quickEditNameValue"
+        :saving="saving"
+        @save="saveQuickEditName"
+      />
     </v-container>
   </div>
 </template>
@@ -1175,140 +390,72 @@ import {
   ref,
   watch,
 } from 'vue';
-import { sessionApi, type UmoInfoData } from '@/api/v1';
+import { sessionApi } from '@/api/v1';
 import type {
   BatchSessionProviderRequest,
   BatchSessionServiceRequest,
-  DynamicConfig,
-  UmoListRequest,
 } from '@/api/generated/openapi-v1';
 import ConfigDocsLink from '@/components/shared/ConfigDocsLink.vue';
-import UmoDisplay from '@/components/shared/UmoDisplay.vue';
 import { useModuleI18n } from '@/i18n/composables';
-import { getPlatformColor as resolvePlatformColor } from '@/utils/platformUtils';
 import {
   askForConfirmation as askForConfirmationDialog,
   useConfirmDialog,
 } from '@/utils/confirmDialog';
-
-const FOLLOW_CONFIG_VALUE = '__astrbot_follow_config__';
-const FOLLOW_SESSION_VALUE = '__astrbot_follow_session__';
-
-type SnackbarColor = 'success' | 'error';
-type GroupDialogMode = 'create' | 'edit';
-type ProviderRuleType = 'chat_completion' | 'speech_to_text' | 'text_to_speech';
-type ApiBatchScope = 'all' | 'group' | 'private' | 'custom_group';
-type RuleTargetType = 'session' | 'sender';
-
-type RuleKey =
-  | 'session_service_config'
-  | 'session_plugin_config'
-  | 'kb_config'
-  | `provider_perf_${ProviderRuleType}`;
-
-type BatchScope = 'selected' | ApiBatchScope | `custom_group:${string}`;
-
-interface ProviderOption {
-  id: string;
-  name: string;
-  model?: string;
-}
-
-interface PromptOption {
-  name: string;
-}
-
-interface PluginOption {
-  name: string;
-  display_name?: string;
-}
-
-interface KnowledgeBaseOption {
-  kb_id: string;
-  kb_name: string;
-  emoji?: string | null;
-}
-
-interface SessionServiceConfig {
-  session_enabled?: boolean;
-  llm_enabled?: boolean;
-  tts_enabled?: boolean;
-  session_blocked?: boolean;
-  blocked?: boolean;
-  custom_name?: string;
-  prompt_id?: string | null;
-  [key: string]: unknown;
-}
-
-interface SessionPluginConfig {
-  enabled_plugins?: string[];
-  disabled_plugins?: string[];
-  [key: string]: unknown;
-}
-
-interface SessionKbConfig {
-  kb_ids?: string[];
-  top_k?: number;
-  enable_rerank?: boolean;
-  [key: string]: unknown;
-}
-
-interface SessionRuleSet {
-  session_service_config?: SessionServiceConfig;
-  session_plugin_config?: SessionPluginConfig;
-  kb_config?: SessionKbConfig;
-  provider_perf_chat_completion?: string;
-  provider_perf_speech_to_text?: string;
-  provider_perf_text_to_speech?: string;
-  [key: string]: unknown;
-}
-
-interface SessionRuleItem extends UmoInfoData {
-  umo: string;
-  sender_id?: string;
-  target_type?: RuleTargetType;
-  rules: SessionRuleSet;
-}
-
-interface GroupItem {
-  id: string;
-  name: string;
-  umos: string[];
-  umo_count: number;
-}
-
-interface GroupEditorState {
-  id: string | null;
-  name: string;
-  umos: string[];
-}
-
-interface SelectOption<T> {
-  label: string;
-  value: T;
-  disabled?: boolean;
-}
-
-interface TableOptionsLike {
-  page?: number;
-  itemsPerPage?: number;
-}
-
-interface UmoDisplayInfo {
-  umo: string;
-  platform: string;
-  message_type: string;
-  session_id: string;
-  auto_name: string;
-  user_alias: string;
-  display_name: string;
-  rules?: SessionRuleSet;
-}
-
-interface DebouncedCallback {
-  (): void;
-  cancel: () => void;
-}
+import SessionGroupDialog from './session-management/SessionGroupDialog.vue';
+import SessionAddRuleDialog from './session-management/SessionAddRuleDialog.vue';
+import SessionRuleEditorDialog from './session-management/SessionRuleEditorDialog.vue';
+import SessionDeleteConfirmDialog from './session-management/SessionDeleteConfirmDialog.vue';
+import SessionBatchDeleteDialog from './session-management/SessionBatchDeleteDialog.vue';
+import SessionQuickEditNameDialog from './session-management/SessionQuickEditNameDialog.vue';
+import SessionRulesTable from './session-management/SessionRulesTable.vue';
+import {
+  buildBatchTargetPayload,
+  clearProviderRule,
+  getProviderRule,
+  isSenderRule,
+  isSenderSubjectId,
+  normalizeBoolean,
+  normalizeGroup,
+  normalizeKnowledgeBaseOption,
+  normalizeNumber,
+  normalizePluginOption,
+  normalizePromptOption,
+  normalizeProviderOption,
+  normalizeRuleItem,
+  normalizeString,
+  normalizeStringArray,
+  normalizeUmoInfo,
+  resolveUmoInfo,
+  sessionAliasName,
+  setProviderRule,
+  toRuleValue,
+  unwrittenServiceEnabled,
+} from './session-management/sessionRuleNormalizers';
+import {
+  FOLLOW_CONFIG_VALUE,
+  type BatchScope,
+  type DebouncedCallback,
+  type GroupDialogMode,
+  type GroupEditorState,
+  type GroupItem,
+  type KnowledgeBaseOption,
+  type PluginOption,
+  type PromptOption,
+  type ProviderOption,
+  type ProviderRuleType,
+  type RuleKey,
+  type RuleTargetType,
+  type SelectOption,
+  type SenderOverlayState,
+  type SessionKbConfig,
+  type SessionPluginConfig,
+  type SessionRuleItem,
+  type SessionRuleSet,
+  type SessionServiceConfig,
+  type SnackbarColor,
+  type TableOptionsLike,
+  type UmoDisplayInfo,
+} from './session-management/sessionRuleHelpers';
 
 const { tm } = useModuleI18n('features/session-management');
 const confirmDialog = useConfirmDialog();
@@ -1341,24 +488,12 @@ const availableUmos = ref<string[]>([]);
 const availableUmoInfoMap = ref<Record<string, UmoDisplayInfo>>({});
 const selectedNewUmo = ref<string | null>(null);
 const selectedNewSenderId = ref('');
-const canCreateNewRule = computed(() =>
-  isSenderTarget.value
-    ? isSenderSubjectId(selectedNewSenderId.value)
-    : Boolean(selectedNewUmo.value),
-);
-const senderIdInvalid = computed(() => {
-  const value = selectedNewSenderId.value.trim();
-  return isSenderTarget.value && value.length > 0 && !isSenderSubjectId(value);
-});
 
 const ruleDialog = ref(false);
 const selectedUmo = ref<SessionRuleItem | null>(null);
 const editingRules = ref<SessionRuleSet>({});
 
-const senderOverlay = reactive<{
-  blocked: boolean;
-  llm_enabled: boolean | null;
-}>({
+const senderOverlay = reactive<SenderOverlayState>({
   blocked: false,
   llm_enabled: null,
 });
@@ -1542,28 +677,6 @@ const statusOptions = computed<SelectOption<boolean>[]>(() => [
   { label: tm('status.disabled'), value: false },
 ]);
 
-const senderLlmMode = computed({
-  get: () => {
-    if (senderOverlay.llm_enabled === null) {
-      return FOLLOW_SESSION_VALUE;
-    }
-    return senderOverlay.llm_enabled ? 'true' : 'false';
-  },
-  set: (value: string) => {
-    senderOverlay.llm_enabled =
-      value === FOLLOW_SESSION_VALUE ? null : value === 'true';
-  },
-});
-
-const senderLlmModeOptions = computed<SelectOption<string>[]>(() => [
-  {
-    label: tm('ruleEditor.serviceConfig.llmFollowSession'),
-    value: FOLLOW_SESSION_VALUE,
-  },
-  { label: tm('status.enabled'), value: 'true' },
-  { label: tm('status.disabled'), value: 'false' },
-]);
-
 const canApplyBatch = computed(() => {
   const hasChanges =
     batchLlmStatus.value !== null ||
@@ -1581,26 +694,6 @@ const canApplyBatch = computed(() => {
 const unselectedUmos = computed(() => {
   const selected = new Set(editingGroup.umos);
   return availableUmos.value.filter((umo) => !selected.has(umo));
-});
-
-const filteredUnselectedUmos = computed(() => {
-  if (!groupMemberSearch.value) {
-    return unselectedUmos.value;
-  }
-
-  const search = groupMemberSearch.value.toLowerCase();
-  return unselectedUmos.value.filter((umo) =>
-    umo.toLowerCase().includes(search),
-  );
-});
-
-const filteredSelectedUmos = computed(() => {
-  if (!groupSelectedSearch.value) {
-    return editingGroup.umos;
-  }
-
-  const search = groupSelectedSearch.value.toLowerCase();
-  return editingGroup.umos.filter((umo) => umo.toLowerCase().includes(search));
 });
 
 const debouncedSearch = createDebouncedCallback(() => {
@@ -1656,305 +749,6 @@ function createDebouncedCallback(
   return debounced;
 }
 
-function normalizeString(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-function normalizeStringArray(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === 'string')
-    : [];
-}
-
-function normalizeBoolean(value: unknown, fallback: boolean): boolean {
-  return typeof value === 'boolean' ? value : fallback;
-}
-
-function isWebchatScope(scopeId: string): boolean {
-  const entry = scopeId.trim();
-  if (!entry) {
-    return false;
-  }
-  if (entry.startsWith('session:')) {
-    return entry.split(':')[1] === 'webchat';
-  }
-  const separator = entry.indexOf(':');
-  return separator > 0 && entry.slice(0, separator) === 'webchat';
-}
-
-function unwrittenServiceEnabled(scopeId: string): boolean {
-  return Boolean(scopeId) && isWebchatScope(scopeId);
-}
-
-function normalizeNumber(value: unknown, fallback: number): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-}
-
-function normalizeProviderOption(raw: unknown): ProviderOption | null {
-  if (!raw || typeof raw !== 'object') {
-    return null;
-  }
-
-  const source = raw as Record<string, unknown>;
-  const id = normalizeString(source.id);
-  const name = normalizeString(source.name);
-  if (!id || !name) {
-    return null;
-  }
-
-  return {
-    id,
-    name,
-    model: normalizeString(source.model) || undefined,
-  };
-}
-
-function normalizePromptOption(raw: unknown): PromptOption | null {
-  if (!raw || typeof raw !== 'object') {
-    return null;
-  }
-
-  const source = raw as Record<string, unknown>;
-  const name = normalizeString(source.name);
-  return name ? { name } : null;
-}
-
-function normalizePluginOption(raw: unknown): PluginOption | null {
-  if (!raw || typeof raw !== 'object') {
-    return null;
-  }
-
-  const source = raw as Record<string, unknown>;
-  const name = normalizeString(source.name);
-  if (!name) {
-    return null;
-  }
-
-  return {
-    name,
-    display_name: normalizeString(source.display_name) || undefined,
-  };
-}
-
-function normalizeKnowledgeBaseOption(
-  raw: unknown,
-): KnowledgeBaseOption | null {
-  if (!raw || typeof raw !== 'object') {
-    return null;
-  }
-
-  const source = raw as Record<string, unknown>;
-  const kbId = normalizeString(source.kb_id);
-  const kbName = normalizeString(source.kb_name);
-  if (!kbId || !kbName) {
-    return null;
-  }
-
-  return {
-    kb_id: kbId,
-    kb_name: kbName,
-    emoji: normalizeString(source.emoji) || null,
-  };
-}
-
-function normalizeSessionServiceConfig(
-  raw: unknown,
-  umo = '',
-): SessionServiceConfig {
-  if (!raw || typeof raw !== 'object') {
-    return {};
-  }
-
-  const source = raw as Record<string, unknown>;
-  const fallback = unwrittenServiceEnabled(umo);
-  return {
-    ...source,
-    session_enabled: normalizeBoolean(source.session_enabled, fallback),
-    llm_enabled: normalizeBoolean(source.llm_enabled, fallback),
-    tts_enabled: normalizeBoolean(source.tts_enabled, fallback),
-    session_blocked: normalizeBoolean(source.session_blocked, false),
-    custom_name: normalizeString(source.custom_name) || undefined,
-    prompt_id: normalizeString(source.prompt_id) || null,
-  };
-}
-
-function normalizeSenderServiceConfig(raw: unknown): SessionServiceConfig {
-  if (!raw || typeof raw !== 'object') {
-    return {};
-  }
-
-  const source = raw as Record<string, unknown>;
-  const config: SessionServiceConfig = {};
-  if (typeof source.blocked === 'boolean') {
-    config.blocked = source.blocked;
-  }
-  if (typeof source.llm_enabled === 'boolean') {
-    config.llm_enabled = source.llm_enabled;
-  }
-  return config;
-}
-
-function normalizeSessionPluginConfig(raw: unknown): SessionPluginConfig {
-  if (!raw || typeof raw !== 'object') {
-    return {};
-  }
-
-  const source = raw as Record<string, unknown>;
-  return {
-    ...source,
-    enabled_plugins: normalizeStringArray(source.enabled_plugins),
-    disabled_plugins: normalizeStringArray(source.disabled_plugins),
-  };
-}
-
-function normalizeSessionKbConfig(raw: unknown): SessionKbConfig {
-  if (!raw || typeof raw !== 'object') {
-    return {};
-  }
-
-  const source = raw as Record<string, unknown>;
-  return {
-    ...source,
-    kb_ids: normalizeStringArray(source.kb_ids),
-    top_k: normalizeNumber(source.top_k, 5),
-    enable_rerank: normalizeBoolean(source.enable_rerank, true),
-  };
-}
-
-function toRuleValue(
-  value: string | SessionServiceConfig | SessionPluginConfig | SessionKbConfig,
-): DynamicConfig {
-  return value as unknown as DynamicConfig;
-}
-
-function normalizeRuleSet(
-  raw: unknown,
-  umo = '',
-  sender = false,
-): SessionRuleSet {
-  if (!raw || typeof raw !== 'object') {
-    return {};
-  }
-
-  const source = raw as Record<string, unknown>;
-  return {
-    ...source,
-    session_service_config: sender
-      ? normalizeSenderServiceConfig(source.session_service_config)
-      : normalizeSessionServiceConfig(source.session_service_config, umo),
-    session_plugin_config: normalizeSessionPluginConfig(
-      source.session_plugin_config,
-    ),
-    kb_config: normalizeSessionKbConfig(source.kb_config),
-    provider_perf_chat_completion:
-      normalizeString(source.provider_perf_chat_completion) || undefined,
-    provider_perf_speech_to_text:
-      normalizeString(source.provider_perf_speech_to_text) || undefined,
-    provider_perf_text_to_speech:
-      normalizeString(source.provider_perf_text_to_speech) || undefined,
-  };
-}
-
-function parseUmoInfo(umo: string): UmoDisplayInfo {
-  const parts = umo.split(':');
-  return {
-    umo,
-    platform: parts[0] || '',
-    message_type: parts[1] || '',
-    session_id: parts.slice(2).join(':') || umo,
-    auto_name: '',
-    user_alias: '',
-    display_name: umo,
-  };
-}
-
-function normalizeUmoInfo(
-  raw: unknown,
-  fallbackUmo = '',
-): UmoDisplayInfo | null {
-  if (!raw || typeof raw !== 'object') {
-    return fallbackUmo ? parseUmoInfo(fallbackUmo) : null;
-  }
-
-  const source = raw as Record<string, unknown>;
-  const umo = normalizeString(source.umo) || fallbackUmo;
-  if (!umo) {
-    return null;
-  }
-
-  return {
-    umo,
-    platform: normalizeString(source.platform),
-    message_type: normalizeString(source.message_type),
-    session_id:
-      normalizeString(source.session_id) || parseUmoInfo(umo).session_id,
-    auto_name: normalizeString(source.auto_name),
-    user_alias: normalizeString(source.user_alias),
-    display_name: normalizeString(source.display_name) || umo,
-    rules:
-      source.rules && typeof source.rules === 'object'
-        ? normalizeRuleSet(source.rules, umo)
-        : undefined,
-  };
-}
-
-function normalizeRuleItem(raw: unknown): SessionRuleItem | null {
-  if (!raw || typeof raw !== 'object') {
-    return null;
-  }
-
-  const source = raw as Record<string, unknown>;
-  if (source.target_type === 'sender') {
-    const senderId = normalizeString(source.sender_id);
-    if (!senderId) {
-      return null;
-    }
-    return {
-      umo: '',
-      sender_id: senderId,
-      target_type: 'sender',
-      platform: '',
-      message_type: '',
-      session_id: '',
-      auto_name: '',
-      user_alias: '',
-      display_name: senderId,
-      rules: normalizeRuleSet(source.rules, '', true),
-    };
-  }
-
-  const info = normalizeUmoInfo(raw);
-  if (!info) {
-    return null;
-  }
-
-  return {
-    ...info,
-    target_type: 'session',
-    rules: normalizeRuleSet(source.rules, info.umo),
-  };
-}
-
-function normalizeGroup(raw: unknown): GroupItem | null {
-  if (!raw || typeof raw !== 'object') {
-    return null;
-  }
-
-  const source = raw as Record<string, unknown>;
-  const id = normalizeString(source.id);
-  const name = normalizeString(source.name);
-  if (!id || !name) {
-    return null;
-  }
-
-  return {
-    id,
-    name,
-    umos: normalizeStringArray(source.umos),
-    umo_count: normalizeNumber(source.umo_count, 0),
-  };
-}
-
 function mergeUmoInfos(infos: unknown) {
   const next = { ...availableUmoInfoMap.value };
   if (!Array.isArray(infos)) {
@@ -1972,195 +766,8 @@ function mergeUmoInfos(infos: unknown) {
   availableUmoInfoMap.value = next;
 }
 
-function normalizeUmoValue(value: unknown): string {
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (value && typeof value === 'object') {
-    return normalizeString((value as Record<string, unknown>).umo);
-  }
-  return '';
-}
-
 function getAvailableUmoInfo(value: unknown): UmoDisplayInfo {
-  const umo = normalizeUmoValue(value);
-  if (!umo) {
-    return parseUmoInfo('');
-  }
-
-  return availableUmoInfoMap.value[umo] || parseUmoInfo(umo);
-}
-
-function getAvailableUmoDisplayProps(value: unknown) {
-  const info = getAvailableUmoInfo(value);
-  return {
-    umo: info.umo,
-    platform: info.platform,
-    messageType: info.message_type,
-    sessionId: info.session_id,
-    autoName: info.auto_name,
-    userAlias: info.user_alias,
-  };
-}
-
-function isSenderSubjectId(value: string): boolean {
-  const parts = value.trim().split(':');
-  return (
-    parts.length >= 4 &&
-    parts[0].toLowerCase() === 'im' &&
-    parts[1].trim().length > 0 &&
-    parts[2].trim().length > 0 &&
-    parts.slice(3).join(':').trim().length > 0
-  );
-}
-
-function isSenderRule(
-  item: SessionRuleItem | null | undefined,
-): item is SessionRuleItem & { sender_id: string; target_type: 'sender' } {
-  return item?.target_type === 'sender' && Boolean(item.sender_id);
-}
-
-function hasProviderConfig(rules: SessionRuleSet | null | undefined): boolean {
-  return Boolean(
-    rules?.provider_perf_chat_completion ||
-    rules?.provider_perf_speech_to_text ||
-    rules?.provider_perf_text_to_speech,
-  );
-}
-
-function getPlatformColor(platform: string): string {
-  return resolvePlatformColor(platform);
-}
-
-function getProviderRule(
-  rules: SessionRuleSet,
-  type: ProviderRuleType,
-): string | undefined {
-  switch (type) {
-    case 'chat_completion':
-      return rules.provider_perf_chat_completion;
-    case 'speech_to_text':
-      return rules.provider_perf_speech_to_text;
-    case 'text_to_speech':
-      return rules.provider_perf_text_to_speech;
-  }
-}
-
-function setProviderRule(
-  rules: SessionRuleSet,
-  type: ProviderRuleType,
-  value: string,
-): void {
-  switch (type) {
-    case 'chat_completion':
-      rules.provider_perf_chat_completion = value;
-      return;
-    case 'speech_to_text':
-      rules.provider_perf_speech_to_text = value;
-      return;
-    case 'text_to_speech':
-      rules.provider_perf_text_to_speech = value;
-  }
-}
-
-function clearProviderRule(
-  rules: SessionRuleSet,
-  type: ProviderRuleType,
-): void {
-  switch (type) {
-    case 'chat_completion':
-      delete rules.provider_perf_chat_completion;
-      return;
-    case 'speech_to_text':
-      delete rules.provider_perf_speech_to_text;
-      return;
-    case 'text_to_speech':
-      delete rules.provider_perf_text_to_speech;
-  }
-}
-
-function buildBatchTargetPayload(
-  scope: BatchScope,
-  groupId: string | null,
-  umos: string[],
-): Partial<Pick<UmoListRequest, 'scope' | 'group_id' | 'umos'>> {
-  const payload: Partial<Pick<UmoListRequest, 'scope' | 'group_id' | 'umos'>> =
-    {};
-
-  if (
-    scope === 'all' ||
-    scope === 'group' ||
-    scope === 'private' ||
-    scope === 'custom_group'
-  ) {
-    payload.scope = scope;
-  }
-  if (groupId) {
-    payload.group_id = groupId;
-  }
-  if (umos.length > 0) {
-    payload.umos = umos;
-  }
-
-  return payload;
-}
-
-function sessionAliasName(
-  item: UmoDisplayInfo | SessionRuleItem | null | undefined,
-): string {
-  if (!item) {
-    return '';
-  }
-  return (
-    item.user_alias || item.rules?.session_service_config?.custom_name || ''
-  );
-}
-
-function getUmoDisplayText(value: unknown): string {
-  const item =
-    typeof value === 'string'
-      ? getAvailableUmoInfo(value)
-      : (value as UmoDisplayInfo | SessionRuleItem | null);
-  if (!item) {
-    return '';
-  }
-
-  const umo = item.umo || normalizeUmoValue(value);
-  const aliasName = sessionAliasName(item);
-  const autoName = item.auto_name || '';
-
-  let displayName = '';
-  if (aliasName && autoName && aliasName !== autoName) {
-    displayName = `${aliasName}（${autoName}）`;
-  } else {
-    displayName = aliasName || autoName;
-  }
-
-  if (displayName && umo) {
-    return `${displayName} (UMO: ${umo})`;
-  }
-
-  return displayName || (umo ? `UMO: ${umo}` : item.display_name || '');
-}
-
-function getUmoSelectionText(value: unknown): string {
-  const item =
-    typeof value === 'string'
-      ? getAvailableUmoInfo(value)
-      : (value as UmoDisplayInfo | SessionRuleItem | null);
-  if (!item) {
-    return '';
-  }
-
-  const umo = item.umo || normalizeUmoValue(value);
-  const aliasName = sessionAliasName(item);
-  const autoName = item.auto_name || '';
-
-  if (aliasName && autoName && aliasName !== autoName) {
-    return `${aliasName}（${autoName}）`;
-  }
-
-  return aliasName || autoName || umo || item.display_name || '';
+  return resolveUmoInfo(value, availableUmoInfoMap.value);
 }
 
 function buildUmoItem(
@@ -2196,6 +803,18 @@ function resetGroupEditor() {
   editingGroup.umos = [];
   groupMemberSearch.value = '';
   groupSelectedSearch.value = '';
+}
+
+function updateGroupName(value: string) {
+  editingGroup.name = value;
+}
+
+function updateGroupMemberSearch(value: string) {
+  groupMemberSearch.value = value;
+}
+
+function updateGroupSelectedSearch(value: string) {
+  groupSelectedSearch.value = value;
 }
 
 async function loadData() {
@@ -3134,67 +1753,3 @@ async function addSelectedToGroup(groupId: string) {
   }
 }
 </script>
-
-<style scoped>
-.session-rules-table {
-  font-size: 12px;
-}
-
-code {
-  background-color: rgb(var(--v-theme-surface-variant));
-  padding: 2px var(--astrbot-space-2);
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.transfer-list {
-  max-height: 280px;
-  overflow-y: auto;
-  border: 1px solid rgb(var(--v-theme-outline-variant));
-  border-radius: 8px;
-  overscroll-behavior: contain;
-}
-
-.session-group-dialog__card {
-  display: flex;
-  flex-direction: column;
-  max-height: min(88dvh, 900px);
-}
-
-.session-group-dialog__content {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.session-group-dialog__actions {
-  flex-shrink: 0;
-}
-
-.transfer-item {
-  cursor: pointer;
-  min-height: 44px;
-  padding-top: var(--astrbot-space-1);
-  padding-bottom: var(--astrbot-space-1);
-}
-
-.transfer-item:hover {
-  background-color: rgb(var(--v-theme-surface-variant));
-}
-
-.umo-list-platform {
-  max-width: 92px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.umo-selection-chip {
-  max-width: 100%;
-}
-
-.session-selection-list {
-  max-height: 200px;
-  overflow-y: auto;
-}
-</style>

@@ -4,6 +4,13 @@
     max-width="800px"
     max-height="90%"
     scrollable
+    :aria-label="
+      updatingMode
+        ? `${tm('dialog.edit')} ${updatingPlatformConfig.id} ${tm(
+            'dialog.adapter',
+          )}`
+        : tm('dialog.addPlatform')
+    "
     @after-enter="prepareData"
   >
     <v-card
@@ -20,325 +27,29 @@
         ref="dialogScrollContainer"
         class="pa-4 ml-2 platform-dialog__content"
       >
-        <div class="platform-dialog__step">
-          <div>
-            <v-icon icon="mdi-numeric-1-circle" class="mr-3"></v-icon>
-          </div>
-          <div class="platform-dialog__step-content">
-            <h3>
-              {{ tm('createDialog.step1Title') }}
-            </h3>
-            <small class="text-medium-emphasis">{{
-              tm('createDialog.step1Hint')
-            }}</small>
-            <div>
-              <div v-if="!updatingMode">
-                <v-select
-                  v-model="selectedPlatformType"
-                  :items="Object.keys(platformTemplates)"
-                  item-title="name"
-                  item-value="name"
-                  :label="tm('createDialog.platformTypeLabel')"
-                  variant="outlined"
-                  rounded="md"
-                  density="comfortable"
-                  hide-details
-                  class="mt-6 platform-type-field"
-                >
-                  <template #item="{ props: itemProps, item }">
-                    <v-list-item v-bind="itemProps">
-                      <template #prepend>
-                        <img
-                          :src="getPlatformTemplateIcon(item)"
-                          class="platform-template-icon"
-                        />
-                      </template>
-                      <v-tooltip
-                        v-if="
-                          [
-                            'qq_official',
-                            'qq_official_webhook',
-                            'aiocqhttp',
-                            'weixin_oc',
-                          ].includes(platformTemplates[item]?.type ?? '')
-                        "
-                        activator="parent"
-                        :text="
-                          tm(
-                            `createDialog.platformTooltips.${platformTemplates[item]?.type ?? ''}`,
-                          )
-                        "
-                        location="end"
-                        max-width="360"
-                        open-delay="50"
-                      />
-                    </v-list-item>
-                  </template>
-                </v-select>
-                <div v-if="selectedPlatformConfig" class="mt-3">
-                  <div v-if="isLarkPlatform">
-                    <div class="creation-mode-title mt-4 mb-1">
-                      {{ tm('registrationAction.mode.title') }}
-                    </div>
-                    <v-radio-group
-                      v-model="larkCreationMode"
-                      class="creation-mode-group"
-                      hide-details
-                    >
-                      <v-radio
-                        value="scan"
-                        :label="tm('registrationAction.mode.scan')"
-                      ></v-radio>
-                      <v-radio
-                        value="manual"
-                        :label="tm('registrationAction.mode.larkManual')"
-                      ></v-radio>
-                    </v-radio-group>
-
-                    <div
-                      v-if="larkCreationMode === 'scan'"
-                      class="registration-inline mt-3"
-                    >
-                      <v-text-field
-                        :model-value="selectedPlatformConfig.id || ''"
-                        :label="tm('registrationAction.platformIdLabel')"
-                        :error="Boolean(scanPlatformIdError)"
-                        :error-messages="scanPlatformIdError"
-                        variant="outlined"
-                        density="compact"
-                        hide-details="auto"
-                        class="registration-platform-id-field"
-                        @update:model-value="setScanPlatformId"
-                      />
-                      <PlatformRegistrationAction
-                        :platform-config="selectedPlatformConfig"
-                        :active="larkCreationMode === 'scan'"
-                        @created="handlePlatformRegistrationCreated"
-                        @success="showSuccess"
-                        @error="showError"
-                      />
-                    </div>
-
-                    <div v-else-if="larkCreationMode === 'manual'" class="mt-2">
-                      <div class="platform-action-row">
-                        <v-btn
-                          color="info"
-                          variant="tonal"
-                          class="mt-2"
-                          @click="openTutorial"
-                        >
-                          <v-icon start>mdi-help-circle-outline</v-icon>
-                          {{ tm('dialog.viewTutorial') }}
-                        </v-btn>
-                      </div>
-                      <AstrBotConfig
-                        :iterable="selectedPlatformConfig"
-                        :metadata="platformMetadata"
-                        metadata-key="platform"
-                      />
-                    </div>
-                  </div>
-
-                  <div v-else-if="isDingtalkPlatform">
-                    <div class="creation-mode-title mt-4 mb-1">
-                      {{ tm('registrationAction.mode.title') }}
-                    </div>
-                    <v-radio-group
-                      v-model="dingtalkCreationMode"
-                      class="creation-mode-group"
-                      hide-details
-                    >
-                      <v-radio
-                        value="scan"
-                        :label="tm('registrationAction.mode.scan')"
-                      ></v-radio>
-                      <v-radio
-                        value="manual"
-                        :label="tm('registrationAction.mode.manual')"
-                      ></v-radio>
-                    </v-radio-group>
-
-                    <div
-                      v-if="dingtalkCreationMode === 'scan'"
-                      class="registration-inline mt-3"
-                    >
-                      <v-text-field
-                        :model-value="selectedPlatformConfig.id || ''"
-                        :label="tm('registrationAction.platformIdLabel')"
-                        :error="Boolean(scanPlatformIdError)"
-                        :error-messages="scanPlatformIdError"
-                        variant="outlined"
-                        density="compact"
-                        hide-details="auto"
-                        class="registration-platform-id-field"
-                        @update:model-value="setScanPlatformId"
-                      />
-                      <PlatformRegistrationAction
-                        :platform-config="selectedPlatformConfig"
-                        :active="dingtalkCreationMode === 'scan'"
-                        @created="handlePlatformRegistrationCreated"
-                        @success="showSuccess"
-                        @error="showError"
-                      />
-                    </div>
-
-                    <div
-                      v-else-if="dingtalkCreationMode === 'manual'"
-                      class="mt-2"
-                    >
-                      <div class="platform-action-row">
-                        <v-btn
-                          color="info"
-                          variant="tonal"
-                          class="mt-2"
-                          @click="openTutorial"
-                        >
-                          <v-icon start>mdi-help-circle-outline</v-icon>
-                          {{ tm('dialog.viewTutorial') }}
-                        </v-btn>
-                      </div>
-                      <AstrBotConfig
-                        :iterable="selectedPlatformConfig"
-                        :metadata="platformMetadata"
-                        metadata-key="platform"
-                      />
-                    </div>
-                  </div>
-
-                  <div v-else-if="isQqOfficialPlatform">
-                    <div class="creation-mode-title mt-4 mb-1">
-                      {{ tm('registrationAction.mode.title') }}
-                    </div>
-                    <v-radio-group
-                      v-model="qqOfficialCreationMode"
-                      class="creation-mode-group"
-                      hide-details
-                    >
-                      <v-radio
-                        value="scan"
-                        :label="tm('registrationAction.mode.scan')"
-                      ></v-radio>
-                      <v-radio
-                        value="manual"
-                        :label="tm('registrationAction.mode.manual')"
-                      ></v-radio>
-                    </v-radio-group>
-
-                    <div
-                      v-if="qqOfficialCreationMode === 'scan'"
-                      class="registration-inline mt-3"
-                    >
-                      <v-text-field
-                        :model-value="selectedPlatformConfig.id || ''"
-                        :label="tm('registrationAction.platformIdLabel')"
-                        :error="Boolean(scanPlatformIdError)"
-                        :error-messages="scanPlatformIdError"
-                        variant="outlined"
-                        density="compact"
-                        hide-details="auto"
-                        class="registration-platform-id-field"
-                        @update:model-value="setScanPlatformId"
-                      />
-                      <PlatformRegistrationAction
-                        :platform-config="selectedPlatformConfig"
-                        :active="qqOfficialCreationMode === 'scan'"
-                        @created="handlePlatformRegistrationCreated"
-                        @success="showSuccess"
-                        @error="showError"
-                      />
-                    </div>
-
-                    <div
-                      v-else-if="qqOfficialCreationMode === 'manual'"
-                      class="mt-2"
-                    >
-                      <div class="platform-action-row">
-                        <v-btn
-                          color="info"
-                          variant="tonal"
-                          class="mt-2"
-                          @click="openTutorial"
-                        >
-                          <v-icon start>mdi-help-circle-outline</v-icon>
-                          {{ tm('dialog.viewTutorial') }}
-                        </v-btn>
-                      </div>
-                      <AstrBotConfig
-                        :iterable="selectedPlatformConfig"
-                        :metadata="platformMetadata"
-                        metadata-key="platform"
-                      />
-                    </div>
-                  </div>
-
-                  <div
-                    v-else-if="isWeixinOcPlatform"
-                    class="registration-inline mt-4"
-                  >
-                    <v-text-field
-                      :model-value="selectedPlatformConfig.id || ''"
-                      :label="tm('registrationAction.platformIdLabel')"
-                      :error="Boolean(scanPlatformIdError)"
-                      :error-messages="scanPlatformIdError"
-                      variant="outlined"
-                      density="compact"
-                      hide-details="auto"
-                      class="registration-platform-id-field"
-                      @update:model-value="setScanPlatformId"
-                    />
-                    <PlatformRegistrationAction
-                      :platform-config="selectedPlatformConfig"
-                      :active="isWeixinOcPlatform"
-                      @created="handlePlatformRegistrationCreated"
-                      @success="showSuccess"
-                      @error="showError"
-                    />
-                  </div>
-
-                  <div v-else class="mt-2">
-                    <div class="platform-action-row">
-                      <v-btn
-                        color="info"
-                        variant="tonal"
-                        class="mt-2"
-                        @click="openTutorial"
-                      >
-                        <v-icon start>mdi-help-circle-outline</v-icon>
-                        {{ tm('dialog.viewTutorial') }}
-                      </v-btn>
-                    </div>
-                    <AstrBotConfig
-                      :iterable="selectedPlatformConfig"
-                      :metadata="platformMetadata"
-                      metadata-key="platform"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div v-else>
-                <v-text-field
-                  v-model="updatingPlatformConfig.type"
-                  :label="tm('createDialog.platformTypeLabel')"
-                  variant="outlined"
-                  rounded="md"
-                  density="comfortable"
-                  hide-details
-                  class="mt-6 platform-type-field"
-                  disabled
-                ></v-text-field>
-                <div class="mt-3">
-                  <div class="mt-2">
-                    <AstrBotConfig
-                      :iterable="updatingPlatformConfig"
-                      :metadata="platformMetadata"
-                      metadata-key="platform"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PlatformCreationSection
+          :updating-mode="updatingMode"
+          :platform-templates="platformTemplates"
+          :selected-platform-type="selectedPlatformType"
+          :selected-platform-config="selectedPlatformConfig"
+          :lark-creation-mode="larkCreationMode"
+          :dingtalk-creation-mode="dingtalkCreationMode"
+          :qq-official-creation-mode="qqOfficialCreationMode"
+          :is-lark-platform="isLarkPlatform"
+          :is-dingtalk-platform="isDingtalkPlatform"
+          :is-qq-official-platform="isQqOfficialPlatform"
+          :is-weixin-oc-platform="isWeixinOcPlatform"
+          :scan-platform-id-error="scanPlatformIdError"
+          :updating-platform-config="updatingPlatformConfig"
+          :platform-metadata="platformMetadata"
+          @update:selected-platform-type="selectedPlatformType = $event"
+          @update:lark-creation-mode="larkCreationMode = $event"
+          @update:dingtalk-creation-mode="dingtalkCreationMode = $event"
+          @update:qq-official-creation-mode="qqOfficialCreationMode = $event"
+          @update:scan-platform-id="setScanPlatformId"
+          @platform-registration-created="handlePlatformRegistrationCreated"
+          @show-toast="handleShowToast"
+        />
 
         <div class="platform-dialog__step mt-6">
           <div>
@@ -387,6 +98,7 @@
                 <v-radio-group
                   v-model="aBConfigRadioVal"
                   class="mt-2"
+                  :aria-label="tm('createDialog.configFileTitle')"
                   hide-details
                 >
                   <v-radio value="0">
@@ -476,230 +188,26 @@
                 </div>
               </div>
 
-              <div v-else>
-                <div class="mb-3 d-flex align-center justify-space-between">
-                  <div>
-                    <v-btn
-                      v-if="isEditingRoutes"
-                      color="primary"
-                      variant="tonal"
-                      size="small"
-                      @click="addNewRoute"
-                    >
-                      <v-icon start>mdi-plus</v-icon>
-                      {{ tm('createDialog.addRouteRule') }}
-                    </v-btn>
-                  </div>
-                  <v-btn
-                    :color="isEditingRoutes ? 'on-surface-variant' : 'primary'"
-                    variant="tonal"
-                    size="small"
-                    @click="toggleEditMode"
-                  >
-                    <v-icon start>{{
-                      isEditingRoutes ? 'mdi-eye' : 'mdi-pencil'
-                    }}</v-icon>
-                    {{
-                      isEditingRoutes
-                        ? tm('createDialog.viewMode')
-                        : tm('createDialog.editMode')
-                    }}
-                  </v-btn>
-                </div>
-
-                <v-data-table
-                  :headers="routeTableHeaders"
-                  :items="platformRoutes"
-                  item-value="umop"
-                  :no-data-text="tm('createDialog.noRouteRules')"
-                  hide-default-footer
-                  :items-per-page="-1"
-                  class="mt-2"
-                  variant="outlined"
-                >
-                  <template #item.source="{ item }">
-                    <div class="route-source-cell">
-                      <div
-                        class="d-flex align-center route-source-input-row"
-                        :class="{
-                          'route-source-input-row--editing': isEditingRoutes,
-                        }"
-                      >
-                        <v-autocomplete
-                          v-if="
-                            isEditingRoutes &&
-                            updatingMode &&
-                            getRouteSourceMode(item) === 'known'
-                          "
-                          v-model="item.sourceUmo"
-                          :items="filteredKnownRouteUmoItems"
-                          :loading="loadingKnownRouteUmos"
-                          variant="outlined"
-                          density="compact"
-                          hide-details
-                          clearable
-                          :placeholder="
-                            tm('createDialog.routeSource.selectPlaceholder')
-                          "
-                          :no-data-text="tm('createDialog.routeSource.noData')"
-                          class="route-source-autocomplete"
-                          @update:model-value="
-                            applyKnownRouteSource(item, $event)
-                          "
-                          @focus="loadKnownRouteUmos"
-                        >
-                          <template
-                            #item="{ props: sourceItemProps, item: sourceItem }"
-                          >
-                            <v-list-item v-bind="sourceItemProps">
-                              <template #title>
-                                <UmoDisplay
-                                  v-bind="
-                                    getKnownRouteUmoDisplayProps(sourceItem)
-                                  "
-                                  compact
-                                  :show-info="false"
-                                />
-                              </template>
-                            </v-list-item>
-                          </template>
-                          <template #selection="{ item: sourceItem }">
-                            <v-chip
-                              v-if="
-                                sourceItem &&
-                                getKnownRouteUmoSelectionText(sourceItem)
-                              "
-                              size="small"
-                              variant="tonal"
-                              color="primary"
-                              class="umo-selection-chip"
-                            >
-                              {{ getKnownRouteUmoSelectionText(sourceItem) }}
-                            </v-chip>
-                          </template>
-                        </v-autocomplete>
-                        <template v-else>
-                          <v-select
-                            v-if="isEditingRoutes"
-                            v-model="item.messageType"
-                            :items="messageTypeOptions"
-                            item-title="label"
-                            item-value="value"
-                            variant="outlined"
-                            density="compact"
-                            hide-details
-                            class="route-message-type-field"
-                          >
-                          </v-select>
-                          <small v-else>{{
-                            getMessageTypeLabel(item.messageType)
-                          }}</small>
-                          <small class="mx-1">:</small>
-                          <v-text-field
-                            v-if="isEditingRoutes"
-                            v-model="item.sessionId"
-                            variant="outlined"
-                            density="compact"
-                            hide-details
-                            :placeholder="
-                              tm('createDialog.sessionIdPlaceholder')
-                            "
-                          >
-                          </v-text-field>
-                          <small v-else>{{
-                            item.sessionId === '*'
-                              ? tm('createDialog.allSessions')
-                              : item.sessionId
-                          }}</small>
-                        </template>
-                      </div>
-                      <button
-                        v-if="updatingMode && isEditingRoutes"
-                        class="route-source-mode-link"
-                        type="button"
-                        @click="toggleRouteSourceMode(item)"
-                      >
-                        {{ getRouteSourceModeLinkText(item) }}
-                      </button>
-                    </div>
-                  </template>
-
-                  <template #item.configId="{ item }">
-                    <div class="d-flex align-center">
-                      <v-select
-                        v-if="isEditingRoutes"
-                        v-model="item.configId"
-                        :items="configInfoList"
-                        item-title="name"
-                        item-value="id"
-                        variant="outlined"
-                        density="compact"
-                        class="route-config-select"
-                        hide-details
-                      >
-                      </v-select>
-                      <div v-else>
-                        <small>{{ getConfigName(item.configId) }}</small>
-                      </div>
-                      <v-btn
-                        icon
-                        variant="text"
-                        density="compact"
-                        class="ml-2"
-                        :disabled="!item.configId"
-                        @click="openConfigDrawer(item.configId)"
-                      >
-                        <v-icon size="18">mdi-arrow-top-right-thick</v-icon>
-                      </v-btn>
-                    </div>
-                    <small
-                      v-if="
-                        configInfoList.findIndex(
-                          (c) => c.id === item.configId,
-                        ) === -1
-                      "
-                      class="route-config-missing ml-2"
-                      >{{ tm('createDialog.configMissing') }}</small
-                    >
-                  </template>
-
-                  <template #item.actions="{ index }">
-                    <div v-if="isEditingRoutes" class="d-flex align-center">
-                      <v-btn
-                        icon
-                        size="x-small"
-                        variant="text"
-                        :disabled="index === 0"
-                        @click="moveRouteUp(index)"
-                      >
-                        <v-icon>mdi-arrow-up</v-icon>
-                      </v-btn>
-                      <v-btn
-                        icon
-                        size="x-small"
-                        variant="text"
-                        :disabled="index === platformRoutes.length - 1"
-                        @click="moveRouteDown(index)"
-                      >
-                        <v-icon>mdi-arrow-down</v-icon>
-                      </v-btn>
-                      <v-btn
-                        icon
-                        size="x-small"
-                        variant="text"
-                        color="error"
-                        @click="deleteRoute(index)"
-                      >
-                        <v-icon>mdi-delete</v-icon>
-                      </v-btn>
-                    </div>
-                    <span v-else class="text-medium-emphasis">-</span>
-                  </template>
-                </v-data-table>
-                <small class="ml-2 mt-2 d-block text-medium-emphasis">{{
-                  tm('createDialog.routeHint')
-                }}</small>
-              </div>
+              <PlatformRouteRulesEditor
+                v-else
+                :platform-routes="platformRoutes"
+                :is-editing-routes="isEditingRoutes"
+                :updating-mode="updatingMode"
+                :known-route-umo-items="filteredKnownRouteUmoItems"
+                :loading-known-route-umos="loadingKnownRouteUmos"
+                :known-route-umo-info-map="knownRouteUmoInfoMap"
+                :config-info-list="configInfoList"
+                @update:platform-routes="platformRoutes = $event"
+                @add-route="addNewRoute"
+                @move-route-up="moveRouteUp"
+                @move-route-down="moveRouteDown"
+                @delete-route="deleteRoute"
+                @toggle-edit-mode="toggleEditMode"
+                @toggle-route-source-mode="toggleRouteSourceMode"
+                @apply-known-route-source="applyKnownRouteSource"
+                @load-known-route-umos="loadKnownRouteUmos"
+                @open-config-drawer="openConfigDrawer"
+              />
             </div>
           </div>
         </div>
@@ -728,56 +236,19 @@
     </v-card>
   </v-dialog>
 
-  <!-- ID冲突确认对话框 -->
-  <v-dialog v-model="showIdConflictDialog" max-width="450" persistent>
-    <v-card class="app-dialog">
-      <v-card-title class="text-h6 bg-warning d-flex align-center">
-        <v-icon start class="me-2">mdi-alert-circle-outline</v-icon>
-        {{ tm('dialog.idConflict.title') }}
-      </v-card-title>
-      <v-card-text class="py-4 text-body-1 text-medium-emphasis">
-        {{ tm('dialog.idConflict.message', { id: conflictId }) }}
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn variant="text" @click="handleIdConflictConfirm(false)">{{
-          tm('dialog.idConflict.confirm')
-        }}</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+  <PlatformIdConflictDialog
+    v-model="showIdConflictDialog"
+    :conflict-id="conflictId"
+    @confirm="handleIdConflictConfirm(false)"
+  />
 
-  <!-- 安全警告对话框 -->
-  <v-dialog v-model="showOneBotEmptyTokenWarnDialog" max-width="600" persistent>
-    <v-card class="app-dialog">
-      <v-card-title>
-        {{ tm('dialog.securityWarning.title') }}
-      </v-card-title>
-      <v-card-text class="py-4">
-        <p>{{ tm(oneBotTokenWarningMessageKey) }}</p>
-        <span
-          ><a :href="oneBotTokenWarningTutorialLink" target="_blank">{{
-            tm('dialog.securityWarning.learnMore')
-          }}</a></span
-        >
-      </v-card-text>
-      <v-card-actions class="px-4 pb-4">
-        <v-spacer></v-spacer>
-        <v-btn
-          color="error"
-          @click="handleOneBotEmptyTokenWarningDismiss(true)"
-        >
-          {{ tm('createDialog.warningContinue') }}
-        </v-btn>
-        <v-btn
-          color="primary"
-          @click="handleOneBotEmptyTokenWarningDismiss(false)"
-        >
-          {{ tm('createDialog.warningEditAgain') }}
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+  <PlatformSecurityWarningDialog
+    v-model="showOneBotEmptyTokenWarnDialog"
+    :message-key="oneBotTokenWarningMessageKey"
+    :tutorial-link="oneBotTokenWarningTutorialLink"
+    @confirm="handleOneBotEmptyTokenWarningDismiss(true)"
+    @dismiss="handleOneBotEmptyTokenWarningDismiss(false)"
+  />
 
   <ConfigProfileDrawer
     v-model="showConfigDrawer"
@@ -786,25 +257,45 @@
 </template>
 
 <script setup lang="ts">
-import {
-  botApi,
-  configProfileApi,
-  configRouteApi,
-  fileApi,
-  sessionApi,
-} from '@/api/v1';
+import { botApi, configProfileApi, configRouteApi, sessionApi } from '@/api/v1';
 import { computed, nextTick, reactive, ref, toRefs, watch } from 'vue';
 import { useModuleI18n } from '@/i18n/composables';
-import {
-  getPlatformIcon as getBasePlatformIcon,
-  getTutorialLink,
-} from '@/utils/platformUtils';
+import { getTutorialLink } from '@/utils/platformUtils';
 import { resolveErrorMessage } from '@/utils/errorUtils';
-import AstrBotConfig from '@/components/shared/AstrBotConfig.vue';
 import AstrBotCoreConfigWrapper from '@/components/config/AstrBotCoreConfigWrapper.vue';
 import ConfigProfileDrawer from '@/components/config/ConfigProfileDrawer.vue';
-import PlatformRegistrationAction from '@/components/platform/PlatformRegistrationAction.vue';
-import UmoDisplay from '@/components/shared/UmoDisplay.vue';
+import PlatformCreationSection from '@/components/platform/PlatformCreationSection.vue';
+import PlatformIdConflictDialog from '@/components/platform/PlatformIdConflictDialog.vue';
+import PlatformRouteRulesEditor from '@/components/platform/PlatformRouteRulesEditor.vue';
+import PlatformSecurityWarningDialog from '@/components/platform/PlatformSecurityWarningDialog.vue';
+import {
+  asRecord,
+  buildRandomPlatformIdSuffix,
+  deepClone,
+  getOneBotSecurityToken,
+  getRouteSourceMode,
+  getString,
+  isParsedUmopMatchPlatform,
+  isPlatformIdValid,
+  isUmopMatchPlatform,
+  normalizeConfigInfoList,
+  normalizeKnownRouteUmoInfos,
+  normalizePlatformConfigList,
+  normalizePlatformTemplates,
+  normalizeRoutingTable,
+  normalizeStringArray,
+  parseUmop,
+  sanitizePlatformIdPart,
+  type ConfigInfo,
+  type ConfigMode,
+  type CreationMode,
+  type KnownRouteUmoInfo,
+  type PlatformConfigItem,
+  type PlatformRoute,
+  type RecordValue,
+  type RegistrationCreatedPayload,
+  type ToastPayload,
+} from '@/components/platform/platformConfigHelpers';
 import {
   runBotMutationWithStepUp,
   runConfigMutationWithStepUp,
@@ -815,25 +306,6 @@ import {
 defineOptions({
   name: 'AddNewPlatform',
 });
-
-type RecordValue = Record<string, unknown>;
-type CreationMode = '' | 'scan' | 'manual';
-type ConfigMode = '0' | '1';
-type RouteSourceMode = 'manual' | 'known';
-
-interface PlatformConfigItem extends RecordValue {
-  id?: string;
-  type?: string;
-  app_id?: string;
-  app_secret?: string;
-  client_id?: string;
-  client_secret?: string;
-  appid?: string;
-  secret?: string;
-  weixin_oc_token?: string;
-  ws_reverse_token?: string;
-  logo_token?: string;
-}
 
 interface PlatformMetadataState extends RecordValue {
   platform_group?: {
@@ -847,47 +319,6 @@ interface PlatformMetadataState extends RecordValue {
 
 interface PlatformConfigState extends RecordValue {
   platform?: unknown[];
-}
-
-interface ConfigInfo extends RecordValue {
-  id: string;
-  name: string;
-}
-
-interface PlatformRoute {
-  umop: string | null;
-  originalUmop: string | null;
-  sourceMode: RouteSourceMode;
-  sourceUmo: string;
-  messageType: string;
-  sessionId: string;
-  configId: string;
-}
-
-interface ParsedUmop {
-  platform: string;
-  messageType: string;
-  sessionId: string;
-}
-
-interface KnownRouteUmoInfo extends RecordValue {
-  umo: string;
-  platform?: string;
-  message_type?: string;
-  session_id?: string;
-  auto_name?: string;
-  user_alias?: string;
-  display_name?: string;
-}
-
-interface RegistrationCreatedPayload extends RecordValue {
-  platform_id_suffix?: string;
-  bot_name?: string;
-}
-
-interface ToastPayload {
-  message: string;
-  type: 'success' | 'error';
 }
 
 interface ComponentState {
@@ -996,6 +427,7 @@ const {
   newConfigLoading,
   platformRoutes,
   isEditingRoutes,
+  knownRouteUmoInfoMap,
   loadingKnownRouteUmos,
   showIdConflictDialog,
   conflictId,
@@ -1097,40 +529,6 @@ const oneBotTokenWarningMessageKey = computed(() =>
     ? 'dialog.securityWarning.napcatTokenMissing'
     : 'dialog.securityWarning.aiocqhttpTokenMissing',
 );
-
-const routeTableHeaders = computed(() => [
-  {
-    title: tm('createDialog.routeTableHeaders.source'),
-    key: 'source',
-    sortable: false,
-    width: '60%',
-  },
-  {
-    title: tm('createDialog.routeTableHeaders.config'),
-    key: 'configId',
-    sortable: false,
-    width: '20%',
-  },
-  {
-    title: tm('createDialog.routeTableHeaders.actions'),
-    key: 'actions',
-    sortable: false,
-    align: 'center' as const,
-    width: '20%',
-  },
-]);
-
-const messageTypeOptions = computed(() => [
-  { label: tm('createDialog.messageTypeOptions.all'), value: '*' },
-  {
-    label: tm('createDialog.messageTypeOptions.group'),
-    value: 'GroupMessage',
-  },
-  {
-    label: tm('createDialog.messageTypeOptions.friend'),
-    value: 'FriendMessage',
-  },
-]);
 
 const routePlatformId = computed(() => {
   if (updatingMode.value) {
@@ -1245,133 +643,6 @@ watch(
   { immediate: true },
 );
 
-function asRecord(value: unknown): RecordValue | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-  return value as RecordValue;
-}
-
-function getString(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function deepClone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
-
-function normalizePlatformConfig(value: unknown): PlatformConfigItem {
-  const record = asRecord(value);
-  return record ? { ...record } : {};
-}
-
-function normalizePlatformTemplates(
-  value: unknown,
-): Record<string, PlatformConfigItem> {
-  const record = asRecord(value);
-  if (!record) {
-    return {};
-  }
-
-  const templates: Record<string, PlatformConfigItem> = {};
-  for (const [key, templateValue] of Object.entries(record)) {
-    templates[key] = normalizePlatformConfig(templateValue);
-  }
-  return templates;
-}
-
-function normalizePlatformConfigList(value: unknown): PlatformConfigItem[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.map((item) => normalizePlatformConfig(item));
-}
-
-function normalizeConfigInfoList(value: unknown): ConfigInfo[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  const infoList: ConfigInfo[] = [];
-  for (const item of value) {
-    const record = asRecord(item);
-    const id = getString(record?.id);
-    const name = getString(record?.name);
-    if (record && id && name) {
-      infoList.push({ ...record, id, name });
-    }
-  }
-  return infoList;
-}
-
-function normalizeRoutingTable(value: unknown): Record<string, string> {
-  const record = asRecord(value);
-  if (!record) {
-    return {};
-  }
-
-  const routing: Record<string, string> = {};
-  for (const [umop, configId] of Object.entries(record)) {
-    const normalizedConfigId = getString(configId);
-    if (normalizedConfigId) {
-      routing[umop] = normalizedConfigId;
-    }
-  }
-  return routing;
-}
-
-function normalizeStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter((item): item is string => typeof item === 'string');
-}
-
-function normalizeKnownRouteUmoInfos(value: unknown): KnownRouteUmoInfo[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  const infos: KnownRouteUmoInfo[] = [];
-  for (const item of value) {
-    const record = asRecord(item);
-    const umo = getString(record?.umo);
-    if (!record || !umo) {
-      continue;
-    }
-    infos.push({
-      ...record,
-      umo,
-      platform: getString(record.platform) ?? undefined,
-      message_type: getString(record.message_type) ?? undefined,
-      session_id: getString(record.session_id) ?? undefined,
-      auto_name: getString(record.auto_name) ?? undefined,
-      user_alias: getString(record.user_alias) ?? undefined,
-      display_name: getString(record.display_name) ?? undefined,
-    });
-  }
-  return infos;
-}
-
-function getPlatformIcon(platformType: string | undefined): string | undefined {
-  const normalizedType = getString(platformType);
-  if (!normalizedType) {
-    return undefined;
-  }
-
-  const template = platformTemplates.value[normalizedType];
-  const logoToken = getString(template?.logo_token);
-  if (logoToken) {
-    return fileApi.tokenUrl(logoToken);
-  }
-  return getBasePlatformIcon(normalizedType);
-}
-
-function getPlatformTemplateIcon(templateKey: string): string | undefined {
-  const template = platformTemplates.value[templateKey];
-  return getPlatformIcon(getString(template?.type) ?? templateKey);
-}
-
 function resetForm() {
   state.selectedPlatformType = null;
   state.selectedPlatformConfig = null;
@@ -1417,14 +688,6 @@ async function getDefaultConfigTemplate() {
   } finally {
     state.newConfigLoading = false;
   }
-}
-
-function openTutorial() {
-  const platformType = getString(state.selectedPlatformConfig?.type);
-  if (!platformType) {
-    return;
-  }
-  window.open(getTutorialLink(platformType), '_blank');
 }
 
 function openConfigDrawer(configId: string | null | undefined) {
@@ -1688,41 +951,16 @@ function showError(message: string) {
   emit('show-toast', { message, type: 'error' });
 }
 
+function handleShowToast(payload: ToastPayload) {
+  emit('show-toast', payload);
+}
+
 function setScanPlatformId(value: string | null) {
   if (!state.selectedPlatformConfig) {
     return;
   }
   state.scanPlatformIdCustomized = true;
   state.selectedPlatformConfig.id = String(value || '');
-}
-
-function getOneBotSecurityToken(
-  platformConfig: Record<string, unknown> | undefined,
-): string | undefined {
-  if (!platformConfig) {
-    return undefined;
-  }
-  const platformType = getString(platformConfig.type);
-  if (platformType === 'napcat') {
-    return getString(platformConfig.token) ?? undefined;
-  }
-  return getString(platformConfig.ws_reverse_token) ?? undefined;
-}
-
-function buildRandomPlatformIdSuffix(): string {
-  const letters = 'abcdefghijklmnopqrstuvwxyz';
-  let suffix = '_';
-  for (let i = 0; i < 4; i += 1) {
-    suffix += letters[Math.floor(Math.random() * letters.length)];
-  }
-  return suffix;
-}
-
-function sanitizePlatformIdPart(value: unknown): string {
-  return String(value ?? '')
-    .trim()
-    .replace(/\s+/g, '')
-    .replace(/[!:]/g, '_');
 }
 
 function handlePlatformRegistrationCreated(data: RegistrationCreatedPayload) {
@@ -1769,14 +1007,6 @@ function handlePlatformRegistrationCreated(data: RegistrationCreatedPayload) {
   state.selectedPlatformConfig.id = currentId.endsWith(suffix)
     ? currentId
     : `${currentId}${suffix}`;
-}
-
-function isPlatformIdValid(id: unknown): boolean {
-  const normalized = getString(id);
-  if (!normalized) {
-    return false;
-  }
-  return !/[!:\s]/.test(normalized);
 }
 
 async function getPlatformConfigs(platformId: string) {
@@ -1855,67 +1085,8 @@ function mergeKnownRouteUmoInfos(infos: KnownRouteUmoInfo[]) {
   state.knownRouteUmoInfoMap = next;
 }
 
-function getKnownRouteUmoInfo(umo: string): KnownRouteUmoInfo {
-  const parsed = parseUmop(umo);
-  return (
-    state.knownRouteUmoInfoMap[umo] || {
-      umo,
-      platform: parsed?.platform || '',
-      message_type: parsed?.messageType || '',
-      session_id: parsed?.sessionId || umo,
-      auto_name: '',
-      user_alias: '',
-      display_name: umo,
-    }
-  );
-}
-
-function getKnownRouteUmoDisplayProps(umo: string) {
-  const info = getKnownRouteUmoInfo(umo);
-  const parsed = parseUmop(umo);
-  return {
-    umo,
-    platform: info.platform || parsed?.platform || '',
-    messageType: info.message_type || parsed?.messageType || '',
-    sessionId: info.session_id || parsed?.sessionId || '',
-    autoName: info.auto_name || '',
-    userAlias: info.user_alias || '',
-  };
-}
-
-function getKnownRouteUmoSelectionText(umo: string): string {
-  if (!umo) {
-    return '';
-  }
-
-  const info = getKnownRouteUmoInfo(umo);
-  const parsed = parseUmop(umo);
-  const aliasName = info.user_alias || '';
-  const autoName = info.auto_name || '';
-  if (aliasName && autoName && aliasName !== autoName) {
-    return `${aliasName}（${autoName}）`;
-  }
-  return (
-    aliasName ||
-    autoName ||
-    (parsed
-      ? `${getMessageTypeLabel(parsed.messageType)}:${parsed.sessionId}`
-      : umo)
-  );
-}
-
-function getRouteSourceMode(route: PlatformRoute): RouteSourceMode {
-  return route.sourceMode || 'manual';
-}
-
-function getRouteSourceModeLinkText(route: PlatformRoute): string {
-  return getRouteSourceMode(route) === 'known'
-    ? tm('createDialog.routeSource.switchToManual')
-    : tm('createDialog.routeSource.switchToKnown');
-}
-
 function toggleRouteSourceMode(route: PlatformRoute) {
-  const nextMode: RouteSourceMode =
+  const nextMode: PlatformRoute['sourceMode'] =
     getRouteSourceMode(route) === 'known' ? 'manual' : 'known';
   route.sourceMode = nextMode;
   if (nextMode === 'known') {
@@ -2031,60 +1202,6 @@ function toggleConfigSection() {
   state.showConfigSection = !state.showConfigSection;
 }
 
-function getConfigName(configId: string): string {
-  const config = state.configInfoList.find((item) => item.id === configId);
-  return config ? config.name : configId;
-}
-
-function isUmopMatchPlatform(umop: string, platformId: string): boolean {
-  return isParsedUmopMatchPlatform(parseUmop(umop), platformId);
-}
-
-function isParsedUmopMatchPlatform(
-  parsedUmop: ParsedUmop | null,
-  platformId: string,
-): boolean {
-  if (!parsedUmop) {
-    return false;
-  }
-  return (
-    parsedUmop.platform === platformId ||
-    parsedUmop.platform === '' ||
-    parsedUmop.platform === '*'
-  );
-}
-
-function parseUmop(umop: string | null | undefined): ParsedUmop | null {
-  if (!umop) {
-    return null;
-  }
-
-  const firstSeparatorIndex = umop.indexOf(':');
-  if (firstSeparatorIndex === -1) {
-    return null;
-  }
-  const secondSeparatorIndex = umop.indexOf(':', firstSeparatorIndex + 1);
-  if (secondSeparatorIndex === -1) {
-    return null;
-  }
-
-  return {
-    platform: umop.slice(0, firstSeparatorIndex),
-    messageType: umop.slice(firstSeparatorIndex + 1, secondSeparatorIndex),
-    sessionId: umop.slice(secondSeparatorIndex + 1),
-  };
-}
-
-function getMessageTypeLabel(messageType: string): string {
-  const typeMap: Record<string, string> = {
-    '*': tm('createDialog.messageTypeLabels.all'),
-    '': tm('createDialog.messageTypeLabels.all'),
-    GroupMessage: tm('createDialog.messageTypeLabels.group'),
-    FriendMessage: tm('createDialog.messageTypeLabels.friend'),
-  };
-  return typeMap[messageType] || messageType;
-}
-
 function prepareData() {
   void getConfigInfoList();
   const platformId = getString(updatingPlatformConfig.value.id);
@@ -2132,108 +1249,9 @@ function scrollDialogToBottom() {
   flex-shrink: 0;
 }
 
-.platform-dialog__step {
-  display: flex;
-  align-items: flex-start;
-  width: 100%;
-}
-
-.platform-dialog__step-content {
-  flex: 1;
-}
-
-.platform-type-field {
-  min-width: 300px;
-  max-width: 30%;
-}
-
-.platform-template-icon {
-  width: 32px;
-  height: 32px;
-  margin-right: var(--astrbot-space-4);
-  object-fit: contain;
-}
-
 .platform-config-select {
   min-width: 200px;
   max-width: 30%;
-}
-
-.platform-action-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.creation-mode-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: rgb(var(--v-theme-on-surface));
-}
-
-.route-source-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--astrbot-space-1);
-  min-width: 260px;
-}
-
-.route-source-input-row {
-  min-width: 250px;
-}
-
-.route-source-input-row--editing {
-  padding-top: var(--astrbot-space-4);
-}
-
-.route-source-mode-link {
-  padding: 2px 0;
-  border: 0;
-  background: transparent;
-  color: rgb(var(--v-theme-primary));
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1;
-  text-decoration: underline;
-}
-
-.route-source-mode-link:hover {
-  text-decoration: underline;
-}
-
-.umo-selection-chip {
-  max-width: 100%;
-}
-
-.route-source-autocomplete {
-  min-width: 260px;
-}
-
-.route-message-type-field {
-  max-width: 140px;
-}
-
-.route-config-select {
-  min-width: 200px;
-}
-
-.route-config-missing {
-  color: rgb(var(--v-theme-error));
-}
-
-.registration-inline {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  width: 320px;
-  gap: 8px;
-}
-
-.registration-platform-id-field {
-  width: 300px;
 }
 
 @media (max-width: 600px) {

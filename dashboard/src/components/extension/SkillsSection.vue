@@ -34,424 +34,206 @@
         </v-alert>
       </div>
 
-      <template v-if="mode === 'local'">
-        <v-progress-linear
-          v-if="loading"
-          indeterminate
-          color="primary"
-        ></v-progress-linear>
-
-        <div v-else-if="skills.length === 0" class="text-center pa-8">
-          <v-icon size="64" color="on-surface-variant">mdi-folder-open</v-icon>
-          <p class="text-medium-emphasis mt-4">{{ tm('skills.empty') }}</p>
-          <small class="text-medium-emphasis">{{
-            tm('skills.emptyHint')
-          }}</small>
-        </div>
-
-        <div v-else class="pb-3">
-          <div class="skills-list-header">
-            <h3 class="skills-list-title text-h3">
-              {{ tm('status.installed') }}
-            </h3>
-            <div class="skills-search-wrap">
-              <v-text-field
-                v-model="skillSearch"
-                :label="tm('skills.searchPlaceholder')"
-                prepend-inner-icon="mdi-magnify"
-                density="compact"
-                variant="solo-filled"
-                flat
-                clearable
-                hide-details
-                single-line
-                class="skills-search-field"
-              />
-            </div>
-            <div class="skills-list-actions">
-              <template v-if="batchSelectionEnabled">
-                <v-btn
-                  variant="text"
-                  size="small"
-                  :disabled="batchDeleting"
-                  @click="toggleSelectAll"
-                >
-                  {{
-                    allDeletableSelected
-                      ? tm('skills.clearSelection')
-                      : tm('skills.selectAll')
-                  }}
-                </v-btn>
-                <v-btn
-                  color="error"
-                  variant="tonal"
-                  size="small"
-                  prepend-icon="mdi-delete-outline"
-                  :disabled="selectedSkillNames.length === 0 || batchDeleting"
-                  @click="confirmBatchDelete"
-                >
-                  {{
-                    tm('skills.deleteSelected', {
-                      count: selectedSkillNames.length,
-                    })
-                  }}
-                </v-btn>
-                <v-btn
-                  variant="text"
-                  size="small"
-                  :disabled="batchDeleting"
-                  @click="cancelBatchSelection"
-                >
-                  {{ tm('skills.cancel') }}
-                </v-btn>
-              </template>
-              <v-btn
-                v-else
-                variant="tonal"
-                size="small"
-                prepend-icon="mdi-select-multiple"
-                :disabled="visibleDeletableSkills.length === 0"
-                @click="startBatchSelection"
-              >
-                {{ tm('skills.select') }}
-              </v-btn>
-            </div>
-          </div>
-
-          <div v-if="filteredSkills.length === 0" class="text-center pa-8">
-            <v-icon size="64" color="on-surface-variant">mdi-magnify</v-icon>
-            <p class="text-medium-emphasis mt-4">
-              {{ tm('skills.noSearchResult') }}
-            </p>
-          </div>
-
-          <div v-else class="skills-list">
-            <OutlinedActionListItem
-              v-for="skill in filteredSkills"
-              :key="skill.name"
-              :title="skill.name"
-              :class="{
-                'skill-list-item--inactive': isInactivePluginSkill(skill),
-                'skill-list-item--selected':
-                  batchSelectionEnabled &&
-                  selectedSkillNames.includes(skill.name),
-              }"
-              :clickable="!batchSelectionEnabled"
-              @click="openSkillEditor(skill)"
+      <SkillsLocalList
+        v-if="mode === 'local'"
+        :loading="loading"
+        :total-skills="skills.length"
+        :result-count="filteredSkills.length"
+        :search="skillSearch"
+        @update:search="skillSearch = $event"
+      >
+        <template #actions>
+          <template v-if="batchSelectionEnabled">
+            <v-btn
+              variant="text"
+              size="small"
+              :disabled="batchDeleting"
+              @click="toggleSelectAll"
             >
-              <template #title-prepend>
-                <v-checkbox-btn
-                  v-if="batchSelectionEnabled && !isReadOnlySourceSkill(skill)"
-                  v-model="selectedSkillNames"
-                  :value="skill.name"
-                  density="compact"
-                  hide-details
-                  :disabled="batchDeleting"
-                  :aria-label="
-                    tm('skills.selectSkill', {
-                      name: skill.name,
-                    })
+              {{
+                allDeletableSelected
+                  ? tm('skills.clearSelection')
+                  : tm('skills.selectAll')
+              }}
+            </v-btn>
+            <v-btn
+              color="error"
+              variant="tonal"
+              size="small"
+              prepend-icon="mdi-delete-outline"
+              :disabled="selectedSkillNames.length === 0 || batchDeleting"
+              @click="confirmBatchDelete"
+            >
+              {{
+                tm('skills.deleteSelected', {
+                  count: selectedSkillNames.length,
+                })
+              }}
+            </v-btn>
+            <v-btn
+              variant="text"
+              size="small"
+              :disabled="batchDeleting"
+              @click="cancelBatchSelection"
+            >
+              {{ tm('skills.cancel') }}
+            </v-btn>
+          </template>
+          <v-btn
+            v-else
+            variant="tonal"
+            size="small"
+            prepend-icon="mdi-select-multiple"
+            :disabled="visibleDeletableSkills.length === 0"
+            @click="startBatchSelection"
+          >
+            {{ tm('skills.select') }}
+          </v-btn>
+        </template>
+
+        <OutlinedActionListItem
+          v-for="skill in filteredSkills"
+          :key="skill.name"
+          :title="skill.name"
+          :class="{
+            'skill-list-item--inactive': isInactivePluginSkill(skill),
+            'skill-list-item--selected':
+              batchSelectionEnabled && selectedSkillNames.includes(skill.name),
+          }"
+          :clickable="!batchSelectionEnabled"
+          @click="openSkillEditor(skill)"
+        >
+          <template #title-prepend>
+            <v-checkbox-btn
+              v-if="batchSelectionEnabled && !isReadOnlySourceSkill(skill)"
+              v-model="selectedSkillNames"
+              :value="skill.name"
+              density="compact"
+              hide-details
+              :disabled="batchDeleting"
+              :aria-label="
+                tm('skills.selectSkill', {
+                  name: skill.name,
+                })
+              "
+              @click.stop
+            />
+          </template>
+          <template #title-extra>
+            <v-chip
+              size="x-small"
+              variant="tonal"
+              :color="sourceTypeColor(skill.source_type)"
+            >
+              {{ sourceTypeLabel(skill.source_type, skill) }}
+            </v-chip>
+            <v-chip
+              v-if="isInactivePluginSkill(skill)"
+              size="x-small"
+              color="warning"
+              variant="tonal"
+            >
+              {{ tm('skills.pluginDisabled') }}
+            </v-chip>
+          </template>
+
+          <div class="skill-description text-body-2 text-medium-emphasis">
+            {{ skill.description || tm('skills.noDescription') }}
+          </div>
+
+          <div class="skill-path text-caption text-medium-emphasis">
+            <v-icon size="small" class="me-1">mdi-file-document</v-icon>
+            {{ tm('skills.path') }}: {{ skill.path }}
+          </div>
+
+          <template v-if="!batchSelectionEnabled" #actions>
+            <v-tooltip :text="tm('skills.download')" location="top">
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  icon="mdi-download-outline"
+                  variant="text"
+                  size="small"
+                  class="list-action-icon-btn"
+                  :aria-label="tm('skills.download')"
+                  :disabled="
+                    itemLoading[skill.name] || isReadOnlySourceSkill(skill)
                   "
-                  @click.stop
+                  @click.stop="downloadSkill(skill)"
                 />
               </template>
-              <template #title-extra>
-                <v-chip
-                  size="x-small"
-                  variant="tonal"
-                  :color="sourceTypeColor(skill.source_type)"
-                >
-                  {{ sourceTypeLabel(skill.source_type, skill) }}
-                </v-chip>
-                <v-chip
-                  v-if="isInactivePluginSkill(skill)"
-                  size="x-small"
-                  color="warning"
-                  variant="tonal"
-                >
-                  {{ tm('skills.pluginDisabled') }}
-                </v-chip>
+            </v-tooltip>
+
+            <v-tooltip :text="t('core.common.itemCard.delete')" location="top">
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  icon="mdi-delete-outline"
+                  variant="text"
+                  size="small"
+                  class="list-action-icon-btn"
+                  :aria-label="t('core.common.itemCard.delete')"
+                  :disabled="
+                    itemLoading[skill.name] || isReadOnlySourceSkill(skill)
+                  "
+                  @click.stop="confirmDelete(skill)"
+                />
               </template>
+            </v-tooltip>
+          </template>
 
-              <div class="skill-description text-body-2 text-medium-emphasis">
-                {{ skill.description || tm('skills.noDescription') }}
-              </div>
-
-              <div class="skill-path text-caption text-medium-emphasis">
-                <v-icon size="small" class="me-1">mdi-file-document</v-icon>
-                {{ tm('skills.path') }}: {{ skill.path }}
-              </div>
-
-              <template v-if="!batchSelectionEnabled" #actions>
-                <v-tooltip :text="tm('skills.download')" location="top">
-                  <template #activator="{ props }">
-                    <v-btn
-                      v-bind="props"
-                      icon="mdi-download-outline"
-                      variant="text"
-                      size="small"
-                      class="list-action-icon-btn"
-                      :disabled="
-                        itemLoading[skill.name] || isReadOnlySourceSkill(skill)
-                      "
-                      @click.stop="downloadSkill(skill)"
-                    />
-                  </template>
-                </v-tooltip>
-
-                <v-tooltip
-                  :text="t('core.common.itemCard.delete')"
-                  location="top"
-                >
-                  <template #activator="{ props }">
-                    <v-btn
-                      v-bind="props"
-                      icon="mdi-delete-outline"
-                      variant="text"
-                      size="small"
-                      class="list-action-icon-btn"
-                      :disabled="
-                        itemLoading[skill.name] || isReadOnlySourceSkill(skill)
-                      "
-                      @click.stop="confirmDelete(skill)"
-                    />
-                  </template>
-                </v-tooltip>
-              </template>
-
-              <template v-if="!batchSelectionEnabled" #control>
-                <v-tooltip location="top">
-                  <template #activator="{ props }">
-                    <v-switch
-                      v-bind="props"
-                      color="primary"
-                      density="compact"
-                      hide-details
-                      inset
-                      :model-value="
-                        skill.active && !isInactivePluginSkill(skill)
-                      "
-                      :loading="itemLoading[skill.name] || false"
-                      :disabled="
-                        itemLoading[skill.name] ||
-                        isReadOnlySourceSkill(skill) ||
-                        isInactivePluginSkill(skill)
-                      "
-                      @click.stop
-                      @update:model-value="toggleSkill(skill)"
-                    />
-                  </template>
-                  <span>{{
+          <template v-if="!batchSelectionEnabled" #control>
+            <v-tooltip location="top">
+              <template #activator="{ props }">
+                <v-switch
+                  v-bind="props"
+                  color="primary"
+                  density="compact"
+                  hide-details
+                  inset
+                  :aria-label="
                     skill.active
                       ? t('core.common.itemCard.enabled')
                       : t('core.common.itemCard.disabled')
-                  }}</span>
-                </v-tooltip>
+                  "
+                  :model-value="skill.active && !isInactivePluginSkill(skill)"
+                  :loading="itemLoading[skill.name] || false"
+                  :disabled="
+                    itemLoading[skill.name] ||
+                    isReadOnlySourceSkill(skill) ||
+                    isInactivePluginSkill(skill)
+                  "
+                  @click.stop
+                  @update:model-value="toggleSkill(skill)"
+                />
               </template>
-            </OutlinedActionListItem>
-          </div>
-        </div>
-      </template>
+              <span>{{
+                skill.active
+                  ? t('core.common.itemCard.enabled')
+                  : t('core.common.itemCard.disabled')
+              }}</span>
+            </v-tooltip>
+          </template>
+        </OutlinedActionListItem>
+      </SkillsLocalList>
 
-      <template v-else-if="mode === 'neo' && neoEnabled">
-        <v-card class="mx-3 mb-4 pa-4 neo-filter-card" variant="outlined">
-          <div
-            class="d-flex flex-wrap justify-space-between align-center ga-2 mb-3"
-          >
-            <div>
-              <div class="text-subtitle-1 font-weight-bold">Neo Skills</div>
-              <div class="text-caption text-medium-emphasis">
-                {{ tm('skills.neoFilterHint') }}
-              </div>
-            </div>
-          </div>
-
-          <v-row class="ga-md-0 ga-2">
-            <v-col cols="12" md="4">
-              <v-text-field
-                v-model="neoFilters.skill_key"
-                :label="tm('skills.neoSkillKey')"
-                prepend-inner-icon="mdi-key-outline"
-                density="comfortable"
-                hide-details
-                variant="outlined"
-              />
-            </v-col>
-            <v-col cols="12" md="4">
-              <v-select
-                v-model="neoFilters.status"
-                :label="tm('skills.neoStatus')"
-                :items="candidateStatusItems"
-                item-title="title"
-                item-value="value"
-                prepend-inner-icon="mdi-progress-check"
-                density="comfortable"
-                hide-details
-                variant="outlined"
-              />
-            </v-col>
-            <v-col cols="12" md="4">
-              <v-select
-                v-model="neoFilters.stage"
-                :label="tm('skills.neoStage')"
-                :items="releaseStageItems"
-                item-title="title"
-                item-value="value"
-                prepend-inner-icon="mdi-layers-outline"
-                density="comfortable"
-                hide-details
-                variant="outlined"
-              />
-            </v-col>
-          </v-row>
-        </v-card>
-
-        <v-progress-linear
-          v-if="neoLoading"
-          indeterminate
-          color="primary"
-        ></v-progress-linear>
-
-        <div class="mx-3 mb-3 d-flex flex-wrap ga-2">
-          <v-chip size="small" color="primary" variant="tonal"
-            >Candidates: {{ neoCandidates.length }}</v-chip
-          >
-          <v-chip size="small" color="secondary" variant="tonal"
-            >Releases: {{ neoReleases.length }}</v-chip
-          >
-          <v-chip size="small" color="success" variant="tonal"
-            >Active: {{ activeReleaseCount }}</v-chip
-          >
-        </div>
-
-        <v-card class="mx-3 mb-4 neo-table-card" variant="outlined">
-          <v-card-title class="text-subtitle-1 font-weight-bold">{{
-            tm('skills.neoCandidates')
-          }}</v-card-title>
-          <v-data-table
-            :headers="candidateHeaders"
-            :items="neoCandidates"
-            density="compact"
-            :items-per-page="10"
-            class="neo-data-table"
-          >
-            <template #item.latest_score="{ item }">
-              {{ item.latest_score ?? '-' }}
-            </template>
-            <template #item.actions="{ item }">
-              <div class="d-flex ga-1 flex-wrap">
-                <v-btn
-                  size="x-small"
-                  color="success"
-                  variant="tonal"
-                  @click="evaluateCandidate(item, true)"
-                >
-                  {{ tm('skills.neoPass') }}
-                </v-btn>
-                <v-btn
-                  size="x-small"
-                  color="warning"
-                  variant="tonal"
-                  @click="evaluateCandidate(item, false)"
-                >
-                  {{ tm('skills.neoReject') }}
-                </v-btn>
-                <v-btn
-                  size="x-small"
-                  color="primary"
-                  variant="tonal"
-                  :loading="isCandidatePromoteLoading(item.id, 'canary')"
-                  :disabled="isCandidatePromoting(item.id)"
-                  @click="promoteCandidate(item, 'canary')"
-                >
-                  Canary
-                </v-btn>
-                <v-btn
-                  size="x-small"
-                  color="primary"
-                  variant="tonal"
-                  :loading="isCandidatePromoteLoading(item.id, 'stable')"
-                  :disabled="isCandidatePromoting(item.id)"
-                  @click="promoteCandidate(item, 'stable')"
-                >
-                  Stable
-                </v-btn>
-                <v-btn
-                  size="x-small"
-                  variant="tonal"
-                  :disabled="!item.payload_ref"
-                  @click="viewPayload(item.payload_ref)"
-                >
-                  Payload
-                </v-btn>
-                <v-btn
-                  size="x-small"
-                  color="error"
-                  variant="tonal"
-                  @click="deleteCandidate(item)"
-                >
-                  {{ tm('skills.neoDelete') }}
-                </v-btn>
-              </div>
-            </template>
-          </v-data-table>
-        </v-card>
-
-        <v-card class="mx-3 mb-4 neo-table-card" variant="outlined">
-          <v-card-title class="text-subtitle-1 font-weight-bold">{{
-            tm('skills.neoReleases')
-          }}</v-card-title>
-          <v-data-table
-            :headers="releaseHeaders"
-            :items="neoReleases"
-            density="compact"
-            :items-per-page="10"
-            class="neo-data-table"
-          >
-            <template #item.is_active="{ item }">
-              <v-chip
-                size="small"
-                :color="item.is_active ? 'success' : 'default'"
-                variant="tonal"
-              >
-                {{ item.is_active ? 'active' : 'inactive' }}
-              </v-chip>
-            </template>
-            <template #item.actions="{ item }">
-              <div class="d-flex ga-1 flex-wrap">
-                <v-btn
-                  size="x-small"
-                  color="warning"
-                  variant="tonal"
-                  @click="handleReleaseLifecycleAction(item)"
-                >
-                  {{
-                    item.is_active
-                      ? tm('skills.neoDeactivate')
-                      : tm('skills.neoRollback')
-                  }}
-                </v-btn>
-                <v-btn
-                  size="x-small"
-                  color="primary"
-                  variant="tonal"
-                  @click="syncRelease(item)"
-                >
-                  {{ tm('skills.neoSync') }}
-                </v-btn>
-                <v-btn
-                  size="x-small"
-                  color="error"
-                  variant="tonal"
-                  @click="deleteRelease(item)"
-                >
-                  {{ tm('skills.neoDelete') }}
-                </v-btn>
-              </div>
-            </template>
-          </v-data-table>
-        </v-card>
-      </template>
+      <SkillsNeoPanel
+        v-else-if="mode === 'neo' && neoEnabled"
+        :loading="neoLoading"
+        :candidates="neoCandidates"
+        :releases="neoReleases"
+        v-model:skill-key="neoFilters.skill_key"
+        v-model:status="neoFilters.status"
+        v-model:stage="neoFilters.stage"
+        :promote-loading="candidatePromoteLoading"
+        @evaluate="evaluateCandidate"
+        @promote="promoteCandidate"
+        @view-payload="viewPayload"
+        @delete-candidate="deleteCandidate"
+        @lifecycle="handleReleaseLifecycleAction"
+        @sync-release="syncRelease"
+        @delete-release="deleteRelease"
+      />
     </v-container>
 
     <div class="skills-fab-stack">
@@ -464,6 +246,7 @@
             size="x-large"
             variant="elevated"
             class="skills-fab"
+            :aria-label="tm('skills.refresh')"
             @click="refreshCurrentMode"
           />
         </template>
@@ -481,444 +264,67 @@
             size="x-large"
             variant="elevated"
             class="skills-fab"
+            :aria-label="tm('skills.upload')"
             @click="openUploadDialog"
           />
         </template>
       </v-tooltip>
     </div>
 
-    <v-dialog
-      v-model="uploadDialog"
-      max-width="880px"
-      scrollable
-      :persistent="uploading"
-    >
-      <v-card class="skills-upload-dialog">
-        <v-card-title class="skills-upload-dialog__header px-6 pt-6 pb-2">
-          <div class="skills-upload-dialog__heading">
-            <div class="text-h4 font-weight-medium">
-              {{ tm('skills.uploadDialogTitle') }}
-            </div>
-          </div>
-          <v-btn
-            class="skills-upload-dialog__close"
-            icon="mdi-close"
-            variant="text"
-            :disabled="uploading"
-            @click="closeUploadDialog"
-          />
-        </v-card-title>
+    <SkillUploadDialog
+      :show="uploadDialog"
+      :uploading="uploading"
+      :items="uploadItems"
+      @update:show="uploadDialog = $event"
+      @close="closeUploadDialog"
+      @add-files="addUploadFiles"
+      @remove="removeUploadItem"
+      @confirm="uploadSkillBatch"
+    />
 
-        <v-card-text class="skills-upload-dialog__body px-6 pb-5 pt-2">
-          <p
-            class="skills-upload-dialog__description skills-upload-dialog__description--body"
-          >
-            {{ tm('skills.uploadHint') }}
-          </p>
+    <SkillDeleteDialog
+      :show="deleteDialog"
+      :deleting="deleting"
+      @update:show="deleteDialog = $event"
+      @confirm="deleteSkill"
+    />
 
-          <div class="skills-upload-structure-note">
-            <v-icon size="18">mdi-information-outline</v-icon>
-            <span>{{ tm('skills.structureRequirement') }}</span>
-          </div>
+    <SkillBatchDeleteDialog
+      :show="batchDeleteDialog"
+      :targets="batchDeleteTargets"
+      :deleting="batchDeleting"
+      @update:show="batchDeleteDialog = $event"
+      @confirm="deleteSelectedSkills"
+    />
 
-          <div class="skills-upload-capabilities">
-            <div class="skills-upload-capability">
-              <div class="skills-upload-capability__icon">
-                <v-icon size="18">mdi-layers-outline</v-icon>
-              </div>
-              <span>{{ tm('skills.abilityMultiple') }}</span>
-            </div>
-            <div class="skills-upload-capability">
-              <div class="skills-upload-capability__icon">
-                <v-icon size="18">mdi-shield-check-outline</v-icon>
-              </div>
-              <span>{{ tm('skills.abilityValidate') }}</span>
-            </div>
-            <div class="skills-upload-capability">
-              <div class="skills-upload-capability__icon">
-                <v-icon size="18">mdi-skip-next-circle-outline</v-icon>
-              </div>
-              <span>{{ tm('skills.abilitySkip') }}</span>
-            </div>
-          </div>
-
-          <div
-            class="skills-dropzone"
-            :class="{ 'skills-dropzone--dragover': isUploadDragging }"
-            role="button"
-            tabindex="0"
-            :aria-label="tm('skills.dropzoneTitle')"
-            @click="openUploadPicker"
-            @keydown.enter="openUploadPicker"
-            @keydown.space.prevent="openUploadPicker"
-            @dragover.prevent="isUploadDragging = true"
-            @dragleave.prevent="isUploadDragging = false"
-            @drop.prevent="handleUploadDrop"
-          >
-            <div class="skills-dropzone__icon">
-              <v-icon size="34">mdi-folder-zip-outline</v-icon>
-            </div>
-            <div class="text-h6 font-weight-medium">
-              {{ tm('skills.dropzoneTitle') }}
-            </div>
-            <div class="skills-dropzone__subtitle">
-              {{ tm('skills.dropzoneAction') }}
-            </div>
-            <div class="skills-dropzone__hint">
-              {{ tm('skills.dropzoneHint') }}
-            </div>
-            <input
-              ref="uploadInput"
-              type="file"
-              multiple
-              hidden
-              accept=".zip"
-              @change="handleUploadSelection"
-            />
-          </div>
-
-          <div v-if="uploadItems.length > 0" class="skills-upload-summary">
-            <v-chip
-              size="small"
-              variant="flat"
-              class="skills-upload-summary__chip"
-            >
-              {{
-                tm('skills.summaryTotal', { count: uploadStateCounts.total })
-              }}
-            </v-chip>
-            <v-chip
-              size="small"
-              variant="flat"
-              class="skills-upload-summary__chip"
-            >
-              {{
-                tm('skills.summaryReady', {
-                  count:
-                    uploadStateCounts.waiting + uploadStateCounts.uploading,
-                })
-              }}
-            </v-chip>
-            <v-chip
-              size="small"
-              variant="flat"
-              class="skills-upload-summary__chip skills-upload-summary__chip--success"
-            >
-              {{
-                tm('skills.summarySuccess', {
-                  count: uploadStateCounts.success,
-                })
-              }}
-            </v-chip>
-            <v-chip
-              size="small"
-              variant="flat"
-              class="skills-upload-summary__chip skills-upload-summary__chip--error"
-            >
-              {{
-                tm('skills.summaryFailed', { count: uploadStateCounts.error })
-              }}
-            </v-chip>
-            <v-chip
-              size="small"
-              variant="flat"
-              class="skills-upload-summary__chip"
-            >
-              {{
-                tm('skills.summarySkipped', {
-                  count: uploadStateCounts.skipped,
-                })
-              }}
-            </v-chip>
-          </div>
-
-          <div v-if="uploadItems.length > 0" class="skills-upload-list">
-            <div class="skills-upload-list__header">
-              <span>{{ tm('skills.fileListTitle') }}</span>
-            </div>
-            <div
-              v-for="item in uploadItems"
-              :key="item.id"
-              class="skills-upload-row"
-            >
-              <div class="skills-upload-row__meta">
-                <div class="skills-upload-row__name">{{ item.name }}</div>
-                <div class="skills-upload-row__size">
-                  {{ formatFileSize(item.size) }}
-                </div>
-                <div class="skills-upload-row__message">
-                  {{ item.validationMessage }}
-                </div>
-              </div>
-              <div class="skills-upload-row__actions">
-                <v-chip
-                  size="small"
-                  variant="flat"
-                  :class="statusChipClass(item.status)"
-                >
-                  {{ uploadStatusLabel(item.status) }}
-                </v-chip>
-                <v-btn
-                  icon="mdi-close"
-                  size="small"
-                  variant="text"
-                  :disabled="uploading || item.status === 'uploading'"
-                  @click="removeUploadItem(item.id)"
-                />
-              </div>
-            </div>
-          </div>
-          <div v-else class="skills-upload-empty">
-            {{ tm('skills.fileListEmpty') }}
-          </div>
-        </v-card-text>
-
-        <v-card-actions
-          class="skills-upload-dialog__actions justify-end px-6 pb-3 pt-2"
-        >
-          <v-btn
-            class="skills-upload-dialog__action-btn"
-            variant="tonal"
-            color="secondary"
-            :disabled="uploading"
-            @click="closeUploadDialog"
-          >
-            {{ tm('skills.cancel') }}
-          </v-btn>
-          <v-btn
-            class="skills-upload-dialog__action-btn"
-            variant="flat"
-            color="primary"
-            :loading="uploading"
-            :disabled="!hasUploadableItems"
-            @click="uploadSkillBatch"
-          >
-            {{ tm('skills.confirmUpload') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <v-dialog v-model="deleteDialog" max-width="400px">
-      <v-card>
-        <v-card-title>{{ tm('skills.deleteTitle') }}</v-card-title>
-        <v-card-text>{{ tm('skills.deleteMessage') }}</v-card-text>
-        <v-card-actions class="d-flex justify-end">
-          <v-btn variant="text" @click="deleteDialog = false">{{
-            tm('skills.cancel')
-          }}</v-btn>
-          <v-btn color="error" :loading="deleting" @click="deleteSkill">
-            {{ t('core.common.itemCard.delete') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <v-dialog
-      v-model="batchDeleteDialog"
-      max-width="520px"
-      :persistent="batchDeleting"
-    >
-      <v-card>
-        <v-card-title class="text-h3 pa-4 pb-0 pl-6">
-          {{ tm('skills.batchDeleteTitle') }}
-        </v-card-title>
-        <v-card-text>
-          <p>
-            {{
-              tm('skills.batchDeleteMessage', {
-                count: batchDeleteTargets.length,
-              })
-            }}
-          </p>
-          <v-list class="batch-delete-targets mt-3" density="compact">
-            <v-list-item
-              v-for="name in batchDeleteTargets"
-              :key="name"
-              class="batch-delete-target"
-              :title="name"
-              prepend-icon="mdi-puzzle-outline"
-            />
-          </v-list>
-        </v-card-text>
-        <v-card-actions class="d-flex justify-end">
-          <v-btn
-            variant="text"
-            :disabled="batchDeleting"
-            @click="batchDeleteDialog = false"
-          >
-            {{ tm('skills.cancel') }}
-          </v-btn>
-          <v-btn
-            color="error"
-            variant="tonal"
-            :loading="batchDeleting"
-            :disabled="batchDeleteTargets.length === 0"
-            @click="deleteSelectedSkills"
-          >
-            {{
-              tm('skills.batchDeleteConfirm', {
-                count: batchDeleteTargets.length,
-              })
-            }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <v-dialog
-      v-model="editorDialog.show"
-      max-width="1180px"
-      scrollable
+    <SkillEditorDialog
+      :show="editorDialog.show"
       :fullscreen="$vuetify.display.mdAndDown"
-      :persistent="editorDialog.saving"
-    >
-      <v-card class="skill-editor-dialog">
-        <v-card-title class="skill-editor-dialog__header">
-          <div>
-            <div class="text-h3 font-weight-bold">
-              {{ editorDialog.skillName }}
-            </div>
-          </div>
-          <v-btn
-            icon="mdi-close"
-            variant="text"
-            :disabled="editorDialog.saving"
-            @click="closeSkillEditor"
-          />
-        </v-card-title>
+      :skill-name="editorDialog.skillName"
+      :current-dir="editorDialog.currentDir"
+      :entries="editorDialog.entries"
+      :file-path="editorDialog.filePath"
+      :content="editorDialog.content"
+      :file-editable="editorDialog.fileEditable"
+      :file-dirty="editorDialog.fileDirty"
+      :loading-files="editorDialog.loadingFiles"
+      :loading-file="editorDialog.loadingFile"
+      :saving="editorDialog.saving"
+      :error="editorDialog.error"
+      @update:show="editorDialog.show = $event"
+      @update:content="editorDialog.content = $event"
+      @dirty="editorDialog.fileDirty = true"
+      @open-entry="openSkillEntry"
+      @open-parent="openParentSkillDir"
+      @save="saveSkillFile"
+      @close="closeSkillEditor"
+    />
 
-        <v-card-text class="skill-editor-dialog__body">
-          <div class="skill-editor">
-            <div class="skill-editor__files">
-              <div class="skill-editor__files-header">
-                <v-btn
-                  icon="mdi-arrow-up"
-                  size="small"
-                  variant="text"
-                  :disabled="
-                    !editorDialog.currentDir || editorDialog.loadingFiles
-                  "
-                  @click="openParentSkillDir"
-                />
-                <span>{{ editorDialog.currentDir || '/' }}</span>
-              </div>
-
-              <v-progress-linear
-                v-if="editorDialog.loadingFiles"
-                indeterminate
-                color="primary"
-              />
-
-              <div v-else class="skill-editor__file-list">
-                <button
-                  v-for="entry in editorDialog.entries"
-                  :key="`${entry.type}:${entry.path}`"
-                  class="skill-editor__file-row"
-                  :class="{
-                    'skill-editor__file-row--active':
-                      editorDialog.filePath === entry.path,
-                  }"
-                  type="button"
-                  @click="openSkillEntry(entry)"
-                >
-                  <v-icon size="18">
-                    {{
-                      entry.type === 'directory'
-                        ? 'mdi-folder-outline'
-                        : 'mdi-file-document-outline'
-                    }}
-                  </v-icon>
-                  <span>{{ entry.name }}</span>
-                  <v-chip
-                    v-if="entry.type === 'file' && !entry.editable"
-                    size="x-small"
-                    variant="tonal"
-                  >
-                    {{ tm('skills.readonly') }}
-                  </v-chip>
-                </button>
-              </div>
-            </div>
-
-            <div class="skill-editor__content">
-              <div class="skill-editor__content-header">
-                <div class="skill-editor__path">
-                  {{ editorDialog.filePath || tm('skills.noFileSelected') }}
-                </div>
-                <v-chip
-                  v-if="editorDialog.fileDirty"
-                  size="small"
-                  color="warning"
-                  variant="tonal"
-                >
-                  {{ tm('skills.unsaved') }}
-                </v-chip>
-              </div>
-
-              <v-alert
-                v-if="editorDialog.error"
-                type="error"
-                variant="tonal"
-                density="compact"
-                class="mb-3"
-              >
-                {{ editorDialog.error }}
-              </v-alert>
-
-              <div class="skill-editor__monaco">
-                <VueMonacoEditor
-                  v-model:value="editorDialog.content"
-                  :theme="editorTheme"
-                  :language="editorLanguage"
-                  :options="editorOptions"
-                  class="skill-editor__monaco-editor"
-                  @change="editorDialog.fileDirty = true"
-                />
-              </div>
-            </div>
-          </div>
-        </v-card-text>
-
-        <v-card-actions class="skill-editor-dialog__actions">
-          <v-spacer />
-          <v-btn
-            variant="text"
-            :disabled="editorDialog.saving"
-            @click="closeSkillEditor"
-          >
-            {{ tm('skills.cancel') }}
-          </v-btn>
-          <v-btn
-            color="primary"
-            variant="flat"
-            :loading="editorDialog.saving"
-            :disabled="
-              !editorDialog.filePath ||
-              !editorDialog.fileEditable ||
-              !editorDialog.fileDirty
-            "
-            @click="saveSkillFile"
-          >
-            {{ tm('skills.saveFile') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <v-dialog v-model="payloadDialog.show" max-width="820px" scrollable>
-      <v-card class="payload-dialog">
-        <v-card-title>{{ tm('skills.neoPayloadTitle') }}</v-card-title>
-        <v-card-text class="payload-dialog__body">
-          <pre class="payload-preview">{{ payloadDialog.content }}</pre>
-        </v-card-text>
-        <v-card-actions class="payload-dialog__actions d-flex justify-end">
-          <v-btn variant="text" @click="payloadDialog.show = false">{{
-            tm('skills.cancel')
-          }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <SkillPayloadDialog
+      :show="payloadDialog.show"
+      :content="payloadDialog.content"
+      @update:show="payloadDialog.show = $event"
+    />
 
     <v-snackbar
       v-model="snackbar.show"
@@ -933,29 +339,48 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
-import { LazyMonacoEditor as VueMonacoEditor } from '@/components/shared/LazyMonacoEditor';
 import type { SkillItemData } from '@/api/v1';
 import { skillApi, systemConfigApi } from '@/api/v1';
 import { useI18n, useModuleI18n } from '@/i18n/composables';
 import OutlinedActionListItem from '@/components/shared/OutlinedActionListItem.vue';
-import { useCustomizerStore } from '@/stores/customizer';
 import { buildSearchQuery, matchesText } from '@/utils/pluginSearch';
-
-const STATUS_WAITING = 'waiting' as const;
-const STATUS_UPLOADING = 'uploading' as const;
-const STATUS_SUCCESS = 'success' as const;
-const STATUS_ERROR = 'error' as const;
-const STATUS_SKIPPED = 'skipped' as const;
-
-type SkillMode = 'local' | 'neo';
-type UploadStatus =
-  | typeof STATUS_WAITING
-  | typeof STATUS_UPLOADING
-  | typeof STATUS_SUCCESS
-  | typeof STATUS_ERROR
-  | typeof STATUS_SKIPPED;
-type SnackbarColor = 'success' | 'error' | 'warning';
-type ReleaseStage = 'canary' | 'stable';
+import SkillsLocalList from './SkillsLocalList.vue';
+import SkillsNeoPanel from './SkillsNeoPanel.vue';
+import SkillUploadDialog from './SkillUploadDialog.vue';
+import SkillDeleteDialog from './SkillDeleteDialog.vue';
+import SkillBatchDeleteDialog from './SkillBatchDeleteDialog.vue';
+import SkillEditorDialog from './SkillEditorDialog.vue';
+import SkillPayloadDialog from './SkillPayloadDialog.vue';
+import {
+  STATUS_ERROR,
+  STATUS_SKIPPED,
+  STATUS_SUCCESS,
+  STATUS_UPLOADING,
+  STATUS_WAITING,
+  asRecord,
+  candidatePromoteLoadingKey,
+  getBoolean,
+  getNumber,
+  getString,
+  normalizeNeoCandidate,
+  normalizeNeoItemsPayload,
+  normalizeNeoRelease,
+  normalizeSkillEntry,
+  normalizeUploadName,
+  type EditorDialogState,
+  type NeoCandidate,
+  type NeoFilterState,
+  type NeoRelease,
+  type PayloadDialogState,
+  type ReleaseStage,
+  type SandboxCacheState,
+  type SkillEntry,
+  type SkillMode,
+  type SnackbarColor,
+  type UploadItem,
+  type UploadResultEntry,
+  type UploadStatus,
+} from './skillsHelpers';
 
 interface SkillItem extends SkillItemData {
   name: string;
@@ -970,84 +395,8 @@ interface SkillItem extends SkillItemData {
   readonly?: boolean;
 }
 
-interface SandboxCacheState {
-  ready: boolean;
-  count: number;
-  updated_at: string | null;
-}
-
-interface UploadItem {
-  id: string;
-  file: File;
-  name: string;
-  size: number;
-  status: UploadStatus;
-  validationMessage: string;
-  filenameKey: string;
-}
-
-interface UploadResultEntry {
-  filename?: string;
-  name?: string;
-  error?: string;
-}
-
-interface NeoFilterState {
-  skill_key: string;
-  status: string;
-  stage: string;
-}
-
-interface NeoCandidate {
-  id: string;
-  skill_key?: string;
-  status?: string;
-  latest_score?: number | null;
-  payload_ref?: string;
-  [key: string]: unknown;
-}
-
-interface NeoRelease {
-  id: string;
-  skill_key?: string;
-  stage?: string;
-  version?: string | number;
-  is_active: boolean;
-  active?: boolean;
-  [key: string]: unknown;
-}
-
-interface SkillEntry {
-  type: string;
-  path: string;
-  name: string;
-  editable: boolean;
-  [key: string]: unknown;
-}
-
-interface PayloadDialogState {
-  show: boolean;
-  content: string;
-}
-
-interface EditorDialogState {
-  show: boolean;
-  skillName: string;
-  currentDir: string;
-  entries: SkillEntry[];
-  filePath: string;
-  content: string;
-  fileEditable: boolean;
-  fileDirty: boolean;
-  loadingFiles: boolean;
-  loadingFile: boolean;
-  saving: boolean;
-  error: string;
-}
-
 const { t } = useI18n();
 const { tm } = useModuleI18n('features/extension');
-const customizer = useCustomizerStore();
 
 const mode = ref<SkillMode>('local');
 const skills = ref<SkillItem[]>([]);
@@ -1061,9 +410,7 @@ const sandboxCache = reactive<SandboxCacheState>({
 });
 const uploading = ref(false);
 const uploadDialog = ref(false);
-const uploadInput = ref<HTMLInputElement | null>(null);
 const uploadItems = ref<UploadItem[]>([]);
-const isUploadDragging = ref(false);
 const itemLoading = reactive<Record<string, boolean>>({});
 const deleteDialog = ref(false);
 const deleting = ref(false);
@@ -1115,24 +462,6 @@ const neoEnabled = ref(false);
 const neoUnavailableMessage = ref('');
 let nextUploadItemId = 0;
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function getString(value: unknown) {
-  return typeof value === 'string' ? value : '';
-}
-
-function getBoolean(value: unknown, fallback = false) {
-  return typeof value === 'boolean' ? value : fallback;
-}
-
-function getNumber(value: unknown, fallback = 0) {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-}
-
 function normalizeSkillItem(value: unknown): SkillItem | null {
   const record = asRecord(value);
   if (!record) {
@@ -1161,182 +490,6 @@ function normalizeSkillItem(value: unknown): SkillItem | null {
     readonly: getBoolean(record.readonly),
   };
 }
-
-function normalizeSkillEntry(value: unknown): SkillEntry | null {
-  const record = asRecord(value);
-  if (!record) {
-    return null;
-  }
-
-  const path = getString(record.path).trim();
-  const name = getString(record.name).trim();
-  const type = getString(record.type).trim();
-  if (!path || !name || !type) {
-    return null;
-  }
-
-  return {
-    ...record,
-    path,
-    name,
-    type,
-    editable: record.editable !== false,
-  };
-}
-
-function normalizeNeoCandidate(value: unknown): NeoCandidate | null {
-  const record = asRecord(value);
-  if (!record) {
-    return null;
-  }
-
-  const id = getString(record.id).trim();
-  if (!id) {
-    return null;
-  }
-
-  const latestScore =
-    typeof record.latest_score === 'number' &&
-    Number.isFinite(record.latest_score)
-      ? record.latest_score
-      : null;
-
-  return {
-    ...record,
-    id,
-    skill_key: getString(record.skill_key) || undefined,
-    status: getString(record.status) || undefined,
-    latest_score: latestScore,
-    payload_ref: getString(record.payload_ref) || undefined,
-  };
-}
-
-function normalizeNeoRelease(value: unknown): NeoRelease | null {
-  const record = asRecord(value);
-  if (!record) {
-    return null;
-  }
-
-  const id = getString(record.id).trim();
-  if (!id) {
-    return null;
-  }
-
-  return {
-    ...record,
-    id,
-    skill_key: getString(record.skill_key) || undefined,
-    stage: getString(record.stage) || undefined,
-    version:
-      typeof record.version === 'string' || typeof record.version === 'number'
-        ? record.version
-        : undefined,
-    active: typeof record.active === 'boolean' ? record.active : undefined,
-    is_active: getBoolean(record.is_active, getBoolean(record.active)),
-  };
-}
-
-const candidateStatusItems = computed(() => [
-  { title: tm('skills.neoAll'), value: '' },
-  { title: 'draft', value: 'draft' },
-  { title: 'evaluating', value: 'evaluating' },
-  { title: 'promoted', value: 'promoted' },
-  { title: 'promoted_canary', value: 'promoted_canary' },
-  { title: 'promoted_stable', value: 'promoted_stable' },
-  { title: 'rejected', value: 'rejected' },
-  { title: 'rolled_back', value: 'rolled_back' },
-]);
-
-const releaseStageItems = computed(() => [
-  { title: tm('skills.neoAll'), value: '' },
-  { title: 'canary', value: 'canary' },
-  { title: 'stable', value: 'stable' },
-]);
-
-const activeReleaseCount = computed(
-  () => neoReleases.value.filter((item) => item.is_active).length,
-);
-
-const editorLanguage = computed(() => {
-  const path = editorDialog.filePath.toLowerCase();
-  if (path.endsWith('.json')) return 'json';
-  if (path.endsWith('.yaml') || path.endsWith('.yml')) return 'yaml';
-  if (path.endsWith('.toml') || path.endsWith('.ini')) return 'ini';
-  if (path.endsWith('.py')) return 'python';
-  if (path.endsWith('.js')) return 'javascript';
-  if (path.endsWith('.ts')) return 'typescript';
-  if (path.endsWith('.html')) return 'html';
-  if (path.endsWith('.css')) return 'css';
-  if (path.endsWith('.sh')) return 'shell';
-  if (path.endsWith('.md') || path.endsWith('.txt')) return 'markdown';
-  return 'plaintext';
-});
-
-const editorTheme = computed(() =>
-  customizer.uiTheme === 'AstrBotDark' ? 'vs-dark' : 'vs-light',
-);
-
-const editorOptions = computed(() => ({
-  automaticLayout: true,
-  fontSize: 13,
-  lineNumbers: 'on',
-  minimap: { enabled: false },
-  readOnly: !editorDialog.fileEditable || editorDialog.loadingFile,
-  scrollBeyondLastLine: false,
-  tabSize: 2,
-  wordWrap: 'on',
-}));
-
-const uploadStateCounts = computed(() =>
-  uploadItems.value.reduce(
-    (counts, item) => {
-      counts.total += 1;
-      counts[item.status] += 1;
-      return counts;
-    },
-    {
-      total: 0,
-      [STATUS_WAITING]: 0,
-      [STATUS_UPLOADING]: 0,
-      [STATUS_SUCCESS]: 0,
-      [STATUS_ERROR]: 0,
-      [STATUS_SKIPPED]: 0,
-    },
-  ),
-);
-
-const hasUploadableItems = computed(() =>
-  uploadItems.value.some(
-    (item) => item.status === STATUS_WAITING || item.status === STATUS_ERROR,
-  ),
-);
-
-const candidateHeaders = computed(() => [
-  { title: 'ID', key: 'id', width: '180px' },
-  { title: 'skill_key', key: 'skill_key' },
-  { title: 'status', key: 'status', width: '130px' },
-  { title: 'score', key: 'latest_score', width: '90px' },
-  {
-    title: tm('skills.actions'),
-    key: 'actions',
-    sortable: false,
-    width: '420px',
-  },
-]);
-
-const releaseHeaders = computed(() => [
-  { title: 'ID', key: 'id', width: '180px' },
-  { title: 'skill_key', key: 'skill_key' },
-  { title: 'stage', key: 'stage', width: '100px' },
-  { title: 'version', key: 'version', width: '90px' },
-  { title: 'active', key: 'is_active', width: '110px' },
-  {
-    title: tm('skills.actions'),
-    key: 'actions',
-    sortable: false,
-    width: '220px',
-  },
-]);
 
 function showMessage(message: string, color: SnackbarColor = 'success') {
   snackbar.message = message;
@@ -1462,28 +615,6 @@ function showReadOnlySkillMessage(skill: SkillItem) {
   }
 }
 
-function normalizeNeoItemsPayload(payload: unknown) {
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-  const record = asRecord(payload);
-  if (!record || !Array.isArray(record.items)) {
-    return [];
-  }
-  return record.items;
-}
-
-function formatFileSize(size: number) {
-  if (!Number.isFinite(size) || size <= 0) return '0 B';
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function normalizeUploadName(name: string) {
-  return String(name).trim().toLowerCase();
-}
-
 function buildUploadItem(
   file: File,
   status: UploadStatus,
@@ -1500,24 +631,8 @@ function buildUploadItem(
   };
 }
 
-function uploadStatusLabel(status: UploadStatus) {
-  if (status === STATUS_UPLOADING) return tm('skills.statusUploading');
-  if (status === STATUS_SUCCESS) return tm('skills.statusSuccess');
-  if (status === STATUS_ERROR) return tm('skills.statusError');
-  if (status === STATUS_SKIPPED) return tm('skills.statusSkipped');
-  return tm('skills.statusWaiting');
-}
-
-function statusChipClass(status: UploadStatus) {
-  return `skills-status-chip skills-status-chip--${status}`;
-}
-
 function resetUploadState() {
   uploadItems.value = [];
-  isUploadDragging.value = false;
-  if (uploadInput.value) {
-    uploadInput.value.value = '';
-  }
 }
 
 function openUploadDialog() {
@@ -1527,11 +642,6 @@ function openUploadDialog() {
 function closeUploadDialog() {
   if (uploading.value) return;
   uploadDialog.value = false;
-}
-
-function openUploadPicker() {
-  if (uploading.value) return;
-  uploadInput.value?.click();
 }
 
 function addUploadFiles(filesToAdd: File[]) {
@@ -1567,26 +677,6 @@ function addUploadFiles(filesToAdd: File[]) {
   if (nextItems.length > 0) {
     uploadItems.value = [...uploadItems.value, ...nextItems];
   }
-}
-
-function handleUploadSelection(event: Event) {
-  const input = event.target;
-  const selected =
-    input instanceof HTMLInputElement && input.files
-      ? Array.from(input.files)
-      : [];
-  addUploadFiles(selected);
-  if (uploadInput.value) {
-    uploadInput.value.value = '';
-  }
-}
-
-function handleUploadDrop(event: DragEvent) {
-  isUploadDragging.value = false;
-  if (uploading.value) {
-    return;
-  }
-  addUploadFiles(Array.from(event.dataTransfer?.files || []));
 }
 
 function removeUploadItem(itemId: string) {
@@ -2164,23 +1254,6 @@ async function evaluateCandidate(candidate: NeoCandidate, passed: boolean) {
   }
 }
 
-function candidatePromoteLoadingKey(candidateId: string, stage: ReleaseStage) {
-  return `${candidateId}:${stage}`;
-}
-
-function isCandidatePromoteLoading(candidateId: string, stage: ReleaseStage) {
-  return Boolean(
-    candidatePromoteLoading[candidatePromoteLoadingKey(candidateId, stage)],
-  );
-}
-
-function isCandidatePromoting(candidateId: string) {
-  return (
-    isCandidatePromoteLoading(candidateId, 'canary') ||
-    isCandidatePromoteLoading(candidateId, 'stable')
-  );
-}
-
 async function promoteCandidate(candidate: NeoCandidate, stage: ReleaseStage) {
   const candidateId = candidate.id;
   const loadingKey = candidatePromoteLoadingKey(candidateId, stage);
@@ -2375,45 +1448,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.skill-editor__monaco-editor {
-  width: 100%;
-  height: 100%;
-}
-
-.skills-list-header {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.skills-list-title {
-  margin: 0 auto 0 0;
-}
-
-.skills-list-actions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.skills-search-wrap {
-  flex: 0 1 300px;
-  min-width: 200px;
-}
-
-.skills-search-field {
-  width: 100%;
-}
-
-.skills-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
 .list-action-icon-btn {
   color: rgba(var(--v-theme-on-surface), 0.78);
 }
@@ -2470,544 +1504,25 @@ onMounted(async () => {
   border-color: rgba(var(--v-theme-primary), 0.5);
 }
 
-.batch-delete-targets {
-  background: transparent;
-  max-height: 240px;
-  overflow-y: auto;
-  padding: 0;
-}
-
-.batch-delete-target {
-  background: rgba(var(--v-theme-on-surface), 0.05);
-  border-radius: 8px;
-}
-
-.batch-delete-target + .batch-delete-target {
-  margin-top: 6px;
-}
-
-.skill-editor-dialog {
-  display: flex;
-  flex-direction: column;
-  height: min(88vh, 980px);
-  max-height: min(88vh, 980px);
-  overflow: hidden;
-}
-
-.skill-editor-dialog__header {
-  align-items: flex-start;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 22px 14px;
-}
-
-.skill-editor-dialog__body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-  padding: 16px 22px;
-}
-
-.skill-editor-dialog__actions {
-  border-top: 1px solid var(--v-theme-border);
-  padding: 12px 22px;
-}
-
-.skill-editor {
-  display: grid;
-  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
-  gap: 16px;
-  height: 100%;
-  min-height: 0;
-}
-
-.skill-editor__files {
-  border: 1px solid rgba(128, 128, 128, 0.28);
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.skill-editor__files-header {
-  align-items: center;
-  border-bottom: 1px solid rgba(128, 128, 128, 0.28);
-  display: flex;
-  gap: 8px;
-  min-height: 44px;
-  padding: 6px 10px;
-}
-
-.skill-editor__files-header span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.skill-editor__file-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  overflow-y: auto;
-  padding: 6px;
-}
-
-.skill-editor__file-row {
-  align-items: center;
-  border-radius: 8px;
-  color: rgb(var(--v-theme-on-surface));
-  display: grid;
-  gap: 8px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  min-height: 34px;
-  padding: 6px 8px;
-  text-align: left;
-}
-
-.skill-editor__file-row:hover,
-.skill-editor__file-row--active {
-  background: rgba(var(--v-theme-on-surface), 0.06);
-}
-
-.skill-editor__file-row--active {
-  background: rgba(var(--v-theme-on-surface), 0.1);
-}
-
-.skill-editor__file-row span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.skill-editor__content {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  min-width: 0;
-}
-
-.skill-editor__content-header {
-  align-items: center;
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-  min-height: 34px;
-}
-
-.skill-editor__path {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.skill-editor__monaco {
-  border: 1px solid rgba(128, 128, 128, 0.28);
-  border-radius: 10px;
-  flex: 1 1 auto;
-  margin-top: 12px;
-  min-height: 520px;
-  overflow: hidden;
-  position: relative;
-}
-
-.skills-upload-dialog {
-  display: flex;
-  flex-direction: column;
-  max-height: min(88vh, 960px);
-  border-radius: 24px;
-  background: rgb(var(--v-theme-surface));
-  border: 1px solid var(--v-theme-border);
-  outline: 1px solid rgba(var(--v-theme-primary), 0.1);
-  outline-offset: -1px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
-  overflow: hidden;
-}
-
-.skills-upload-dialog__header {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: flex-start;
-  gap: 16px;
-  white-space: normal;
-  overflow: visible;
-}
-
-.skills-upload-dialog__heading {
-  min-width: 0;
-  padding-right: 0;
-  white-space: normal;
-}
-
-.skills-upload-dialog__description {
-  max-width: 100%;
-  color: var(--v-theme-on-surface-variant);
-  line-height: 1.7;
-  word-break: break-word;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.skills-upload-dialog__description--body {
-  margin: 0 0 14px;
-  font-size: 15px;
-  line-height: 1.6;
-}
-
-.skills-upload-dialog__close {
-  align-self: flex-start;
-}
-
-.skills-upload-dialog__body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.skills-upload-dialog__actions {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-top: 1px solid var(--v-theme-border);
-  background: rgba(var(--v-theme-surface), 0.98);
-}
-
-.skills-upload-dialog__action-btn {
-  min-width: 96px;
-  height: 38px;
-  border-radius: 10px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.skills-upload-structure-note {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 18px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(var(--v-theme-primary), 0.18);
-  background: rgba(var(--v-theme-surface), 0.96);
-  color: var(--v-theme-on-surface-variant);
-  line-height: 1.6;
-}
-
-.skills-upload-capabilities {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 18px;
-}
-
-.skills-upload-capability {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 52px;
-  padding: 0 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(var(--v-theme-primary), 0.16);
-  background: rgba(var(--v-theme-surface), 0.96);
-  color: var(--v-theme-on-surface-variant);
-}
-
-.skills-upload-capability__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  background: rgba(var(--v-theme-primary), 0.16);
-  color: rgba(var(--v-theme-primary), 0.95);
-}
-
-.skills-dropzone {
-  padding: 36px 24px;
-  border-radius: 22px;
-  border: 1.5px dashed rgba(var(--v-theme-primary), 0.24);
-  background: rgba(var(--v-theme-surface), 0.94);
-  text-align: center;
-  cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    transform 0.2s ease,
-    background-color 0.2s ease;
-}
-
-.skills-dropzone:hover,
-.skills-dropzone--dragover {
-  border-color: rgba(var(--v-theme-primary), 0.52);
-  background: rgba(var(--v-theme-primary), 0.05);
-  transform: translateY(-1px);
-}
-
-.skills-dropzone__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 66px;
-  height: 66px;
-  margin: 0 auto 18px;
-  border-radius: 20px;
-  background: rgba(var(--v-theme-primary), 0.15);
-  color: rgba(var(--v-theme-primary), 0.96);
-}
-
-.skills-dropzone__subtitle {
-  margin-top: 10px;
-  color: var(--v-theme-on-surface-variant);
-}
-
-.skills-dropzone__hint {
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--v-theme-on-surface-variant);
-  opacity: 0.82;
-}
-
-.skills-upload-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 18px;
-}
-
-.skills-upload-summary__chip {
-  background: rgba(var(--v-theme-surface), 0.96);
-  border: 1px solid rgba(var(--v-theme-primary), 0.16);
-  color: var(--v-theme-on-surface-variant);
-}
-
-.skills-upload-summary__chip--success {
-  background: rgba(var(--v-theme-primary), 0.18);
-  color: var(--v-theme-on-surface);
-}
-
-.skills-upload-summary__chip--error {
-  background: rgb(var(--v-theme-surface-variant));
-  color: rgb(var(--v-theme-error));
-}
-
-.skills-upload-list {
-  margin-top: 16px;
-  border-radius: 8px;
-  border: 1px solid rgba(var(--v-theme-primary), 0.2);
-  background: rgba(var(--v-theme-surface), 0.94);
-  overflow: hidden;
-}
-
-.skills-upload-list__header {
-  padding: 14px 18px;
-  border-bottom: 1px solid rgba(var(--v-theme-primary), 0.14);
-  color: var(--v-theme-on-surface);
-  font-weight: 600;
-}
-
-.skills-upload-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px 18px;
-}
-
-.skills-upload-row + .skills-upload-row {
-  border-top: 1px solid rgba(var(--v-theme-primary), 0.12);
-}
-
-.skills-upload-row__meta {
-  min-width: 0;
-  flex: 1;
-}
-
-.skills-upload-row__name {
-  font-weight: 600;
-  color: var(--v-theme-on-surface);
-  word-break: break-all;
-}
-
-.skills-upload-row__size {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--v-theme-on-surface-variant);
-  opacity: 0.82;
-}
-
-.skills-upload-row__message {
-  margin-top: 8px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--v-theme-on-surface-variant);
-}
-
-.skills-upload-row__actions {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.skills-status-chip {
-  min-width: 74px;
-  justify-content: center;
-  font-weight: 600;
-}
-
-.skills-status-chip--waiting {
-  background: rgba(var(--v-theme-surface), 0.96);
-  border: 1px solid rgba(var(--v-theme-primary), 0.16);
-  color: var(--v-theme-on-surface-variant);
-}
-
-.skills-status-chip--uploading {
-  background: rgba(var(--v-theme-primary), 0.14);
-  color: var(--v-theme-on-surface);
-}
-
-.skills-status-chip--success {
-  background: rgba(var(--v-theme-primary), 0.2);
-  color: var(--v-theme-on-surface);
-}
-
-.skills-status-chip--error {
-  background: rgb(var(--v-theme-surface-variant));
-  color: rgb(var(--v-theme-error));
-}
-
-.skills-status-chip--skipped {
-  background: rgba(var(--v-theme-surface), 0.96);
-  border: 1px solid rgba(var(--v-theme-primary), 0.16);
-  color: var(--v-theme-on-surface-variant);
-}
-
-.skills-upload-empty {
-  margin-top: 16px;
-  padding: 20px 18px;
-  border-radius: 8px;
-  border: 1px dashed rgba(var(--v-theme-primary), 0.24);
-  background: rgba(var(--v-theme-surface), 0.94);
-  text-align: center;
-  color: var(--v-theme-on-surface-variant);
-}
-
-.payload-preview {
-  margin: 0;
-  min-height: 0;
-  overflow: auto;
-  background: rgb(var(--v-theme-code-surface));
-  color: rgb(var(--v-theme-code-text));
-  padding: 12px;
-  border-radius: 8px;
-  font-size: 12px;
-}
-
-.payload-dialog {
-  display: flex;
-  flex-direction: column;
-  max-height: min(80vh, 760px);
-  overflow: hidden;
-}
-
-.payload-dialog__body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-}
-
-.payload-dialog__actions {
-  flex: 0 0 auto;
-}
-
-.neo-filter-card {
-  border-radius: 14px;
-  border-color: rgba(var(--v-theme-primary), 0.25);
-  background: linear-gradient(
-    180deg,
-    rgba(var(--v-theme-primary), 0.03),
-    rgba(var(--v-theme-surface), 1)
-  );
-}
-
-.neo-table-card {
-  border-radius: 14px;
-}
-
-.neo-data-table :deep(.v-data-table-header__content) {
-  font-weight: 700;
-}
-
-.neo-data-table :deep(tbody tr:hover) {
-  background: rgba(var(--v-theme-primary), 0.04);
-}
-
 @media (max-width: 860px) {
-  .skill-editor-dialog {
+  .skills-page :deep(.skill-editor-dialog) {
     height: auto;
     max-height: none;
     overflow-y: auto;
   }
 
-  .skill-editor {
+  .skills-page :deep(.skill-editor) {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
     min-height: 0;
   }
 
-  .skill-editor__files {
+  .skills-page :deep(.skill-editor__files) {
     max-height: 20vh;
   }
 
-  .skill-editor__monaco {
+  .skills-page :deep(.skill-editor__monaco) {
     min-height: 40vh;
-  }
-
-  .skills-upload-capabilities {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .skills-list-header {
-    align-items: stretch;
-  }
-
-  .skills-search-wrap {
-    flex: 1 1 100%;
-  }
-
-  .skills-list-actions {
-    margin-left: 0;
-    width: 100%;
-  }
-
-  .skills-upload-dialog {
-    max-height: 92vh;
-  }
-
-  .skills-upload-dialog__header {
-    gap: 12px;
-  }
-
-  .skills-upload-dialog__heading {
-    padding-right: 0;
-  }
-
-  .skills-upload-row {
-    flex-direction: column;
-  }
-
-  .skills-upload-row__actions {
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .skills-upload-dialog__description--body {
-    font-size: 14px;
   }
 }
 </style>
