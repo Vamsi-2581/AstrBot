@@ -23,14 +23,6 @@ const testState = vi.hoisted(() => ({
     template:
       '<div class="provider-models-panel-stub">models:{{ entries.length }}</div>',
   },
-  addNewProviderStub: {
-    template: '<div class="add-new-provider-stub"></div>',
-  },
-  itemCardStub: {
-    props: ['item'],
-    template:
-      '<div class="item-card-stub"><div class="item-card-id">{{ item.id }}</div><slot name="item-details" :item="item" /><slot name="actions" :item="item" /></div>',
-  },
 }));
 
 vi.mock('vue-router', () => ({
@@ -66,14 +58,6 @@ vi.mock('@/components/provider/ProviderSourcesPanel.vue', () => ({
 
 vi.mock('@/components/provider/ProviderModelsPanel.vue', () => ({
   default: testState.providerModelsPanelStub,
-}));
-
-vi.mock('@/components/provider/AddNewProvider.vue', () => ({
-  default: testState.addNewProviderStub,
-}));
-
-vi.mock('@/components/shared/ItemCard.vue', () => ({
-  default: testState.itemCardStub,
 }));
 
 vi.mock('@/utils/providerUtils', () => ({

@@ -217,6 +217,11 @@ const togglePin = () => {
                         density="compact"
                         hide-details
                         inset
+                        :aria-label="
+                          extension.activated
+                            ? tm('buttons.disable')
+                            : tm('buttons.enable')
+                        "
                         @update:model-value="toggleActivation"
                       ></v-switch>
                     </div>

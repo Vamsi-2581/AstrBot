@@ -82,7 +82,6 @@ vi.mock('@/api/http', async () => {
 
 import { fetchWithAuth } from '@/api/http';
 import { useSessions } from '@/composables/useSessions';
-import { useConversations } from '@/composables/useConversations';
 import { useMediaHandling } from '@/composables/useMediaHandling';
 import { useProviderModelConfigDialog } from '@/composables/useProviderModelConfigDialog';
 import { useDashboardStepUp } from '@/composables/useDashboardStepUp';
@@ -125,17 +124,6 @@ describe('error-path coverage', () => {
     api.chatApi.updateSession.mockRejectedValue(new Error('rename'));
     sessions.showEditTitleDialog('s1', 'x');
     await sessions.saveTitle();
-
-    const conversations = useConversations();
-    api.chatApi.listSessions.mockRejectedValue({ response: { status: 401 } });
-    await conversations.getConversations();
-    api.chatApi.createSession.mockRejectedValue(new Error('fail'));
-    await expect(conversations.newConversation()).rejects.toThrow();
-    api.chatApi.deleteSession.mockRejectedValue(new Error('fail'));
-    await conversations.deleteConversation('c1');
-    conversations.showEditTitleDialog('c1', 't');
-    api.chatApi.updateSession.mockRejectedValue(new Error('fail'));
-    await conversations.saveTitle();
   });
 
   it('covers media duplicates, audio removal, and recording empty blobs', async () => {
@@ -581,26 +569,7 @@ describe('error-path coverage', () => {
     expect(await copyToClipboard('x')).toBe(false);
   });
 
-  it('covers pending conversation selection, breadcrumb misses, and 403 logs', async () => {
-    api.chatApi.listSessions.mockResolvedValue({
-      data: {
-        data: [
-          {
-            session_id: 'c1',
-            display_name: null,
-            updated_at: 'bad',
-          },
-        ],
-      },
-    });
-    const conversations = useConversations();
-    conversations.pendingCid.value = 'c1';
-    await conversations.getConversations();
-    expect(conversations.selectedConversations.value).toContain('c1');
-    conversations.pendingCid.value = null;
-    conversations.currCid.value = '';
-    await conversations.getConversations();
-
+  it('covers breadcrumb misses and 403 logs', async () => {
     const prompt = usePromptStore();
     prompt.folderTree = [
       { folder_id: 'a', name: 'A', parent_id: null, children: [] },

@@ -57,6 +57,7 @@
           hide-details
           variant="outlined"
           :placeholder="tm('registrationAction.weixinOc.verifyCodePlaceholder')"
+          :aria-label="tm('registrationAction.weixinOc.verifyCodePlaceholder')"
           @keyup.enter="submitVerifyCode"
         ></v-text-field>
         <v-btn

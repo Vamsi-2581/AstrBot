@@ -229,6 +229,7 @@ const updateDialogPluginLogo = computed(() => {
         icon="mdi-arrow-left"
         variant="text"
         density="comfortable"
+        :aria-label="tm('buttons.back')"
         @click="
           router.push({ name: 'Extensions', hash: `#${selectedDetailTab}` })
         "
@@ -341,7 +342,12 @@ const updateDialogPluginLogo = computed(() => {
   </v-row>
 
   <!-- 配置对话框 -->
-  <v-dialog v-model="configDialog" max-width="900" scrollable>
+  <v-dialog
+    v-model="configDialog"
+    max-width="900"
+    scrollable
+    :aria-label="tm('dialogs.config.title')"
+  >
     <v-card class="app-dialog extension-config-dialog__card">
       <v-card-title class="text-h2 pa-4 pl-6 pb-0">{{
         tm('dialogs.config.title')
@@ -366,6 +372,7 @@ const updateDialogPluginLogo = computed(() => {
             variant="outlined"
             hide-details
             class="extension-config-dialog__log-level"
+            :aria-label="tm('dialogs.config.coreSettings.logLevel')"
             @update:model-value="updatePluginLogLevel"
           />
         </div>
@@ -401,6 +408,7 @@ const updateDialogPluginLogo = computed(() => {
     width="700"
     persistent
     transition="dialog-transition"
+    :aria-label="loadingDialog.title"
   >
     <v-card class="app-dialog">
       <v-card-title class="text-h5">{{ loadingDialog.title }}</v-card-title>
@@ -490,7 +498,11 @@ const updateDialogPluginLogo = computed(() => {
   />
 
   <!-- 更新全部插件确认对话框 -->
-  <v-dialog v-model="updateAllConfirmDialog.show" max-width="420">
+  <v-dialog
+    v-model="updateAllConfirmDialog.show"
+    max-width="420"
+    :aria-label="tm('dialogs.updateAllConfirm.title')"
+  >
     <v-card class="app-dialog">
       <v-card-title class="d-flex align-center pa-4">
         <v-icon color="warning" class="mr-2">mdi-update</v-icon>
@@ -518,7 +530,11 @@ const updateDialogPluginLogo = computed(() => {
   </v-dialog>
 
   <!-- 指令冲突提示对话框 -->
-  <v-dialog v-model="conflictDialog.show" max-width="420">
+  <v-dialog
+    v-model="conflictDialog.show"
+    max-width="420"
+    :aria-label="tm('conflicts.title')"
+  >
     <v-card class="app-dialog">
       <v-card-title class="d-flex align-center pa-4">
         <v-icon color="warning" class="mr-2">mdi-alert-circle</v-icon>
@@ -553,7 +569,12 @@ const updateDialogPluginLogo = computed(() => {
   </v-dialog>
 
   <!-- 危险插件确认对话框 -->
-  <v-dialog v-model="dangerConfirmDialog" width="500" persistent>
+  <v-dialog
+    v-model="dangerConfirmDialog"
+    width="500"
+    persistent
+    :aria-label="tm('dialogs.danger_warning.title')"
+  >
     <v-card>
       <v-card-title class="text-h5 d-flex align-center">
         <v-icon color="warning" class="mr-2">mdi-alert-circle</v-icon>
@@ -575,7 +596,12 @@ const updateDialogPluginLogo = computed(() => {
   </v-dialog>
 
   <!-- 版本不兼容警告对话框 -->
-  <v-dialog v-model="versionSupportDialog.show" width="520" persistent>
+  <v-dialog
+    v-model="versionSupportDialog.show"
+    width="520"
+    persistent
+    :aria-label="tm('dialogs.versionSupport.title')"
+  >
     <v-card>
       <v-card-title class="text-h5 d-flex align-center">
         <v-icon color="warning" class="mr-2">mdi-alert</v-icon>
@@ -600,7 +626,11 @@ const updateDialogPluginLogo = computed(() => {
   </v-dialog>
 
   <!-- 上传插件对话框 -->
-  <v-dialog v-model="dialog" width="500">
+  <v-dialog
+    v-model="dialog"
+    width="500"
+    :aria-label="tm('dialogs.install.title')"
+  >
     <v-card class="app-dialog">
       <v-card-title class="text-h3 pa-4 pb-0 pl-6">
         {{ tm('dialogs.install.title') }}
@@ -873,7 +903,12 @@ const updateDialogPluginLogo = computed(() => {
   </v-dialog>
 
   <!-- 插件源管理对话框 -->
-  <v-dialog v-model="showSourceManagerDialog" width="640" scrollable>
+  <v-dialog
+    v-model="showSourceManagerDialog"
+    width="640"
+    scrollable
+    :aria-label="tm('market.sourceManagement')"
+  >
     <v-card class="app-dialog source-manager-dialog__card">
       <v-card-title class="text-h3 pa-4 pl-6">{{
         tm('market.sourceManagement')
@@ -949,6 +984,7 @@ const updateDialogPluginLogo = computed(() => {
                 size="small"
                 variant="text"
                 color="medium-emphasis"
+                :aria-label="tm('market.editSource')"
                 @click.stop="editCustomSource(source)"
               ></v-btn>
               <v-btn
@@ -956,6 +992,7 @@ const updateDialogPluginLogo = computed(() => {
                 size="small"
                 variant="text"
                 color="error"
+                :aria-label="tm('buttons.deleteSource')"
                 @click.stop="removeCustomSource(source)"
               ></v-btn>
             </template>
@@ -975,7 +1012,13 @@ const updateDialogPluginLogo = computed(() => {
   </v-dialog>
 
   <!-- 添加/编辑自定义插件源对话框 -->
-  <v-dialog v-model="showSourceDialog" width="500">
+  <v-dialog
+    v-model="showSourceDialog"
+    width="500"
+    :aria-label="
+      editingSource ? tm('market.editSource') : tm('market.addSource')
+    "
+  >
     <v-card>
       <v-card-title class="text-h5">{{
         editingSource ? tm('market.editSource') : tm('market.addSource')
@@ -1019,7 +1062,11 @@ const updateDialogPluginLogo = computed(() => {
   </v-dialog>
 
   <!-- 删除插件源确认对话框 -->
-  <v-dialog v-model="showRemoveSourceDialog" width="400">
+  <v-dialog
+    v-model="showRemoveSourceDialog"
+    width="400"
+    :aria-label="tm('dialogs.uninstall.title')"
+  >
     <v-card>
       <v-card-title class="text-h5 d-flex align-center">
         <v-icon color="warning" class="mr-2">mdi-alert-circle</v-icon>
@@ -1045,7 +1092,11 @@ const updateDialogPluginLogo = computed(() => {
   </v-dialog>
 
   <!-- Update plugin confirmation dialog -->
-  <v-dialog v-model="updateConfirmDialog.show" width="500">
+  <v-dialog
+    v-model="updateConfirmDialog.show"
+    width="500"
+    :aria-label="tm('dialogs.update.title')"
+  >
     <v-card class="app-dialog">
       <v-card-title class="text-h3 pa-4 pb-0 pl-6">
         {{ tm('dialogs.update.title') }}
@@ -1123,7 +1174,11 @@ const updateDialogPluginLogo = computed(() => {
   </v-dialog>
 
   <!-- 强制更新确认对话框 -->
-  <v-dialog v-model="forceUpdateDialog.show" max-width="420">
+  <v-dialog
+    v-model="forceUpdateDialog.show"
+    max-width="420"
+    :aria-label="tm('dialogs.forceUpdate.title')"
+  >
     <v-card class="app-dialog">
       <v-card-title class="text-h6 d-flex align-center">
         <v-icon color="info" class="mr-2">mdi-information-outline</v-icon>

@@ -121,7 +121,11 @@
       </div>
     </div>
 
-    <v-dialog v-model="showManualModelDialog" max-width="400">
+    <v-dialog
+      v-model="showManualModelDialog"
+      max-width="400"
+      :aria-label="tm('models.manualDialogTitle')"
+    >
       <v-card :title="tm('models.manualDialogTitle')">
         <v-card-text class="py-4">
           <v-text-field
@@ -151,7 +155,12 @@
       </v-card>
     </v-dialog>
 
-    <v-dialog v-model="showProviderEditDialog" width="800" scrollable>
+    <v-dialog
+      v-model="showProviderEditDialog"
+      width="800"
+      scrollable
+      :aria-label="providerEditDialogTitle"
+    >
       <v-card
         class="provider-form-dialog__card"
         :title="providerEditDialogTitle"

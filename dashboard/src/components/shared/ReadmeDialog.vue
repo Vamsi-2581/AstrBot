@@ -432,7 +432,12 @@ const showActionArea = computed(() => {
 </script>
 
 <template>
-  <v-dialog v-model="_show" width="800" scrollable>
+  <v-dialog
+    v-model="_show"
+    width="800"
+    scrollable
+    :aria-label="modeConfig.title"
+  >
     <v-card class="readme-dialog-card">
       <v-card-title class="d-flex justify-space-between align-center">
         <span class="text-h2 pa-2">{{ modeConfig.title }}</span>

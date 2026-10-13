@@ -90,7 +90,6 @@ vi.mock('@/api/http', async () => {
   };
 });
 
-import { useConversations } from '@/composables/useConversations';
 import { useDashboardStepUp } from '@/composables/useDashboardStepUp';
 import { useMediaHandling } from '@/composables/useMediaHandling';
 import {
@@ -187,17 +186,6 @@ describe('frontend logic coverage', () => {
     await sessions.saveTitle();
     sessions.updateSessionTitle('s1', 'renamed');
     sessions.newChat(() => undefined);
-
-    const conversations = useConversations(true);
-    await conversations.getConversations();
-    await conversations.newConversation();
-    conversations.showEditTitleDialog('s1', 't');
-    conversations.editingTitle.value = 't2';
-    conversations.editingCid.value = 's1';
-    await conversations.saveTitle();
-    conversations.updateConversationTitle('s1', 't3');
-    await conversations.deleteConversation('s1');
-    conversations.newChat(() => undefined);
 
     api.chatApi.updateProject.mockResolvedValue({ data: { status: 'ok' } });
     api.chatApi.deleteProject.mockResolvedValue({ data: { status: 'ok' } });

@@ -123,6 +123,7 @@
           class="config-field"
           type="number"
           hide-details
+          :aria-label="fieldAriaLabel"
         ></v-text-field>
         <v-btn
           color="primary"
@@ -179,6 +180,7 @@
       hide-details
       chips
       multiple
+      :aria-label="fieldAriaLabel"
     ></v-autocomplete>
 
     <v-select
@@ -191,6 +193,7 @@
       variant="outlined"
       class="config-field"
       hide-details
+      :aria-label="fieldAriaLabel"
     ></v-select>
 
     <div v-else-if="itemMeta?.editor_mode" class="editor-container">
@@ -232,6 +235,7 @@
       variant="outlined"
       class="config-field"
       hide-details
+      :aria-label="fieldAriaLabel"
     ></v-text-field>
 
     <div
@@ -262,6 +266,7 @@
           density="compact"
           hide-details
           style="flex: 1"
+          :aria-label="fieldAriaLabel"
         ></v-slider>
 
         <span style="min-width: 5px; text-align: left">
@@ -286,6 +291,7 @@
         type="number"
         hide-details
         style="flex: 2"
+        :aria-label="fieldAriaLabel"
       ></v-text-field>
     </div>
 
@@ -297,6 +303,7 @@
       rows="3"
       class="config-field"
       hide-details
+      :aria-label="fieldAriaLabel"
     ></v-textarea>
 
     <v-switch
@@ -307,6 +314,7 @@
       inset
       density="compact"
       hide-details
+      :aria-label="fieldAriaLabel"
     ></v-switch>
 
     <FileConfigItem
@@ -350,6 +358,7 @@
       variant="outlined"
       class="config-field"
       hide-details
+      :aria-label="fieldAriaLabel"
     ></v-text-field>
   </div>
 </template>
@@ -448,6 +457,10 @@ const secretToggleIcon = computed(() => {
   if (!props.itemMeta?.secret) return undefined;
   return secretVisible.value ? 'mdi-eye-off-outline' : 'mdi-eye-outline';
 });
+
+const fieldAriaLabel = computed(
+  () => props.itemMeta?.description || props.itemMeta?.hint || '',
+);
 
 function toNumber(val) {
   const n = parseFloat(val);

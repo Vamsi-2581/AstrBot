@@ -27,7 +27,12 @@
     />
 
     <!-- 重命名对话框 -->
-    <v-dialog v-model="renameDialog.show" max-width="400px" persistent>
+    <v-dialog
+      v-model="renameDialog.show"
+      max-width="400px"
+      persistent
+      :aria-label="tm('folder.renameDialog.title')"
+    >
       <v-card>
         <v-card-title>{{ tm('folder.renameDialog.title') }}</v-card-title>
         <v-card-text>
@@ -60,7 +65,11 @@
     </v-dialog>
 
     <!-- 删除确认对话框 -->
-    <v-dialog v-model="deleteDialog.show" max-width="450px">
+    <v-dialog
+      v-model="deleteDialog.show"
+      max-width="450px"
+      :aria-label="tm('folder.deleteDialog.title')"
+    >
       <v-card>
         <v-card-title class="text-error">
           <v-icon class="mr-2" color="error">mdi-alert</v-icon>

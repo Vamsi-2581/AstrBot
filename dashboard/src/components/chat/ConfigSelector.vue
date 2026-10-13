@@ -24,10 +24,15 @@
       </template>
     </v-list-item>
 
-    <v-dialog v-model="dialog" max-width="480" scrollable>
+    <v-dialog
+      v-model="dialog"
+      max-width="480"
+      scrollable
+      :aria-label="tm('config.selectTitle')"
+    >
       <v-card class="config-selector-dialog">
         <v-card-title class="d-flex align-center justify-space-between">
-          <span>选择配置文件</span>
+          <span>{{ tm('config.selectTitle') }}</span>
           <v-btn
             icon
             variant="text"
@@ -70,20 +75,22 @@
               v-if="configOptions.length === 0"
               class="text-center text-body-2 text-medium-emphasis"
             >
-              暂无可选配置，请先在配置页创建。
+              {{ tm('config.empty') }}
             </div>
           </v-list>
         </v-card-text>
         <v-card-actions class="config-selector-dialog__actions">
           <v-spacer></v-spacer>
-          <v-btn variant="text" @click="closeDialog">取消</v-btn>
+          <v-btn variant="text" @click="closeDialog">{{
+            tm('config.cancel')
+          }}</v-btn>
           <v-btn
             color="primary"
             :disabled="!tempSelectedConfig"
             :loading="saving"
             @click="confirmSelection"
           >
-            应用
+            {{ tm('config.apply') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -287,7 +294,7 @@ async function applySelectionToBackend(
   } catch (error) {
     console.error('更新配置文件失败', error);
     if (notify) {
-      toast.error(resolveErrorMessage(error, '配置文件应用失败'));
+      toast.error(resolveErrorMessage(error, tm('config.applyFailed')));
     }
     return false;
   } finally {

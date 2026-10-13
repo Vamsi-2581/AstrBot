@@ -149,14 +149,6 @@ vi.mock('@/components/shared/OutlinedActionListItem.vue', () => ({
   },
 }));
 
-vi.mock('@/components/chat/MessageList.vue', () => ({
-  default: {
-    props: ['messages'],
-    template:
-      '<div class="message-list-stub">{{ messages?.length || 0 }}</div>',
-  },
-}));
-
 vi.mock('@/components/shared/UmoDisplay.vue', () => ({
   default: {
     template: '<div class="umo-display-stub"></div>',

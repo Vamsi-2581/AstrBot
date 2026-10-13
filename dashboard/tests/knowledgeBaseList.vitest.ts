@@ -1,6 +1,7 @@
 import { flushPromises } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import KBList from '@/views/knowledge-base/KBList.vue';
+import { useToastStore } from '@/stores/toast';
 import { mountWithVuetify } from './utils/mountWithVuetify';
 
 const api = vi.hoisted(() => ({
@@ -56,10 +57,11 @@ describe('KBList', () => {
     const wrapper = mountWithVuetify(KBList);
     await flushPromises();
 
-    expect(document.body.textContent).toContain(
+    const toastStore = useToastStore();
+    expect(toastStore.current?.message).toContain(
       'Failed to load knowledge base list',
     );
-    expect(document.body.textContent).not.toContain('knowledge-secret');
+    expect(toastStore.current?.message).not.toContain('knowledge-secret');
     expect(errorSpy.mock.calls.flat().join(' ')).not.toContain(
       'knowledge-secret',
     );

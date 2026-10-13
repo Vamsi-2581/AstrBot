@@ -3,6 +3,7 @@
     :model-value="modelValue"
     max-width="520"
     persistent
+    :aria-label="tm('system_group.system.dashboard.totp.recoveryTitle')"
     @update:model-value="(val) => emit('update:modelValue', val)"
   >
     <v-card>

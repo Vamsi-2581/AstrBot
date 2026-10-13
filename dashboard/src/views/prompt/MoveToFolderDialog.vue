@@ -1,79 +1,23 @@
 <template>
-  <v-dialog v-model="showDialog" max-width="500px" persistent>
-    <v-card>
-      <v-card-title>
-        <v-icon class="mr-2">mdi-folder-move</v-icon>
-        {{ tm('moveDialog.title') }}
-      </v-card-title>
-      <v-card-text>
-        <p class="text-body-2 text-medium-emphasis mb-4">
-          {{ tm('moveDialog.description', { name: itemName }) }}
-        </p>
-
-        <!-- 文件夹选择树 -->
-        <div class="folder-select-tree">
-          <v-list density="compact" nav class="tree-list">
-            <!-- 根目录选项 -->
-            <v-list-item
-              :active="selectedFolderId === null"
-              rounded="md"
-              class="mb-1"
-              @click="selectFolder(null)"
-            >
-              <template #prepend>
-                <v-icon>mdi-home</v-icon>
-              </template>
-              <v-list-item-title>{{
-                tm('folder.rootFolder')
-              }}</v-list-item-title>
-            </v-list-item>
-
-            <!-- 文件夹树 -->
-            <template v-if="!treeLoading">
-              <BaseMoveTargetNode
-                v-for="folder in availableFolders"
-                :key="folder.folder_id"
-                :folder="folder"
-                :depth="0"
-                :selected-folder-id="selectedFolderId"
-                :disabled-folder-ids="disabledFolderIds"
-                @select="selectFolder"
-              />
-            </template>
-
-            <!-- 加载状态 -->
-            <div v-if="treeLoading" class="text-center pa-4">
-              <v-progress-circular indeterminate size="24" />
-            </div>
-          </v-list>
-        </div>
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="closeDialog">
-          {{ tm('buttons.cancel') }}
-        </v-btn>
-        <v-btn
-          color="primary"
-          variant="flat"
-          :loading="loading"
-          @click="submitMove"
-        >
-          {{ tm('buttons.move') }}
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+  <BaseMoveToFolderDialog
+    ref="baseDialog"
+    v-model="showDialog"
+    :folder-tree="folderTree"
+    :tree-loading="treeLoading"
+    :current-folder-id="currentFolderId"
+    :item-current-folder-id="itemCurrentFolderId"
+    :is-moving-folder="isMovingFolder"
+    :labels="labels"
+    @move="handleMove"
+  />
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useModuleI18n } from '@/i18n/composables';
 import { usePromptStore } from '@/stores/promptStore';
-import { storeToRefs } from 'pinia';
-import BaseMoveTargetNode from '@/components/folder/BaseMoveTargetNode.vue';
-import { collectFolderAndChildrenIds } from '@/components/folder/useFolderManager';
-import type { FolderTreeNode } from '@/components/folder/types';
+import BaseMoveToFolderDialog from '@/components/folder/BaseMoveToFolderDialog.vue';
 import { resolveErrorMessage } from '@/utils/errorUtils';
 
 interface PromptItem {
@@ -87,12 +31,20 @@ interface FolderItem {
   parent_id?: string | null;
 }
 
-function isPromptItem(item: PromptItem | FolderItem): item is PromptItem {
-  return 'prompt_id' in item;
+type BaseMoveToFolderDialogExposed = {
+  setLoading: (value: boolean) => void;
+};
+
+function isPromptItem(
+  item: PromptItem | FolderItem | null | undefined,
+): item is PromptItem {
+  return item !== null && item !== undefined && 'prompt_id' in item;
 }
 
-function isFolderItem(item: PromptItem | FolderItem): item is FolderItem {
-  return 'name' in item;
+function isFolderItem(
+  item: PromptItem | FolderItem | null | undefined,
+): item is FolderItem {
+  return item !== null && item !== undefined && 'name' in item;
 }
 
 const props = withDefaults(
@@ -116,8 +68,7 @@ const emit = defineEmits<{
 const { tm } = useModuleI18n('features/prompt');
 const promptStore = usePromptStore();
 const { folderTree, treeLoading } = storeToRefs(promptStore);
-const selectedFolderId = ref<string | null>(null);
-const loading = ref(false);
+const baseDialog = ref<BaseMoveToFolderDialogExposed | null>(null);
 
 const showDialog = computed({
   get: () => props.modelValue,
@@ -134,82 +85,55 @@ const itemName = computed(() => {
   return isFolderItem(props.item) ? props.item.name : '';
 });
 
-const disabledFolderIds = computed(() => {
-  if (props.itemType !== 'folder' || !props.item || !isFolderItem(props.item)) {
-    return [];
-  }
-  return collectFolderAndChildrenIds(folderTree.value, props.item.folder_id);
-});
-
-const availableFolders = computed<FolderTreeNode[]>(() => folderTree.value);
-
-watch(
-  () => props.modelValue,
-  (newValue) => {
-    if (newValue && props.item) {
-      if (props.itemType === 'prompt' && isPromptItem(props.item)) {
-        selectedFolderId.value = props.item.folder_id ?? null;
-        return;
-      }
-      if (isFolderItem(props.item)) {
-        selectedFolderId.value = props.item.parent_id ?? null;
-        return;
-      }
-      selectedFolderId.value = null;
-    }
-  },
+const isMovingFolder = computed(
+  () => props.itemType === 'folder' && isFolderItem(props.item),
 );
 
-function selectFolder(folderId: string | null) {
-  if (folderId && disabledFolderIds.value.includes(folderId)) {
-    return;
+const currentFolderId = computed(() =>
+  isFolderItem(props.item) ? props.item.folder_id : null,
+);
+
+const itemCurrentFolderId = computed(() => {
+  if (!props.item) {
+    return null;
   }
-  selectedFolderId.value = folderId;
-}
+  if (props.itemType === 'prompt' && isPromptItem(props.item)) {
+    return props.item.folder_id ?? null;
+  }
+  if (isFolderItem(props.item)) {
+    return props.item.parent_id ?? null;
+  }
+  return null;
+});
 
-function closeDialog() {
-  showDialog.value = false;
-}
+const labels = computed(() => ({
+  title: tm('moveDialog.title'),
+  description: tm('moveDialog.description', { name: itemName.value }),
+  rootFolder: tm('folder.rootFolder'),
+  cancelButton: tm('buttons.cancel'),
+  moveButton: tm('buttons.move'),
+}));
 
-async function submitMove() {
+async function handleMove(folderId: string | null) {
   if (!props.item) {
     return;
   }
 
-  loading.value = true;
+  baseDialog.value?.setLoading(true);
   try {
     if (props.itemType === 'prompt' && isPromptItem(props.item)) {
-      await promptStore.movePromptToFolder(
-        props.item.prompt_id,
-        selectedFolderId.value,
-      );
+      await promptStore.movePromptToFolder(props.item.prompt_id, folderId);
     } else if (isFolderItem(props.item)) {
-      await promptStore.moveFolderToFolder(
-        props.item.folder_id,
-        selectedFolderId.value,
-      );
+      await promptStore.moveFolderToFolder(props.item.folder_id, folderId);
     } else {
       return;
     }
     emit('moved', tm('moveDialog.success'));
-    closeDialog();
+    showDialog.value = false;
   } catch (error) {
     emit('error', resolveErrorMessage(error, tm('moveDialog.error')));
   } finally {
-    loading.value = false;
+    baseDialog.value?.setLoading(false);
   }
 }
 </script>
-
-<style scoped>
-.folder-select-tree {
-  max-height: 400px;
-  overflow-y: auto;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 8px;
-}
-
-.tree-list {
-  padding: 8px;
-}
-</style>

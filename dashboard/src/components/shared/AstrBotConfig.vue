@@ -534,6 +534,7 @@ function hasVisibleItemsAfter(items, currentIndex) {
       fullscreen
       transition="dialog-bottom-transition"
       scrollable
+      :aria-label="t('core.common.editor.editingTitle')"
     >
       <v-card>
         <v-toolbar color="primary">

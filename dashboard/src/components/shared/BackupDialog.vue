@@ -1,5 +1,11 @@
 <template>
-  <v-dialog v-model="isOpen" persistent max-width="700" scrollable>
+  <v-dialog
+    v-model="isOpen"
+    persistent
+    max-width="700"
+    scrollable
+    :aria-label="t('features.settings.backup.dialog.title')"
+  >
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon class="mr-2">mdi-backup-restore</v-icon>
@@ -471,6 +477,7 @@
                     icon="mdi-download"
                     variant="text"
                     size="small"
+                    :aria-label="t('features.settings.backup.export.download')"
                     @click="downloadBackup(backup.filename)"
                   ></v-btn>
                   <v-btn
@@ -478,6 +485,7 @@
                     variant="text"
                     size="small"
                     color="error"
+                    :aria-label="t('core.common.delete')"
                     @click="deleteBackup(backup.filename)"
                   ></v-btn>
                 </template>
@@ -510,7 +518,12 @@
   </v-dialog>
 
   <!-- 重命名对话框 -->
-  <v-dialog v-model="renameDialogOpen" max-width="450" persistent>
+  <v-dialog
+    v-model="renameDialogOpen"
+    max-width="450"
+    persistent
+    :aria-label="t('features.settings.backup.list.renameTitle')"
+  >
     <v-card>
       <v-card-title>
         <v-icon class="mr-2">mdi-pencil</v-icon>

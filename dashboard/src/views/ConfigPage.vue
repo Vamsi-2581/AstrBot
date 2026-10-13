@@ -99,6 +99,7 @@
                 icon="mdi-content-save"
                 size="x-large"
                 color="primary"
+                :aria-label="tm('actions.save')"
                 @click="updateConfig"
               >
               </v-btn>
@@ -112,6 +113,7 @@
                 icon="mdi-code-json"
                 size="x-large"
                 color="primary"
+                :aria-label="tm('codeEditor.title')"
                 @click="
                   configToString();
                   codeEditorDialog = true;
@@ -128,6 +130,7 @@
                 icon="mdi-chat-processing"
                 size="x-large"
                 color="primary"
+                :aria-label="tm('actions.testConfig')"
                 @click="openTestChat"
               >
               </v-btn>
@@ -143,6 +146,7 @@
       fullscreen
       transition="dialog-bottom-transition"
       scrollable
+      :aria-label="tm('codeEditor.title')"
     >
       <v-card class="app-dialog config-editor-dialog">
         <v-toolbar color="primary">
@@ -182,7 +186,12 @@
     </v-dialog>
 
     <!-- Config Management Dialog -->
-    <v-dialog v-model="configManageDialog" max-width="800px" scrollable>
+    <v-dialog
+      v-model="configManageDialog"
+      max-width="800px"
+      scrollable
+      :aria-label="tm('configManagement.title')"
+    >
       <v-card class="app-dialog config-manage-dialog__card">
         <v-card-title class="d-flex align-center justify-space-between">
           <span class="text-h4">{{ tm('configManagement.title') }}</span>

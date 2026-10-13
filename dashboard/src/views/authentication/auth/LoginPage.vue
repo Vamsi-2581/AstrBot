@@ -264,7 +264,11 @@ onBeforeUnmount(() => {
         </v-btn>
       </div>
     </v-card>
-    <v-dialog v-model="versionDialogVisible" max-width="460">
+    <v-dialog
+      v-model="versionDialogVisible"
+      max-width="460"
+      :aria-label="t('versions.dialogTitle')"
+    >
       <v-card class="app-dialog version-dialog-card">
         <v-card-title class="version-dialog-title">
           <v-icon size="20" color="warning">mdi-alert-circle-outline</v-icon>

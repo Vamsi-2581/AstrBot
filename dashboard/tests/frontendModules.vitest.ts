@@ -57,7 +57,6 @@ vi.mock('@/api/v1', () => ({
   UPGRADE_RECOVERY_TOKEN_KEY: 'astrbot-upgrade-recovery-token',
 }));
 
-import { useConversations } from '@/composables/useConversations';
 import { useProjects } from '@/composables/useProjects';
 import { useSessions } from '@/composables/useSessions';
 import { useAuthStore } from '@/stores/auth';
@@ -313,10 +312,6 @@ describe('frontend modules', () => {
         ],
       },
     });
-    const conversations = useConversations();
-    await conversations.getConversations();
-    expect(conversations.conversations.value.length).toBeGreaterThan(0);
-    await conversations.newConversation();
 
     const projects = useProjects();
     await projects.getProjects();

@@ -114,7 +114,6 @@ import SkillsSection from '@/components/extension/SkillsSection.vue';
 import McpServersSection from '@/components/extension/McpServersSection.vue';
 import BackupDialog from '@/components/shared/BackupDialog.vue';
 import ExtensionCard from '@/components/shared/ExtensionCard.vue';
-import MessageList from '@/components/chat/MessageList.vue';
 import StandaloneChat from '@/components/chat/StandaloneChat.vue';
 import Settings from '@/views/Settings.vue';
 import PromptManager from '@/views/prompt/PromptManager.vue';
@@ -145,7 +144,6 @@ import PromptCard from '@/views/prompt/PromptCard.vue';
 import DocumentDetail from '@/views/knowledge-base/DocumentDetail.vue';
 import RetrievalTab from '@/views/knowledge-base/components/RetrievalTab.vue';
 import SettingsTab from '@/views/knowledge-base/components/SettingsTab.vue';
-import AddNewProvider from '@/components/provider/AddNewProvider.vue';
 
 const monacoStubs = {
   VueMonacoEditor: { template: '<div />' },
@@ -336,13 +334,6 @@ describe('high-value coverage mounts', () => {
     expect(mcp.exists()).toBe(true);
     mcp.unmount();
 
-    const list = mountWithVuetify(MessageList, {
-      props: { messages: [] },
-      global: { stubs: monacoStubs },
-    });
-    expect(list.exists()).toBe(true);
-    list.unmount();
-
     const standalone = mountWithVuetify(StandaloneChat, {
       props: { configId: 'default' },
       global: { stubs: monacoStubs },
@@ -509,15 +500,5 @@ describe('high-value coverage mounts', () => {
     });
     await flushPromises();
     settingsTab.unmount();
-
-    const provider = mountWithVuetify(AddNewProvider, {
-      props: { show: true },
-      global: { stubs: monacoStubs },
-    });
-    await flushPromises();
-    expect(provider.exists()).toBe(true);
-    expect(provider.text()).not.toMatch(/Agent Runner|Agent 执行器/);
-    expect(provider.html()).not.toContain('value="agent_runner"');
-    provider.unmount();
   });
 });

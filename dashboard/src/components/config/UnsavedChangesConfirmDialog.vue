@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="isOpen" max-width="480" persistent>
+  <v-dialog v-model="isOpen" max-width="480" persistent :aria-label="title">
     <v-card>
       <v-card-title
         class="dialog-title d-flex align-center justify-space-between"

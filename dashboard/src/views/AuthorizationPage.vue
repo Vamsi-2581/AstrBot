@@ -607,7 +607,15 @@ onMounted(refresh);
       </v-window-item>
     </v-window>
 
-    <v-dialog v-model="bindingDialog" max-width="600">
+    <v-dialog
+      v-model="bindingDialog"
+      max-width="600"
+      :aria-label="
+        bindingForm.bindingId
+          ? t('features.authorization.editBinding')
+          : t('features.authorization.grantBinding')
+      "
+    >
       <v-card>
         <v-card-title>
           {{
@@ -665,7 +673,15 @@ onMounted(refresh);
       </v-card>
     </v-dialog>
 
-    <v-dialog v-model="accountDialog" max-width="560">
+    <v-dialog
+      v-model="accountDialog"
+      max-width="560"
+      :aria-label="
+        accountForm.accountId
+          ? t('features.authorization.editAccount')
+          : t('features.authorization.createAccount')
+      "
+    >
       <v-card>
         <v-card-title>
           {{
@@ -722,7 +738,11 @@ onMounted(refresh);
       </v-card>
     </v-dialog>
 
-    <v-dialog v-model="revokeDialog" max-width="460">
+    <v-dialog
+      v-model="revokeDialog"
+      max-width="460"
+      :aria-label="t('features.authorization.confirmRevokeTitle')"
+    >
       <v-card>
         <v-card-title>{{
           t('features.authorization.confirmRevokeTitle')

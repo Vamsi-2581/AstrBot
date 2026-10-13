@@ -32,6 +32,8 @@
                 size="x-small"
                 variant="text"
                 class="edit-session-btn"
+                :aria-label="tm('conversation.editDisplayName')"
+                :title="tm('conversation.editDisplayName')"
                 @click.stop="
                   $emit(
                     'editSessionTitle',
@@ -46,6 +48,8 @@
                 variant="text"
                 class="delete-session-btn"
                 color="error"
+                :aria-label="tm('conversation.delete')"
+                :title="tm('conversation.delete')"
                 @click.stop="handleDeleteSession(session)"
               />
             </div>
@@ -139,6 +143,7 @@ import { useModuleI18n } from '@/i18n/composables';
 import { chatApi } from '@/api/v1/chat';
 import type { Project } from '@/components/chat/ProjectList.vue';
 import { askForConfirmation, useConfirmDialog } from '@/utils/confirmDialog';
+import { formatDate } from '@/utils/text';
 
 interface Session {
   session_id: string;
@@ -258,10 +263,6 @@ watch(
 );
 
 const confirmDialog = useConfirmDialog();
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleString();
-}
 
 async function handleDeleteSession(session: Session) {
   const sessionTitle =

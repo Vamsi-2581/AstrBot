@@ -11,8 +11,11 @@
     "save": "Save",
     "move": "Move",
     "addDialogPair": "Add Dialog Pair",
+    "removeDialogPair": "Remove Dialog Pair",
     "export": "Export",
-    "import": "Import Prompt"
+    "import": "Import Prompt",
+    "moreActions": "More actions",
+    "close": "Close"
   },
   "labels": {
     "presetDialogs": "Preset Dialogs ({count} pairs)",

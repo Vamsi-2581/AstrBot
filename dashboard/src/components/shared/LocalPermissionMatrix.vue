@@ -179,7 +179,11 @@
       }}</span>
     </button>
 
-    <v-dialog v-model="isolationDialogOpen" max-width="640">
+    <v-dialog
+      v-model="isolationDialogOpen"
+      max-width="640"
+      :aria-label="tm('runtime.sandbox')"
+    >
       <v-card>
         <v-card-title class="text-h3 pa-4 pb-0 pl-6">{{
           tm('runtime.sandbox')

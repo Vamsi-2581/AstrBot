@@ -378,6 +378,7 @@
     "validationNoResult": "未收到校验结果，请检查平台日志",
     "noDescription": "无描述",
     "path": "路径",
+    "openParentDir": "打开上级目录",
     "uploadSuccess": "上传成功",
     "uploadFailed": "上传失败",
     "download": "下载",

@@ -4,6 +4,9 @@
     :max-width="smAndDown ? undefined : '1200px'"
     scrollable
     persistent
+    :aria-label="
+      editingPrompt ? tm('dialog.edit.title') : tm('dialog.create.title')
+    "
   >
     <v-card
       class="prompt-form-card"
@@ -93,6 +96,7 @@
                     <v-radio-group
                       v-model="toolSelectValue"
                       class="mt-2"
+                      :aria-label="tm('form.tools')"
                       :hide-details="true"
                     >
                       <v-radio label="默认使用全部函数工具" value="0"></v-radio>
@@ -338,6 +342,7 @@
                     <v-radio-group
                       v-model="skillSelectValue"
                       class="mt-2"
+                      :aria-label="tm('form.skills')"
                       :hide-details="true"
                     >
                       <v-radio
@@ -524,6 +529,7 @@
                             variant="text"
                             size="small"
                             color="error"
+                            :aria-label="tm('buttons.removeDialogPair')"
                             @click="removeDialog(index)"
                           />
                         </template>
@@ -589,6 +595,7 @@ import {
   askForConfirmation as askForConfirmationDialog,
   useConfirmDialog,
 } from '@/utils/confirmDialog';
+import { truncate as truncateText } from '@/utils/text';
 import { useDisplay } from 'vuetify';
 
 type SelectionMode = '0' | '1';
@@ -1258,13 +1265,6 @@ function removeSkill(skillName: string) {
   if (index !== -1) {
     promptForm.skills.splice(index, 1);
   }
-}
-
-function truncateText(text: string | null | undefined, maxLength: number) {
-  if (!text) {
-    return '';
-  }
-  return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
 }
 
 function isBuiltinTool(tool: PromptToolItem) {

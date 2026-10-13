@@ -34,7 +34,12 @@
     </div>
 
     <!-- Key-Value Management Dialog -->
-    <v-dialog v-model="dialog" max-width="600px" scrollable>
+    <v-dialog
+      v-model="dialog"
+      max-width="600px"
+      scrollable
+      :aria-label="resolveDialogTitle"
+    >
       <v-card class="app-dialog object-editor-dialog__card">
         <v-card-title class="text-h3 pa-4 pb-0 pl-6">
           {{ resolveDialogTitle }}
@@ -55,6 +60,9 @@
                     density="compact"
                     variant="outlined"
                     hide-details
+                    :aria-label="
+                      t('core.common.objectEditor.placeholders.keyName')
+                    "
                     :placeholder="
                       t('core.common.objectEditor.placeholders.keyName')
                     "
@@ -69,6 +77,9 @@
                     density="compact"
                     variant="outlined"
                     hide-details
+                    :aria-label="
+                      t('core.common.objectEditor.placeholders.stringValue')
+                    "
                     :placeholder="
                       t('core.common.objectEditor.placeholders.stringValue')
                     "
@@ -95,6 +106,9 @@
                         color="primary"
                         density="compact"
                         hide-details
+                        :aria-label="
+                          t('core.common.objectEditor.placeholders.numberValue')
+                        "
                         class="flex-grow-1"
                       ></v-slider>
 
@@ -109,6 +123,9 @@
                       density="compact"
                       variant="outlined"
                       hide-details
+                      :aria-label="
+                        t('core.common.objectEditor.placeholders.numberValue')
+                      "
                       :placeholder="
                         t('core.common.objectEditor.placeholders.numberValue')
                       "
@@ -121,6 +138,9 @@
                     density="compact"
                     hide-details
                     color="primary"
+                    :aria-label="
+                      t('core.common.objectEditor.placeholders.booleanValue')
+                    "
                   ></v-switch>
                   <v-text-field
                     v-if="pair.type === 'json'"
@@ -128,6 +148,9 @@
                     density="compact"
                     variant="outlined"
                     hide-details="auto"
+                    :aria-label="
+                      t('core.common.objectEditor.placeholders.jsonValue')
+                    "
                     :placeholder="
                       t('core.common.objectEditor.placeholders.jsonValue')
                     "
@@ -189,6 +212,9 @@
                     density="compact"
                     variant="outlined"
                     hide-details
+                    :aria-label="
+                      t('core.common.objectEditor.placeholders.stringValue')
+                    "
                     :placeholder="
                       t('core.common.objectEditor.placeholders.stringValue')
                     "
@@ -219,6 +245,9 @@
                         color="primary"
                         density="compact"
                         hide-details
+                        :aria-label="
+                          t('core.common.objectEditor.placeholders.numberValue')
+                        "
                         class="flex-grow-1"
                       ></v-slider>
 
@@ -236,6 +265,9 @@
                       density="compact"
                       variant="outlined"
                       hide-details
+                      :aria-label="
+                        t('core.common.objectEditor.placeholders.numberValue')
+                      "
                       :placeholder="
                         t('core.common.objectEditor.placeholders.numberValue')
                       "
@@ -253,6 +285,9 @@
                     density="compact"
                     hide-details
                     color="primary"
+                    :aria-label="
+                      t('core.common.objectEditor.placeholders.booleanValue')
+                    "
                   ></v-switch>
                 </v-col>
                 <v-col cols="1" class="pl-2">

@@ -5,6 +5,7 @@
       <v-btn
         icon="mdi-arrow-left"
         variant="text"
+        :aria-label="t('backToKB')"
         @click="$router.push({ name: 'NativeKBDetail', params: { kbId } })"
       />
       <div class="header-content">
@@ -183,6 +184,7 @@
                 variant="text"
                 size="small"
                 color="info"
+                :aria-label="t('chunks.view')"
                 @click="viewChunk(item)"
               />
               <!-- 删除 -->
@@ -191,6 +193,7 @@
                 variant="text"
                 size="small"
                 color="error"
+                :aria-label="t('chunks.delete')"
                 @click="deleteChunk(item)"
               />
             </template>
@@ -222,6 +225,7 @@
                 variant="outlined"
                 hide-details
                 class="chunk-page-size"
+                :aria-label="t('chunks.pageSize')"
                 @update:model-value="handlePageSizeChange"
               />
               <v-pagination
@@ -237,7 +241,12 @@
     </div>
 
     <!-- 查看分块对话框 -->
-    <v-dialog v-model="showViewDialog" max-width="800px" scrollable>
+    <v-dialog
+      v-model="showViewDialog"
+      max-width="800px"
+      scrollable
+      :aria-label="t('view.title')"
+    >
       <v-card class="app-dialog">
         <v-card-title class="text-h3 pa-4 pb-0 pl-6 d-flex align-center">
           <span>{{ t('view.title') }}</span>
@@ -245,6 +254,7 @@
           <v-btn
             icon="mdi-close"
             variant="text"
+            :aria-label="t('view.close')"
             @click="showViewDialog = false"
           />
         </v-card-title>
@@ -298,11 +308,6 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-
-    <!-- 消息提示 -->
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color">
-      {{ snackbar.text }}
-    </v-snackbar>
   </div>
 </template>
 
@@ -312,6 +317,8 @@ import { useRoute } from 'vue-router';
 import { knowledgeApi } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
 import { askForConfirmation, useConfirmDialog } from '@/utils/confirmDialog';
+import { useToast } from '@/utils/toast';
+import type { ToastColor } from '@/stores/toast';
 
 interface KnowledgeDocument {
   doc_name?: string;
@@ -355,16 +362,10 @@ const page = ref(1);
 const pageSize = ref(10);
 const totalChunks = ref(0);
 
-const snackbar = ref({
-  show: false,
-  text: '',
-  color: 'success',
-});
+const { toast } = useToast();
 
-const showSnackbar = (text: string, color: string = 'success') => {
-  snackbar.value.text = text;
-  snackbar.value.color = color;
-  snackbar.value.show = true;
+const showSnackbar = (text: string, color: ToastColor = 'success') => {
+  toast(text, color);
 };
 
 // 表格列

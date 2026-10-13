@@ -7,6 +7,7 @@
           :type="secretInputType"
           :append-inner-icon="secretToggleIcon"
           :autocomplete="secret ? 'new-password' : undefined"
+          :aria-label="label || t('core.common.list.editTitle')"
           hide-details
           variant="outlined"
           density="compact"
@@ -57,7 +58,12 @@
     </div>
 
     <!-- List Management Dialog -->
-    <v-dialog v-model="dialog" max-width="600px" scrollable>
+    <v-dialog
+      v-model="dialog"
+      max-width="600px"
+      scrollable
+      :aria-label="dialogTitle || t('core.common.list.editTitle')"
+    >
       <v-card class="app-dialog list-config-dialog__card">
         <v-card-title class="app-dialog__title">
           {{ dialogTitle || t('core.common.list.editTitle') }}
@@ -121,6 +127,7 @@
                 :type="secretInputType"
                 :append-inner-icon="secretToggleIcon"
                 :autocomplete="secret ? 'new-password' : undefined"
+                :aria-label="t('core.common.list.editTitle')"
                 hide-details
                 variant="outlined"
                 density="compact"
@@ -182,7 +189,12 @@
     </v-dialog>
 
     <!-- Batch Import Dialog -->
-    <v-dialog v-model="showBatchImport" max-width="600px" scrollable>
+    <v-dialog
+      v-model="showBatchImport"
+      max-width="600px"
+      scrollable
+      :aria-label="t('core.common.list.batchImportTitle')"
+    >
       <v-card class="app-dialog list-config-dialog__card">
         <v-card-title class="app-dialog__title">
           {{ t('core.common.list.batchImportTitle') }}

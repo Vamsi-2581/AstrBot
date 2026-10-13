@@ -234,7 +234,15 @@
       </template>
     </v-card-text>
 
-    <v-dialog v-model="formOpen" max-width="640">
+    <v-dialog
+      v-model="formOpen"
+      max-width="640"
+      :aria-label="
+        formEditing
+          ? tm('thirdPartyAgentsPage.editProvider')
+          : tm('thirdPartyAgentsPage.addProvider')
+      "
+    >
       <v-card>
         <v-card-title>
           {{

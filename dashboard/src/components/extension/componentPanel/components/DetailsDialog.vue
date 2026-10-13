@@ -47,6 +47,7 @@ const getTypeInfo = (type: string): TypeInfo => {
     :model-value="show"
     max-width="500"
     scrollable
+    :aria-label="tm('dialogs.details.title')"
     @update:model-value="emit('update:show', $event)"
   >
     <v-card v-if="command" class="command-details-dialog">

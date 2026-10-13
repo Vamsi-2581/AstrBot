@@ -2,6 +2,7 @@
   "save": "保存",
   "cancel": "取消",
   "close": "关闭",
+  "back": "返回",
   "copy": "复制",
   "copied": "已复制",
   "copyFailed": "复制失败",
@@ -132,6 +133,7 @@
       "keyName": "键名",
       "stringValue": "字符串值",
       "numberValue": "数值",
+      "booleanValue": "布尔值",
       "jsonValue": "JSON"
     }
   },

@@ -303,6 +303,8 @@
                         icon="mdi-download"
                         size="x-small"
                         variant="text"
+                        :aria-label="tm('actions.download')"
+                        :title="tm('actions.download')"
                         :loading="
                           downloadingFiles.has(
                             part.attachment_id ||
@@ -549,6 +551,7 @@ import type {
 import { useI18n, useModuleI18n } from '@/i18n/composables';
 import { copyToClipboard } from '@/utils/clipboard';
 import { useToast } from '@/utils/toast';
+import { truncate } from '@/utils/text';
 
 const props = withDefaults(
   defineProps<{
@@ -810,10 +813,6 @@ function replyPreview(messageId?: string | number, fallback?: string) {
   );
   const text = found ? plainTextFromMessage(found) : '';
   return text ? truncate(text, 80) : tm('reply.replyTo');
-}
-
-function truncate(value: string, max: number) {
-  return value.length > max ? `${value.slice(0, max)}...` : value;
 }
 
 function scrollToMessage(messageId?: string | number) {

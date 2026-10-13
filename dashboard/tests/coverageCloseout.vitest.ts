@@ -95,7 +95,6 @@ vi.mock('@/api/http', async () => {
 
 import { STEP_UP_TTL_SECONDS } from '@/api/v1/authorization';
 import { fetchWithAuth } from '@/api/http';
-import { useConversations } from '@/composables/useConversations';
 import { useDashboardStepUp } from '@/composables/useDashboardStepUp';
 import { useMediaHandling } from '@/composables/useMediaHandling';
 import { useProjects } from '@/composables/useProjects';
@@ -647,19 +646,10 @@ describe('coverage closeout', () => {
     expect(media.failedUploadViews.value).toHaveLength(0);
   });
 
-  it('covers conversation lookup, project selection, and session payload guards', async () => {
+  it('covers project selection and session payload guards', async () => {
     api.chatApi.listSessions.mockRejectedValue(null);
     const sessionsProbe = useSessions();
     await sessionsProbe.getSessions();
-
-    const conversations = useConversations();
-    conversations.conversations.value = [
-      { cid: 'c1', title: 'One', updated_at: 1 },
-    ];
-    conversations.currCid.value = 'c1';
-    expect(conversations.getCurrentConversation.value?.title).toBe('One');
-    api.chatApi.listSessions.mockRejectedValue('offline');
-    await conversations.getConversations();
 
     const projects = useProjects();
     api.chatApi.createProject.mockRejectedValue(new Error('fail'));

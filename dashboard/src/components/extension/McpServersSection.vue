@@ -57,7 +57,11 @@
 
             <div class="mcp-server-tools text-caption text-medium-emphasis">
               <template v-if="server.tools && server.tools.length > 0">
-                <v-dialog max-width="600px" scrollable>
+                <v-dialog
+                  max-width="600px"
+                  scrollable
+                  :aria-label="tm('mcpServers.status.availableTools')"
+                >
                   <template #activator="{ props: listToolsProps }">
                     <button
                       v-bind="listToolsProps"
@@ -142,6 +146,7 @@
                     variant="text"
                     size="small"
                     class="list-action-icon-btn"
+                    :aria-label="tm('mcpServers.buttons.catalog')"
                     @click.stop="openCatalog(server)"
                   />
                 </template>
@@ -158,6 +163,7 @@
                     variant="text"
                     size="small"
                     class="list-action-icon-btn"
+                    :aria-label="tm('mcpServers.buttons.authorize')"
                     @click.stop="startAuthorization(server)"
                   />
                 </template>
@@ -173,6 +179,7 @@
                     variant="text"
                     size="small"
                     class="list-action-icon-btn"
+                    :aria-label="t('core.common.itemCard.delete')"
                     @click.stop="deleteServer(server)"
                   />
                 </template>
@@ -195,6 +202,11 @@
                     density="compact"
                     hide-details
                     inset
+                    :aria-label="
+                      server.active
+                        ? t('core.common.itemCard.enabled')
+                        : t('core.common.itemCard.disabled')
+                    "
                     :model-value="server.active"
                     :loading="mcpServerUpdateLoaders[server.name] || false"
                     :disabled="mcpServerUpdateLoaders[server.name] || false"
@@ -224,6 +236,7 @@
             size="x-large"
             variant="elevated"
             class="mcp-fab"
+            :aria-label="tm('mcpServers.buttons.sync')"
             @click="showSyncMcpServerDialog = true"
           />
         </template>
@@ -237,6 +250,7 @@
             size="x-large"
             variant="elevated"
             class="mcp-fab"
+            :aria-label="tm('mcpServers.buttons.add')"
             @click="showMcpServerDialog = true"
           />
         </template>
@@ -244,7 +258,16 @@
     </FloatingActionStack>
 
     <!-- 添加/编辑 MCP 服务器对话框 -->
-    <v-dialog v-model="showMcpServerDialog" max-width="750px" scrollable>
+    <v-dialog
+      v-model="showMcpServerDialog"
+      max-width="750px"
+      scrollable
+      :aria-label="
+        isEditMode
+          ? tm('dialogs.addServer.editTitle')
+          : tm('dialogs.addServer.title')
+      "
+    >
       <v-card class="app-dialog mcp-dialog__card">
         <v-card-title class="pa-4 pl-6">
           <v-icon class="me-2">{{
@@ -358,7 +381,12 @@
       </v-card>
     </v-dialog>
 
-    <v-dialog v-model="showMcpCatalogDialog" max-width="760px" scrollable>
+    <v-dialog
+      v-model="showMcpCatalogDialog"
+      max-width="760px"
+      scrollable
+      :aria-label="tm('mcpServers.catalog.title', { name: catalogServerName })"
+    >
       <v-card class="app-dialog mcp-dialog__card">
         <v-card-title>{{
           tm('mcpServers.catalog.title', { name: catalogServerName })
@@ -403,6 +431,7 @@
       max-width="500px"
       persistent
       scrollable
+      :aria-label="tm('syncProvider.title')"
     >
       <v-card class="app-dialog mcp-dialog__card">
         <v-card-title class="bg-primary text-white py-3">

@@ -29,6 +29,7 @@
             icon="mdi-dots-vertical"
             variant="text"
             size="small"
+            :aria-label="t('core.common.actions')"
             v-bind="activatorProps"
             @click.stop
           />
@@ -67,7 +68,10 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useI18n } from '@/i18n/composables';
 import type { Folder } from './types';
+
+const { t } = useI18n();
 
 interface DefaultLabels {
   open: string;

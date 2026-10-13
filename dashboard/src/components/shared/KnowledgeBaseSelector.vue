@@ -40,7 +40,12 @@
     </div>
 
     <!-- Knowledge Base Selection Dialog -->
-    <v-dialog v-model="dialog" max-width="600px" scrollable>
+    <v-dialog
+      v-model="dialog"
+      max-width="600px"
+      scrollable
+      :aria-label="tm('knowledgeBaseSelector.dialogTitle')"
+    >
       <v-card class="app-dialog selector-dialog__card">
         <v-card-title class="app-dialog__title">
           {{ tm('knowledgeBaseSelector.dialogTitle') }}

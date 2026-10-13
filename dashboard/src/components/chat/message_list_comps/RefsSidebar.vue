@@ -8,6 +8,8 @@
             icon="mdi-close"
             size="small"
             variant="text"
+            :aria-label="tm('refs.close')"
+            :title="tm('refs.close')"
             @click="close"
           ></v-btn>
         </div>
@@ -23,6 +25,7 @@
               <img
                 v-if="ref.favicon"
                 :src="ref.favicon"
+                :alt="ref.title || ''"
                 class="ref-item-favicon"
                 @error="hideBrokenImage"
               />

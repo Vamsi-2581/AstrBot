@@ -2,6 +2,7 @@
   <v-dialog
     :model-value="modelValue"
     max-width="520"
+    :aria-label="tm('system_group.system.dashboard.totp.configSaveTitle')"
     @update:model-value="onVisibilityChange"
     @click:outside="onCancel"
   >

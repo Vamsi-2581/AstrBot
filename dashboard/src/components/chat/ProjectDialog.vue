@@ -3,6 +3,7 @@
     v-model="isOpen"
     max-width="500"
     scrollable
+    :aria-label="isEditing ? tm('project.edit') : tm('project.create')"
     @update:model-value="handleDialogChange"
   >
     <v-card class="project-dialog-card">

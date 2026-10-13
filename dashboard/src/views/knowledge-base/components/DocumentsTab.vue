@@ -19,6 +19,7 @@
         hide-details
         clearable
         class="documents-search"
+        :aria-label="t('documents.search')"
       />
     </div>
 
@@ -139,6 +140,7 @@
       v-model="showUploadDialog"
       max-width="650px"
       persistent
+      :aria-label="t('upload.title')"
       @after-enter="initUploadSettings"
     >
       <v-card>
@@ -445,7 +447,11 @@
     </v-dialog>
 
     <!-- 删除确认对话框 -->
-    <v-dialog v-model="showDeleteDialog" max-width="450px">
+    <v-dialog
+      v-model="showDeleteDialog"
+      max-width="450px"
+      :aria-label="t('documents.delete')"
+    >
       <v-card>
         <v-card-title class="pa-4 text-h6">{{
           t('documents.delete')
@@ -477,11 +483,6 @@
       </v-card>
     </v-dialog>
 
-    <!-- 消息提示 -->
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color">
-      {{ snackbar.text }}
-    </v-snackbar>
-
     <!-- Tavily Key 配置对话框 -->
     <TavilyKeyDialog v-model="showTavilyDialog" @success="onTavilyKeySet" />
   </div>
@@ -494,6 +495,8 @@ import { useRouter } from 'vue-router';
 import { configProfileApi, knowledgeApi, providerApi } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
 import { resolveErrorMessage } from '@/utils/errorUtils';
+import { useToast } from '@/utils/toast';
+import type { ToastColor } from '@/stores/toast';
 import {
   collectDroppedKnowledgeBaseFiles,
   collectFilesFromFileList,
@@ -628,16 +631,10 @@ const tavilyConfigStatus = ref('loading'); // 'loading', 'configured', 'not_conf
 const showTavilyDialog = ref(false);
 let documentsRequestId = 0;
 
-const snackbar = ref({
-  show: false,
-  text: '',
-  color: 'success',
-});
+const { toast } = useToast();
 
-const showSnackbar = (text: string, color: string = 'success') => {
-  snackbar.value.text = text;
-  snackbar.value.color = color;
-  snackbar.value.show = true;
+const showSnackbar = (text: string, color: ToastColor = 'success') => {
+  toast(text, color);
 };
 
 // 上传设置

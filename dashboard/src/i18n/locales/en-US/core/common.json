@@ -2,6 +2,7 @@
   "save": "Save",
   "cancel": "Cancel",
   "close": "Close",
+  "back": "Back",
   "copy": "Copy",
   "copied": "Copied",
   "copyFailed": "Copy failed",
@@ -132,6 +133,7 @@
       "keyName": "Key",
       "stringValue": "String value",
       "numberValue": "Numeric value",
+      "booleanValue": "Boolean value",
       "jsonValue": "JSON"
     }
   },

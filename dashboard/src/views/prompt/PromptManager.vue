@@ -192,7 +192,14 @@
     />
 
     <!-- 查看 Prompt 详情对话框 -->
-    <v-dialog v-model="showViewDialog" max-width="700px" scrollable>
+    <v-dialog
+      v-model="showViewDialog"
+      max-width="700px"
+      scrollable
+      :aria-label="
+        viewingPrompt ? promptDisplayName(viewingPrompt) : tm('buttons.close')
+      "
+    >
       <v-card v-if="viewingPrompt" class="prompt-preview-dialog__card">
         <v-card-title class="d-flex justify-space-between align-center">
           <span class="text-h5">{{ promptDisplayName(viewingPrompt) }}</span>
@@ -209,6 +216,7 @@
             <v-btn
               icon="mdi-close"
               variant="text"
+              :aria-label="tm('buttons.close')"
               @click="showViewDialog = false"
             />
           </div>
@@ -351,7 +359,11 @@
     />
 
     <!-- 重命名文件夹对话框 -->
-    <v-dialog v-model="showRenameFolderDialog" max-width="400px">
+    <v-dialog
+      v-model="showRenameFolderDialog"
+      max-width="400px"
+      :aria-label="tm('folder.renameDialog.title')"
+    >
       <v-card>
         <v-card-title>{{ tm('folder.renameDialog.title') }}</v-card-title>
         <v-card-text>
@@ -393,7 +405,11 @@
     />
 
     <!-- 删除文件夹确认对话框 -->
-    <v-dialog v-model="showDeleteFolderDialog" max-width="450px">
+    <v-dialog
+      v-model="showDeleteFolderDialog"
+      max-width="450px"
+      :aria-label="tm('folder.deleteDialog.title')"
+    >
       <v-card>
         <v-card-title class="text-error">
           <v-icon class="mr-2" color="error">mdi-alert</v-icon>
@@ -461,6 +477,7 @@ import {
   askForConfirmation as askForConfirmationDialog,
   useConfirmDialog,
 } from '@/utils/confirmDialog';
+import { formatDate } from '@/utils/text';
 
 import type { Folder, FolderTreeNode } from '@/components/folder/types';
 import type { Prompt as StorePrompt } from '@/stores/promptStore';
@@ -780,13 +797,6 @@ async function submitDeleteFolder() {
   } finally {
     deleteLoading.value = false;
   }
-}
-
-function formatDate(dateString: string | undefined | null): string {
-  if (!dateString) {
-    return '';
-  }
-  return new Date(dateString).toLocaleString();
 }
 
 function showSuccess(successMessage: string) {

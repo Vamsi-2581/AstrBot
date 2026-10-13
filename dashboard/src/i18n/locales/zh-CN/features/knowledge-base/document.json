@@ -35,6 +35,7 @@
     "search": "搜索分块",
     "searchPlaceholder": "输入关键词搜索分块内容...",
     "showing": "显示",
+    "pageSize": "每页数量",
     "deleteConfirm": "确定要删除该文本块吗?",
     "deleteSuccess": "文本块删除成功",
     "deleteFailed": "文本块删除失败"

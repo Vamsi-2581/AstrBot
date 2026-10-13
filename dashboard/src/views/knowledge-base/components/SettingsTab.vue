@@ -125,13 +125,13 @@
       </v-card-actions>
     </v-card>
 
-    <!-- 消息提示 -->
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color">
-      {{ snackbar.text }}
-    </v-snackbar>
-
     <!-- Embedding Provider修改确认对话框 -->
-    <v-dialog v-model="embeddingChangeDialog" max-width="500px" persistent>
+    <v-dialog
+      v-model="embeddingChangeDialog"
+      max-width="500px"
+      persistent
+      :aria-label="t('settings.embeddingChangeTitle')"
+    >
       <v-card>
         <v-card-title class="bg-warning text-white">
           <v-icon class="mr-2">mdi-alert</v-icon>
@@ -173,6 +173,8 @@
 import { ref, watch, onMounted } from 'vue';
 import { knowledgeApi, providerApi } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
+import { useToast } from '@/utils/toast';
+import type { ToastColor } from '@/stores/toast';
 
 interface KnowledgeBaseSettings {
   kb_id?: string;
@@ -213,16 +215,10 @@ const showEmbeddingWarning = ref(false);
 const embeddingChangeDialog = ref(false);
 const pendingEmbeddingProvider = ref('');
 
-const snackbar = ref({
-  show: false,
-  text: '',
-  color: 'success',
-});
+const { toast } = useToast();
 
-const showSnackbar = (text: string, color: string = 'success') => {
-  snackbar.value.text = text;
-  snackbar.value.color = color;
-  snackbar.value.show = true;
+const showSnackbar = (text: string, color: ToastColor = 'success') => {
+  toast(text, color);
 };
 
 // 表单数据

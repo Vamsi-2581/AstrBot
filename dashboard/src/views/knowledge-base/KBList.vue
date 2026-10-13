@@ -83,6 +83,7 @@
                 variant="text"
                 size="small"
                 class="list-action-icon-btn"
+                :aria-label="t('card.edit')"
                 @click.stop="editKB(kb)"
               />
             </template>
@@ -96,6 +97,7 @@
                 variant="text"
                 size="small"
                 class="list-action-icon-btn"
+                :aria-label="t('card.delete')"
                 @click.stop="confirmDelete(kb)"
               />
             </template>
@@ -133,6 +135,7 @@
             variant="elevated"
             class="kb-fab"
             :loading="loading"
+            :aria-label="t('list.refresh')"
             @click="loadKnowledgeBases()"
           />
         </template>
@@ -146,6 +149,7 @@
             size="x-large"
             variant="elevated"
             class="kb-fab"
+            :aria-label="t('list.create')"
             @click="showCreateDialog = true"
           />
         </template>
@@ -158,6 +162,7 @@
       max-width="600px"
       persistent
       scrollable
+      :aria-label="editingKB ? t('edit.title') : t('create.title')"
     >
       <v-card class="app-dialog kb-dialog-card">
         <v-card-title class="d-flex align-center">
@@ -178,7 +183,14 @@
         <v-card-text class="pa-6 kb-dialog-body">
           <!-- Emoji 选择器 -->
           <div class="text-center mb-6">
-            <div class="emoji-display" @click="showEmojiPicker = true">
+            <div
+              class="emoji-display"
+              role="button"
+              tabindex="0"
+              @click="showEmojiPicker = true"
+              @keydown.enter="showEmojiPicker = true"
+              @keydown.space.prevent="showEmojiPicker = true"
+            >
               {{ formData.emoji }}
             </div>
             <p class="text-caption text-medium-emphasis mt-2">
@@ -287,7 +299,12 @@
     </v-dialog>
 
     <!-- Emoji 选择器对话框 -->
-    <v-dialog v-model="showEmojiPicker" max-width="500px" scrollable>
+    <v-dialog
+      v-model="showEmojiPicker"
+      max-width="500px"
+      scrollable
+      :aria-label="t('emoji.title')"
+    >
       <v-card class="app-dialog kb-emoji-dialog-card">
         <v-card-title class="pa-4">{{ t('emoji.title') }}</v-card-title>
         <v-divider />
@@ -328,6 +345,7 @@
       max-width="450px"
       persistent
       scrollable
+      :aria-label="t('delete.title')"
     >
       <v-card class="app-dialog kb-delete-dialog-card">
         <v-card-title class="pa-4 text-h6">{{
@@ -359,11 +377,6 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-
-    <!-- 消息提示 -->
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color">
-      {{ snackbar.text }}
-    </v-snackbar>
   </div>
 </template>
 
@@ -372,6 +385,8 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { knowledgeApi, providerApi } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
+import { useToast } from '@/utils/toast';
+import type { ToastColor } from '@/stores/toast';
 import OutlinedActionListItem from '@/components/shared/OutlinedActionListItem.vue';
 import FloatingActionStack from '@/components/ui/FloatingActionStack.vue';
 
@@ -426,13 +441,6 @@ const pendingEmbeddingProvider = ref<string | null>(null);
 const showCreateDialog = ref(false);
 const showEmojiPicker = ref(false);
 const showDeleteDialog = ref(false);
-
-// Snackbar 通知
-const snackbar = ref({
-  show: false,
-  text: '',
-  color: 'success',
-});
 
 // 表单
 const formRef = ref();
@@ -707,10 +715,10 @@ const selectEmoji = (emoji: string) => {
 };
 
 // 显示通知
-const showSnackbar = (text: string, color: string = 'success') => {
-  snackbar.value.text = text;
-  snackbar.value.color = color;
-  snackbar.value.show = true;
+const { toast } = useToast();
+
+const showSnackbar = (text: string, color: ToastColor = 'success') => {
+  toast(text, color);
 };
 
 onMounted(() => {

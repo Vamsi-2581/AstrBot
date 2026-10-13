@@ -200,7 +200,12 @@
       @confirm="submitStepUp"
       @cancel="cancelStepUp"
     />
-    <v-dialog v-model="showComputerAccessHelpDialog" max-width="640" scrollable>
+    <v-dialog
+      v-model="showComputerAccessHelpDialog"
+      max-width="640"
+      scrollable
+      :aria-label="tm('onboard.step3HelpTitle')"
+    >
       <v-card class="computer-access-help-dialog">
         <v-card-title class="text-h3 pa-4 pb-0 pl-6">
           {{ tm('onboard.step3HelpTitle') }}

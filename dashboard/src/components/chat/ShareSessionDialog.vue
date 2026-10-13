@@ -2,6 +2,7 @@
   <v-dialog
     :model-value="modelValue"
     max-width="520"
+    :aria-label="tm('share.title')"
     @update:model-value="emit('update:modelValue', $event)"
   >
     <v-card class="share-dialog">

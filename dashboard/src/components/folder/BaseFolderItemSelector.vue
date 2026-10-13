@@ -18,6 +18,7 @@
       v-model="dialog"
       :max-width="isCompactLayout ? '96vw' : '1000px'"
       :min-width="isCompactLayout ? undefined : '800px'"
+      :aria-label="labels.dialogTitle || '选择项目'"
     >
       <v-card class="app-dialog selector-dialog-card">
         <v-card-title
@@ -97,6 +98,7 @@
                   icon="mdi-arrow-left"
                   size="small"
                   variant="text"
+                  :aria-label="t('core.common.back')"
                   :disabled="currentFolderId === null"
                   @click="navigateToParentFolder"
                 />
@@ -330,6 +332,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useDisplay } from 'vuetify';
+import { useI18n } from '@/i18n/composables';
+import { truncate as truncateText } from '@/utils/text';
 import BaseMoveTargetNode from './BaseMoveTargetNode.vue';
 import type {
   BreadcrumbItem,
@@ -379,6 +383,7 @@ const emit = defineEmits<{
 }>();
 
 const { smAndDown } = useDisplay();
+const { t } = useI18n();
 
 const dialog = ref(false);
 const selectedItemId = ref('');
@@ -481,14 +486,6 @@ function getItemName(item: SelectableItem): string {
 
 function getItemDescription(item: SelectableItem): string {
   return getItemFieldValue(item, props.itemDescriptionField, 'description');
-}
-
-function truncateText(text: string, maxLength: number): string {
-  if (!text) {
-    return '';
-  }
-
-  return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
 }
 
 function openDialog() {

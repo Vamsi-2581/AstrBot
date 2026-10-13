@@ -54,7 +54,9 @@ test('keeps the project composer visible with more than one hundred sessions', a
 
   await page.goto('/#/chat');
   await page.locator('.project-btn').click();
-  await page.locator('button.project-item', { hasText: 'Planning' }).click();
+  await page
+    .locator('[role="button"].project-item', { hasText: 'Planning' })
+    .click();
 
   const sessionsList = page.locator('.project-sessions-list');
   const composer = page.locator('.project-composer-shell');

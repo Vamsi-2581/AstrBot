@@ -132,6 +132,7 @@
             :items="defaultConfigOptions"
             item-title="name"
             item-value="id"
+            :aria-label="tm('workspace.routes.defaultTitle')"
             density="compact"
             variant="outlined"
             hide-details
@@ -276,6 +277,7 @@
               :items="configProfiles"
               item-title="name"
               item-value="id"
+              :aria-label="tm('workspace.routes.configLabel')"
               density="compact"
               variant="outlined"
               hide-details
@@ -349,6 +351,7 @@
                       icon="mdi-arrow-up"
                       size="x-small"
                       variant="text"
+                      :aria-label="tm('workspace.routes.moveUp')"
                       :disabled="index === 0"
                       @click="moveAdvancedRoute(index, -1)"
                     />
@@ -356,6 +359,7 @@
                       icon="mdi-arrow-down"
                       size="x-small"
                       variant="text"
+                      :aria-label="tm('workspace.routes.moveDown')"
                       :disabled="index === advancedRoutes.length - 1"
                       @click="moveAdvancedRoute(index, 1)"
                     />
@@ -363,6 +367,7 @@
                       icon="mdi-delete-outline"
                       size="x-small"
                       variant="text"
+                      :aria-label="tm('workspace.routes.remove')"
                       @click="advancedRoutes.splice(index, 1)"
                     />
                   </div>

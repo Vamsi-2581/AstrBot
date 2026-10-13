@@ -789,6 +789,7 @@ function changePage(nextPage: number) {
             flat
             clearable
             hide-details
+            :aria-label="tm('workspace.filters.keyword')"
           >
             <template #prepend-inner>
               <v-icon size="16" aria-hidden="true">mdi-magnify</v-icon>
@@ -871,6 +872,7 @@ function changePage(nextPage: number) {
             variant="solo-filled"
             flat
             hide-details
+            :aria-label="tm('workspace.filters.umo')"
           >
             <template #append-inner>
               <button
@@ -899,6 +901,7 @@ function changePage(nextPage: number) {
             variant="solo-filled"
             flat
             hide-details
+            :aria-label="tm('workspace.filters.sort')"
           />
         </div>
 
@@ -1289,7 +1292,12 @@ function changePage(nextPage: number) {
       </section>
     </main>
 
-    <v-dialog v-model="rawDataDialog" max-width="900" scrollable>
+    <v-dialog
+      v-model="rawDataDialog"
+      max-width="900"
+      scrollable
+      :aria-label="tm('workspace.preview.rawData')"
+    >
       <v-card class="raw-data-card">
         <v-card-title class="text-h3 pa-4 pb-0 pl-6 raw-data-title">
           <span>{{ tm('workspace.preview.rawData') }}</span>
@@ -1335,7 +1343,11 @@ function changePage(nextPage: number) {
       </v-card>
     </v-dialog>
 
-    <v-dialog v-model="editDialog" max-width="500">
+    <v-dialog
+      v-model="editDialog"
+      max-width="500"
+      :aria-label="tm('dialogs.edit.title')"
+    >
       <v-card>
         <v-card-title class="text-h3 pa-4 pb-0 pl-6">
           {{ tm('dialogs.edit.title') }}

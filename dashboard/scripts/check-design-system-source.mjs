@@ -15,7 +15,6 @@ const allowedDynamicStyles = new Map([
   ['src/components/shared/PluginPlatformChip.vue', ['marginLeft']],
   ['src/components/chat/ChatInput.vue', ['--attachment-color']],
   ['src/components/chat/ChatMessageList.vue', ['--attachment-color']],
-  ['src/components/chat/MessageList.vue', ['--attachment-color']],
   ['src/components/chat/StandaloneChat.vue', ['--attachment-color']],
   ['src/components/chat/CommandSuggestion.vue', ['panelStyle', 'tooltipStyle']],
   ['src/components/folder/BaseMoveTargetNode.vue', ['paddingLeft']],
