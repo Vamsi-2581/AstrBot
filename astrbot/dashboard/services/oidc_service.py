@@ -38,7 +38,7 @@ class OidcClient:
         if not self.issuer or not self.client_id:
             raise OidcError("OIDC issuer and client_id are required")
         self._discovery: dict[str, Any] | None = None
-        self._jwks_client: jwt.PyJWKClient | None = None
+        self._jwks: dict[str, Any] | None = None
 
     async def _get_json(self, url: str) -> dict[str, Any]:
         try:
@@ -145,18 +145,12 @@ class OidcClient:
     async def verify_id_token(self, id_token: str, nonce: str) -> dict[str, Any]:
         if not id_token:
             raise OidcError("OIDC token response is missing an id_token")
-        document = await self.discovery()
-        jwks_uri = document.get("jwks_uri")
-        if not jwks_uri:
-            raise OidcError("OIDC discovery is missing jwks_uri")
-        if self._jwks_client is None:
-            self._jwks_client = jwt.PyJWKClient(jwks_uri)
+        signing_key = await self._signing_key(id_token)
         try:
-            signing_key = self._jwks_client.get_signing_key_from_jwt(id_token)
             claims = jwt.decode(
                 id_token,
                 signing_key.key,
-                algorithms=["RS256", "ES256", "PS256"],
+                algorithms=[signing_key.algorithm_name],
                 audience=self.client_id,
                 issuer=self.issuer,
                 options={"require": ["exp", "iat", "sub", "aud", "iss"]},
@@ -166,6 +160,40 @@ class OidcClient:
         if nonce and claims.get("nonce") != nonce:
             raise OidcError("OIDC nonce mismatch")
         return claims
+
+    async def _signing_key(self, id_token: str) -> jwt.PyJWK:
+        """Fetch and cache the JWKS, returning the key that signed the token.
+
+        The JWKS is fetched with the async HTTP client so a slow provider never
+        blocks the event loop.
+        """
+        document = await self.discovery()
+        jwks_uri = document.get("jwks_uri")
+        if not jwks_uri:
+            raise OidcError("OIDC discovery is missing jwks_uri")
+        try:
+            header = jwt.get_unverified_header(id_token)
+        except jwt.PyJWTError as exc:
+            raise OidcError("OIDC id_token header is invalid") from exc
+        algorithm = header.get("alg")
+        if algorithm not in {"RS256", "ES256", "PS256"}:
+            raise OidcError("OIDC id_token uses an unsupported algorithm")
+        kid = header.get("kid")
+        if self._jwks is None:
+            self._jwks = await self._get_json(str(jwks_uri))
+        keys = self._jwks.get("keys")
+        if not isinstance(keys, list):
+            raise OidcError("OIDC JWKS is malformed")
+        for jwk in keys:
+            if not isinstance(jwk, dict):
+                continue
+            if kid is not None and jwk.get("kid") != kid:
+                continue
+            try:
+                return jwt.PyJWK.from_dict(jwk, algorithm=algorithm)
+            except jwt.PyJWTError as exc:
+                raise OidcError("OIDC signing key is invalid") from exc
+        raise OidcError("OIDC signing key not found")
 
     async def fetch_userinfo(self, access_token: str) -> dict[str, Any]:
         document = await self.discovery()

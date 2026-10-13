@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+import datetime
+import json
+
+import jwt as pyjwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import rsa
+from jwt.algorithms import RSAAlgorithm
 from sqlmodel import select
 
 from astrbot.core.db.po import DashboardAccount, DashboardExternalIdentity
@@ -77,6 +83,75 @@ async def test_oidc_client_builds_pkce_url(monkeypatch) -> None:
     assert state and nonce and verifier
 
 
+def _rsa_jwks() -> tuple[object, dict]:
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    jwk = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    jwk.update({"kid": "key-1", "alg": "RS256", "use": "sig"})
+    return key, {"keys": [jwk]}
+
+
+def _id_token(key, *, nonce: str = "nonce-1", kid: str = "key-1") -> str:
+    now = datetime.datetime.now(datetime.UTC)
+    return pyjwt.encode(
+        {
+            "sub": "subject-123",
+            "aud": "cid",
+            "iss": "https://idp",
+            "iat": now,
+            "exp": now + datetime.timedelta(minutes=5),
+            "nonce": nonce,
+        },
+        key,
+        algorithm="RS256",
+        headers={"kid": kid},
+    )
+
+
+@pytest.mark.asyncio
+async def test_oidc_verify_id_token_against_jwks(monkeypatch) -> None:
+    key, jwks = _rsa_jwks()
+    client = OidcClient({"issuer": "https://idp", "client_id": "cid"})
+
+    async def fake_discovery():
+        return {
+            "issuer": "https://idp",
+            "authorization_endpoint": "https://idp/authorize",
+            "token_endpoint": "https://idp/token",
+            "jwks_uri": "https://idp/jwks",
+        }
+
+    async def fake_get_json(url: str):
+        assert url == "https://idp/jwks"
+        return jwks
+
+    monkeypatch.setattr(client, "discovery", fake_discovery)
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    claims = await client.verify_id_token(_id_token(key), "nonce-1")
+    assert claims["sub"] == "subject-123"
+
+    with pytest.raises(OidcError):
+        await client.verify_id_token(_id_token(key), "wrong-nonce")
+
+
+@pytest.mark.asyncio
+async def test_oidc_verify_id_token_rejects_unknown_key(monkeypatch) -> None:
+    key, jwks = _rsa_jwks()
+    client = OidcClient({"issuer": "https://idp", "client_id": "cid"})
+
+    async def fake_discovery():
+        return {"issuer": "https://idp", "jwks_uri": "https://idp/jwks"}
+
+    async def fake_get_json(_url: str):
+        return jwks
+
+    monkeypatch.setattr(client, "discovery", fake_discovery)
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    with pytest.raises(OidcError):
+        await client.verify_id_token(_id_token(key, kid="other-key"), "nonce-1")
+
+
 @pytest.mark.asyncio
 async def test_oidc_status_and_start_disabled(temp_db: SQLiteDatabase) -> None:
     service = _service(temp_db)
@@ -120,8 +195,8 @@ async def test_oidc_flow_creates_and_reuses_account(
 
     async with temp_db.get_db() as session:
         identities = (
-            await session.execute(select(DashboardExternalIdentity))
-        ).scalars().all()
+            (await session.execute(select(DashboardExternalIdentity))).scalars().all()
+        )
         accounts = (await session.execute(select(DashboardAccount))).scalars().all()
     assert len(identities) == 1
     assert identities[0].subject == "subject-123"
