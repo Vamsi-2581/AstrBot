@@ -7,7 +7,6 @@ and returns an object satisfying the ``VectorStore`` protocol.
 from .base import VectorStore
 from .result import Result
 
-_FAISS_BACKENDS = frozenset({"faiss", ""})
 _EXACT_BACKENDS = frozenset({"exact", "numpy", "exact-numpy"})
 
 

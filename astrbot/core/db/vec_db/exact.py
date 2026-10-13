@@ -107,24 +107,16 @@ class ExactEmbeddingStorage:
 
 
 class ExactVecDB(FaissVecDB):
-    """A ``VectorStore`` backend that needs no FAISS installation."""
+    """A ``VectorStore`` backend that needs no FAISS installation.
 
-    def __init__(
+    It reuses ``FaissVecDB``'s document storage, validation, and rollback, and
+    only swaps the vector index for a dependency-free NumPy implementation via
+    ``_create_embedding_storage``.
+    """
+
+    def _create_embedding_storage(
         self,
-        doc_store_path: str,
+        dimension: int,
         index_store_path: str,
-        embedding_provider,
-        rerank_provider=None,
-    ) -> None:
-        # Skip FaissVecDB.__init__ so no FAISS import is required.
-        self.doc_store_path = doc_store_path
-        self.index_store_path = index_store_path
-        self.embedding_provider = embedding_provider
-        self.rerank_provider = rerank_provider
-        from .document_storage import DocumentStorage
-
-        self.document_storage = DocumentStorage(doc_store_path)
-        self.embedding_storage = ExactEmbeddingStorage(
-            embedding_provider.get_dim(),
-            index_store_path,
-        )
+    ) -> ExactEmbeddingStorage:
+        return ExactEmbeddingStorage(dimension, index_store_path)

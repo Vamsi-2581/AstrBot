@@ -24,12 +24,23 @@ class FaissVecDB:
         self.index_store_path = index_store_path
         self.embedding_provider = embedding_provider
         self.document_storage = DocumentStorage(doc_store_path)
-        self.embedding_storage = EmbeddingStorage(
+        self.embedding_storage = self._create_embedding_storage(
             embedding_provider.get_dim(),
             index_store_path,
         )
-        self.embedding_provider = embedding_provider
         self.rerank_provider = rerank_provider
+
+    def _create_embedding_storage(
+        self,
+        dimension: int,
+        index_store_path: str,
+    ) -> EmbeddingStorage:
+        """Build the vector index storage for this backend.
+
+        Subclasses override this to swap the index implementation while reusing
+        the shared document storage and orchestration.
+        """
+        return EmbeddingStorage(dimension, index_store_path)
 
     async def initialize(self) -> None:
         await self.document_storage.initialize()
