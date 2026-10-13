@@ -11,6 +11,7 @@ import type {
 } from './shared';
 import type {
   ChatBatchDeleteData,
+  ChatFeaturesData,
   ChatMessageMutationData,
   ChatHistoryPageParams,
   ChatSessionDetailData,
@@ -39,6 +40,9 @@ export const chatApi = {
   unifiedWebSocketUrl(token: string, host = window.location.host) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${protocol}//${host}/api/v1/unified-chat/ws?token=${encodeURIComponent(token)}`;
+  },
+  getFeatures() {
+    return typed<ChatFeaturesData>(openApiV1.getChatFeatures());
   },
   listSessions(params?: ChatSessionListParams) {
     return typed<ChatSessionSummary[] | ChatSessionPage>(

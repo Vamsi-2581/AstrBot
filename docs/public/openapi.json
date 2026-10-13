@@ -1189,6 +1189,20 @@
         }
       }
     },
+    "/api/v1/chat/features": {
+      "get": {
+        "tags": ["Chat"],
+        "summary": "Get ChatUI feature flags",
+        "description": "Returns ChatUI feature flags derived from the runtime configuration, including whether multi-model parallel chat is enabled and its cap.",
+        "operationId": "getChatFeatures",
+        "x-astrbot-scope": "chat",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          }
+        }
+      }
+    },
     "/api/v1/chat/sessions/new": {
       "get": {
         "tags": ["Chat"],

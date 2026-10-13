@@ -253,5 +253,12 @@
     "untitled": "Shared conversation",
     "user": "User",
     "bot": "Assistant"
+  },
+  "multiModel": {
+    "title": "Parallel models",
+    "hint": "Pick up to {count} models to run the next prompt in parallel.",
+    "button": "Compare models",
+    "selected": "{count} models",
+    "empty": "No chat providers available."
   }
 }

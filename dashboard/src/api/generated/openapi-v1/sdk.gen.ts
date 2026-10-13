@@ -183,6 +183,8 @@ import type {
   GetChangelogData,
   GetChangelogErrors,
   GetChangelogResponses,
+  GetChatFeaturesData,
+  GetChatFeaturesResponses,
   GetChatProjectData,
   GetChatProjectResponses,
   GetChatProjectWorkspaceFileData,
@@ -2332,6 +2334,25 @@ export const listChatSessions = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/chat/sessions',
+    ...options,
+  });
+
+/**
+ * Get ChatUI feature flags
+ *
+ * Returns ChatUI feature flags derived from the runtime configuration, including whether multi-model parallel chat is enabled and its cap.
+ */
+export const getChatFeatures = <ThrowOnError extends boolean = false>(
+  options?: Options<GetChatFeaturesData, ThrowOnError>,
+): RequestResult<GetChatFeaturesResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    GetChatFeaturesResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/chat/features',
     ...options,
   });
 

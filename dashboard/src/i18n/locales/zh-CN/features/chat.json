@@ -253,5 +253,12 @@
     "untitled": "分享的对话",
     "user": "用户",
     "bot": "助手"
+  },
+  "multiModel": {
+    "title": "并行模型",
+    "hint": "最多选择 {count} 个模型，让下一条提示词并行运行。",
+    "button": "对比模型",
+    "selected": "已选 {count} 个模型",
+    "empty": "没有可用的对话模型提供方。"
   }
 }

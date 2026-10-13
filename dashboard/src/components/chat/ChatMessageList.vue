@@ -32,6 +32,27 @@
 
         <div class="message-stack">
           <div
+            v-if="!isUserMessage(msg) && msg.branchGroup"
+            class="branch-switcher"
+          >
+            <button
+              v-for="branchIndex in msg.branchGroup.total"
+              :key="`${msg.branchGroup.group_id}-${branchIndex}`"
+              type="button"
+              class="branch-switcher__item"
+              :class="{
+                'branch-switcher__item--active':
+                  msg.branchGroup.index === branchIndex - 1,
+              }"
+              :title="branchLabel(msg, branchIndex - 1)"
+              @click="
+                emit('selectBranch', msg.branchGroup.group_id, branchIndex - 1)
+              "
+            >
+              {{ branchLabel(msg, branchIndex - 1) }}
+            </button>
+          </div>
+          <div
             v-if="isUserMessage(msg) && userAttachmentParts(msg).length"
             class="sent-attachments"
             :class="{
@@ -546,6 +567,7 @@ const props = withDefaults(
     editingMessageId?: string | number | null;
     editDraft?: string;
     savingEdit?: boolean;
+    branchLabels?: Map<string, string[]>;
   }>(),
   {
     isDark: false,
@@ -562,6 +584,7 @@ const props = withDefaults(
     editingMessageId: null,
     editDraft: '',
     savingEdit: false,
+    branchLabels: () => new Map<string, string[]>(),
   },
 );
 
@@ -579,6 +602,7 @@ const emit = defineEmits<{
   openThread: [thread: ChatThread];
   openReasoning: [payload: { message: ChatRecord; blockIndex: number }];
   openRefs: [refs: unknown];
+  selectBranch: [groupId: string, index: number];
 }>();
 
 setCustomComponents('chat-message', {
@@ -597,6 +621,13 @@ const refsSidebarOpen = ref(false);
 const selectedRefs = ref<Record<string, unknown> | null>(null);
 const listRoot = ref<HTMLElement | null>(null);
 const avatarSize = computed(() => (props.variant === 'thread' ? 36 : 56));
+
+function branchLabel(message: ChatRecord, index: number): string {
+  const group = message.branchGroup;
+  if (!group) return String(index + 1);
+  const labels = props.branchLabels?.get(group.group_id);
+  return labels?.[index] || `#${index + 1}`;
+}
 
 function isUserMessage(message: ChatRecord) {
   return messageContent(message).type === 'user';
@@ -1609,5 +1640,28 @@ function formatDuration(seconds: number) {
   .variant-thread .message-bubble.bot {
     padding-left: 0;
   }
+}
+
+.branch-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.branch-switcher__item {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.2);
+  background: transparent;
+  color: inherit;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.branch-switcher__item--active {
+  border-color: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-primary));
+  font-weight: 600;
 }
 </style>

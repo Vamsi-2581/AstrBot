@@ -78,6 +78,7 @@ export interface HistoryRecord {
     agentStats?: AgentStats | null;
     agent_stats?: AgentStats | null;
     refs?: ChatRefs | null;
+    branch?: BranchGroup | null;
   };
   created_at?: string;
   sender_id?: string;
@@ -101,6 +102,14 @@ export interface ChatThread {
   updated_at?: string;
 }
 
+export interface BranchGroup {
+  group_id: string;
+  index: number;
+  total: number;
+  provider?: string;
+  model?: string;
+}
+
 export interface ChatRecord {
   id?: string | number;
   content: ChatContent;
@@ -109,6 +118,7 @@ export interface ChatRecord {
   sender_name?: string;
   llm_checkpoint_id?: string | null;
   threads?: ChatThread[];
+  branchGroup?: BranchGroup;
 }
 
 export interface ChatSessionProject {

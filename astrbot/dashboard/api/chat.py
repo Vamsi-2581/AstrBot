@@ -222,6 +222,27 @@ async def get_shared_conversation(
         return JSONResponse(error("Share not found"), status_code=404)
 
 
+@router.get("/chat/features")
+async def get_chat_features(
+    request: Request,
+    _auth: AuthContext = Depends(require_chat_scope),
+):
+    """Return ChatUI feature flags derived from the runtime configuration."""
+    config = getattr(request.app.state, "astrbot_config", None)
+    config_getter = getattr(config, "get", None)
+    dashboard = config_getter("dashboard", {}) if callable(config_getter) else {}
+    multi = (
+        dashboard.get("chatui_multi_model", {}) if isinstance(dashboard, dict) else {}
+    )
+    enable = bool(multi.get("enable", False)) if isinstance(multi, dict) else False
+    try:
+        max_models = int(multi.get("max_models", 3))
+    except TypeError, ValueError:
+        max_models = 3
+    max_models = max(2, min(8, max_models))
+    return ok({"multi_model": {"enable": enable, "max_models": max_models}})
+
+
 @router.patch("/chat/sessions/{session_id}")
 async def update_chat_session(
     session_id: str,

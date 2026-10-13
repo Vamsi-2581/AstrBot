@@ -677,6 +677,7 @@ async def test_build_chat_stream_saves_plain_response_and_emits_saved_events(
         {},
         "mid-1",
         "webchat",
+        None,
     )
     remove_back_queue.assert_called_once_with("mid-1")
 
@@ -862,6 +863,7 @@ async def test_build_chat_stream_collects_tool_call_refs_and_agent_stats_on_end(
             {},
             "mid-2",
             "webchat",
+            None,
         ),
         call(
             "session-2",
@@ -870,6 +872,7 @@ async def test_build_chat_stream_collects_tool_call_refs_and_agent_stats_on_end(
             {},
             "mid-2",
             "webchat",
+            None,
         ),
     ]
 
@@ -940,6 +943,7 @@ async def test_chat_run_persists_native_refs_and_publishes_them():
         {"used": [native_refs["used"][0]]},
         run.llm_checkpoint_id,
         run.platform_history_id,
+        None,
     )
     assert any(payload["type"] == "refs" for payload in published)
 
@@ -1091,6 +1095,7 @@ async def test_build_chat_stream_emits_attachment_saved_event_for_image(monkeypa
         {},
         "mid-3",
         "webchat",
+        None,
     )
     assert any('"type": "attachment_saved"' in event for event in events)
 

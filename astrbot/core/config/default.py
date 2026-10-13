@@ -315,6 +315,10 @@ DEFAULT_CONFIG = {
         "port": 6185,
         "disable_access_log": True,
         "trust_proxy_headers": False,
+        "chatui_multi_model": {
+            "enable": False,
+            "max_models": 3,
+        },
         "auth_rate_limit": {
             "enable": True,
             "average_interval": 1.0,
@@ -5107,6 +5111,17 @@ CONFIG_METADATA_3_SYSTEM = {
                         "description": "信任代理请求头获取客户端 IP",
                         "type": "bool",
                         "hint": "关闭时忽略 X-Forwarded-For/X-Real-IP，仅使用连接地址。",
+                    },
+                    "dashboard.chatui_multi_model.enable": {
+                        "description": "启用 ChatUI 多模型并行对话",
+                        "type": "bool",
+                        "hint": "开启后，ChatUI 可为一个提示词同时选择多个模型，并排查看各自回答。默认关闭。",
+                    },
+                    "dashboard.chatui_multi_model.max_models": {
+                        "description": "多模型并行数量上限",
+                        "type": "int",
+                        "hint": "一次提示词最多并行运行的模型数量，范围 2-8。",
+                        "condition": {"dashboard.chatui_multi_model.enable": True},
                     },
                     "dashboard.auth_rate_limit.enable": {
                         "description": "启用登录验证速率限制",
