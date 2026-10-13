@@ -49,7 +49,7 @@ from .kb_db_sqlite import (
 )
 from .models import KBDocument, KBMedia, KnowledgeBase
 from .parsers.ocr import OCREngineUnavailable
-from .parsers.util import select_parser
+from .parsers.util import IMAGE_EXTENSIONS, select_parser
 
 if TYPE_CHECKING:
     from astrbot.core.db.vec_db.faiss import FaissVecDB
@@ -293,9 +293,17 @@ class KBHelper:
             ) from exc
 
         text_content = parse_result.text
+        # Image uploads are already OCR'd by their parser; only fall back for
+        # documents whose embedded images were not text-extracted.
+        image_extension = f".{file_type}" in IMAGE_EXTENSIONS
+        tika_configured = bool(
+            str(self.extraction_config.get("tika_url") or "").strip()
+        )
         if (
-            not text_content or not text_content.strip()
-        ) and self.extraction_config.get("ocr_enable"):
+            (not text_content or not text_content.strip())
+            and self.extraction_config.get("ocr_enable")
+            and not (image_extension and not tika_configured)
+        ):
             try:
                 parse_result = await self._ocr_fallback(parse_result)
             except OCREngineUnavailable as exc:

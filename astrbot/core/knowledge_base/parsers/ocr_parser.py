@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import mimetypes
+
 from astrbot.core.knowledge_base.parsers.base import (
     BaseParser,
     MediaItem,
@@ -32,12 +34,13 @@ class ImageOCRParser(BaseParser):
             ParseResult with recognized text and the original image as media.
         """
         text = await ocr_image_bytes(file_content, self.languages)
+        guessed, _encoding = mimetypes.guess_type(file_name)
         media = [
             MediaItem(
                 media_type="image",
                 file_name=file_name,
                 content=file_content,
-                mime_type="application/octet-stream",
+                mime_type=guessed or "application/octet-stream",
             )
         ]
         return ParseResult(text=text, media=media)
