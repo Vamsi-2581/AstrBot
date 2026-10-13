@@ -172,6 +172,17 @@ async def test_oidc_callback_rejects_unknown_state(temp_db: SQLiteDatabase) -> N
     assert result.status_code == 400
 
 
+def test_oidc_state_map_is_bounded(temp_db: SQLiteDatabase) -> None:
+    service = _service(temp_db, enable=True, issuer="https://idp", client_id="cid")
+
+    for index in range(service._OIDC_STATE_MAX_ENTRIES + 50):
+        service._store_oidc_state(f"state-{index}", {"code_verifier": "v"})
+
+    assert len(service._oidc_states) <= service._OIDC_STATE_MAX_ENTRIES
+    latest = service._OIDC_STATE_MAX_ENTRIES + 49
+    assert service._pop_oidc_state(f"state-{latest}") is not None
+
+
 @pytest.mark.asyncio
 async def test_oidc_flow_creates_and_reuses_account(
     temp_db: SQLiteDatabase,

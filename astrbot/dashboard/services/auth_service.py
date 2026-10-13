@@ -1023,6 +1023,7 @@ class AuthService:
         return result
 
     _OIDC_STATE_TTL_SECONDS = 600
+    _OIDC_STATE_MAX_ENTRIES = 1024
 
     def _oidc_config(self) -> dict[str, Any]:
         dashboard = self.config.get("dashboard", {})
@@ -1051,6 +1052,14 @@ class AuthService:
         self._oidc_states = {
             key: value for key, value in self._oidc_states.items() if value[1] > now
         }
+        # ``/auth/oidc/start`` is unauthenticated, so cap the pending-state map
+        # to keep a flood of start requests from growing it without bound.
+        if len(self._oidc_states) >= self._OIDC_STATE_MAX_ENTRIES:
+            overflow = len(self._oidc_states) - self._OIDC_STATE_MAX_ENTRIES + 1
+            for key in sorted(
+                self._oidc_states, key=lambda item: self._oidc_states[item][1]
+            )[:overflow]:
+                self._oidc_states.pop(key, None)
         self._oidc_states[state] = (data, now + self._OIDC_STATE_TTL_SECONDS)
 
     def _pop_oidc_state(self, state: str) -> dict[str, Any] | None:
