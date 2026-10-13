@@ -837,8 +837,19 @@ class TestAstrBotCoreLifecycleStart:
 
     @pytest.mark.asyncio
     async def test_readiness_tracks_start_and_stop(self, mock_log_broker, mock_db):
-        """Readiness turns on after startup and off again on stop."""
+        """Readiness turns on only after startup finishes and off again on stop."""
         lifecycle = self._prepare_started_lifecycle(mock_log_broker, mock_db)
+
+        load_started = asyncio.Event()
+        load_release = asyncio.Event()
+        real_load = lifecycle._load
+
+        async def gated_load() -> None:
+            load_started.set()
+            await load_release.wait()
+            await real_load()
+
+        lifecycle._load = gated_load
 
         async def never_end() -> None:
             await asyncio.Event().wait()
@@ -848,6 +859,10 @@ class TestAstrBotCoreLifecycleStart:
 
         start_task = asyncio.create_task(lifecycle.start())
         try:
+            await asyncio.wait_for(load_started.wait(), timeout=1)
+            # Startup is still in progress, so readiness must stay false.
+            assert lifecycle.is_ready is False
+            load_release.set()
             for _ in range(100):
                 if lifecycle.is_ready:
                     break
