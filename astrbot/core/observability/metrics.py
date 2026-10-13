@@ -108,6 +108,7 @@ class Histogram:
         for index, bound in enumerate(self.buckets):
             if value <= bound:
                 counts[index] += 1
+                break
         counts[-1] += 1
         self._sums[key] = self._sums.get(key, 0.0) + value
         self._totals[key] = self._totals.get(key, 0) + 1

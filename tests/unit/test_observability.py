@@ -43,6 +43,20 @@ def test_histogram_renders_cumulative_buckets() -> None:
     assert 'demo_seconds_count{k="v"} 1' in text
 
 
+def test_histogram_buckets_are_not_double_counted() -> None:
+    registry = MetricsRegistry()
+    histogram = registry.histogram("demo_seconds", "Demo.", buckets=(1.0, 2.0))
+    histogram.observe({"k": "v"}, 0.5)
+    histogram.observe({"k": "v"}, 1.5)
+
+    text = registry.render()
+
+    assert 'demo_seconds_bucket{k="v",le="1"} 1' in text
+    assert 'demo_seconds_bucket{k="v",le="2"} 2' in text
+    assert 'demo_seconds_bucket{k="v",le="+Inf"} 2' in text
+    assert 'demo_seconds_count{k="v"} 2' in text
+
+
 def test_label_values_are_escaped() -> None:
     registry = MetricsRegistry()
     registry.counter("demo_total", "Demo.").inc({"label": 'a"b\\c\nd'})
