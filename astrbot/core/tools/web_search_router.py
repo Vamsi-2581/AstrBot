@@ -23,6 +23,7 @@ from astrbot import logger
 from astrbot.core.agent.tool import FunctionTool, ToolExecResult
 from astrbot.core.astr_agent_context import AstrAgentContext
 from astrbot.core.tools.registry import builtin_tool
+from astrbot.core.tools.web_search_route import normalize_route
 from astrbot.core.tools.web_search_tools import (
     _WEB_SEARCH_ENABLED_CONFIG,
     SearchResult,
@@ -235,14 +236,6 @@ SEARCH_SOURCES: Mapping[str, SearchSource] = {
         10,
     ),
 }
-
-
-def normalize_route(value: object) -> tuple[str, ...]:
-    """Return the configured route as an ordered tuple of non-empty names."""
-
-    if not isinstance(value, list | tuple):
-        return ()
-    return tuple(str(name).strip() for name in value if str(name).strip())
 
 
 def source_is_configured(name: str, provider_settings: dict) -> bool:

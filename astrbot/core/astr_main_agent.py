@@ -84,7 +84,7 @@ from astrbot.core.tools.computer_tools import (
     resolve_local_permission_role,
 )
 from astrbot.core.tools.function_tool_manager import FunctionToolManager
-from astrbot.core.tools.web_search_router import normalize_route
+from astrbot.core.tools.web_search_route import normalize_route
 from astrbot.core.utils.astrbot_path import (
     get_astrbot_system_tmp_path,
     get_astrbot_temp_path,
