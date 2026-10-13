@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   routerPush: vi.fn(),
   setupStatus: vi.fn(),
   versions: vi.fn(),
+  oidcStatus: vi.fn(),
 }));
 
 vi.mock('@/stores/auth', () => ({
@@ -20,6 +21,7 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: state.routerPush }),
+  useRoute: () => ({ query: {} }),
 }));
 
 vi.mock('@/stores/customizer', () => ({
@@ -30,7 +32,7 @@ vi.mock('@/stores/customizer', () => ({
 }));
 
 vi.mock('@/api/v1', () => ({
-  authApi: { setupStatus: state.setupStatus },
+  authApi: { setupStatus: state.setupStatus, oidcStatus: state.oidcStatus },
   publicApi: { versions: state.versions },
 }));
 

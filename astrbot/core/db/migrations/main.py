@@ -30,7 +30,18 @@ async def _add_conversation_shares(conn: AsyncConnection) -> None:
     await conn.run_sync(SQLModel.metadata.create_all)
 
 
+async def _add_external_identities(conn: AsyncConnection) -> None:
+    """Create the external identity table on an upgraded store.
+
+    ``create_all`` is idempotent, so it adds only the missing table. Fresh
+    stores already create it in revision 1.
+    """
+    import_all_models()
+    await conn.run_sync(SQLModel.metadata.create_all)
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "create current schema", _initial_schema),
     Migration(2, "add conversation shares", _add_conversation_shares),
+    Migration(3, "add dashboard external identities", _add_external_identities),
 )

@@ -1551,6 +1551,32 @@
             "hint": "一次提示词最多并行运行的模型数量，范围 2-8。"
           }
         },
+        "oidc": {
+          "enable": {
+            "description": "启用 OIDC 单点登录",
+            "hint": "开启后，登录页显示 SSO 按钮。本地密码与 TOTP 登录不受影响。"
+          },
+          "issuer": {
+            "description": "OIDC Issuer",
+            "hint": "提供方的 issuer 地址，例如 https://idp.example.com。AstrBot 会读取其 /.well-known/openid-configuration。"
+          },
+          "client_id": {
+            "description": "OIDC Client ID",
+            "hint": "在身份提供方注册的客户端 ID。"
+          },
+          "client_secret": {
+            "description": "OIDC Client Secret",
+            "hint": "客户端密钥，仅用于服务器端换取 token，不会下发到浏览器。"
+          },
+          "redirect_uri": {
+            "description": "OIDC 回调地址",
+            "hint": "固定的服务器回调地址，需与提供方注册一致，例如 https://astrbot.example.com/api/v1/auth/oidc/callback。留空时使用 callback_api_base 拼接。"
+          },
+          "auto_create": {
+            "description": "首次登录自动创建账户",
+            "hint": "开启后，通过身份提供方验证的新用户会自动创建 Dashboard 账户（不授予任何角色）。关闭时仅允许已绑定的身份登录。"
+          }
+        },
         "auth_rate_limit": {
           "enable": {
             "description": "启用登录验证速率限制",

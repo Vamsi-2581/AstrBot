@@ -3,16 +3,50 @@ import AuthLogin from '../authForms/AuthLogin.vue';
 import AuthAppearanceMenu from '@/components/auth/AuthAppearanceMenu.vue';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useModuleI18n } from '@/i18n/composables';
 import { docsHref } from '@/utils/docsHref';
 import { authApi, publicApi, type PublicVersionData } from '@/api/v1';
 
 const cardVisible = ref(false);
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 const { tm: t } = useModuleI18n('features/auth');
 const authLoginRef = ref<InstanceType<typeof AuthLogin> | null>(null);
+const oidcEnabled = ref(false);
+const oidcLabel = ref('SSO');
+const oidcLoading = ref(false);
+const oidcError = ref(false);
+
+async function loadOidcStatus() {
+  try {
+    const response = await authApi.oidcStatus();
+    const data = response.data.data;
+    oidcEnabled.value = Boolean(data?.enable);
+    oidcLabel.value = data?.button_label || 'SSO';
+  } catch {
+    oidcEnabled.value = false;
+  }
+}
+
+async function startOidc() {
+  oidcLoading.value = true;
+  oidcError.value = false;
+  try {
+    const response = await authApi.oidcStart();
+    const url = response.data.data?.authorize_url;
+    if (url) {
+      window.location.href = url;
+      return;
+    }
+    oidcError.value = true;
+  } catch {
+    oidcError.value = true;
+  } finally {
+    oidcLoading.value = false;
+  }
+}
 const publicVersions = ref<PublicVersionData | null>(null);
 const versionDialogVisible = ref(false);
 let cardRevealTimer: ReturnType<typeof window.setTimeout> | null = null;
@@ -105,6 +139,8 @@ const versionItems = computed(() => {
 });
 
 onMounted(async () => {
+  oidcError.value = route.query.oidc_error === '1';
+  void loadOidcStatus();
   publicApi
     .versions()
     .then((res) => {
@@ -180,6 +216,28 @@ onBeforeUnmount(() => {
       </v-card-title>
       <v-card-text>
         <AuthLogin ref="authLoginRef" />
+        <div v-if="oidcEnabled" class="oidc-login">
+          <v-divider class="my-4" />
+          <v-alert
+            v-if="oidcError"
+            type="error"
+            variant="tonal"
+            density="compact"
+            class="mb-3"
+          >
+            {{ t('oidc.error') }}
+          </v-alert>
+          <v-btn
+            block
+            variant="tonal"
+            color="primary"
+            :loading="oidcLoading"
+            prepend-icon="mdi-login-variant"
+            @click="startOidc"
+          >
+            {{ oidcLabel }}
+          </v-btn>
+        </div>
       </v-card-text>
       <div v-if="versionItems.length" class="login-version-info">
         <span

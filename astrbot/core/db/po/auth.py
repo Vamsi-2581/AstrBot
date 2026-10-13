@@ -334,3 +334,45 @@ class DashboardTrustedDevice(SQLModel, table=True):
         sa_type=DateTime,
         sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
     )
+
+
+class DashboardExternalIdentity(SQLModel, table=True):
+    """External identity-provider subject bound to one Dashboard account.
+
+    The binding is keyed by ``(provider, subject)`` from the verified ID token.
+    Email is stored for display only and never grants privilege.
+    """
+
+    __tablename__ = "dashboard_external_identities"  # type: ignore
+
+    id: int | None = Field(
+        default=None,
+        primary_key=True,
+        sa_column_kwargs={"autoincrement": True},
+    )
+    identity_id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()), nullable=False, unique=True
+    )
+    account_id: str = Field(
+        nullable=False,
+        index=True,
+        max_length=64,
+        foreign_key="dashboard_accounts.account_id",
+        ondelete="CASCADE",
+    )
+    provider: str = Field(nullable=False, index=True, max_length=512)
+    subject: str = Field(nullable=False, max_length=255)
+    email: str | None = Field(default=None, max_length=320)
+    last_login_at: datetime | None = Field(default=None, sa_type=DateTime)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_type=DateTime,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "provider",
+            "subject",
+            name="uix_dashboard_external_identity_subject",
+        ),
+    )

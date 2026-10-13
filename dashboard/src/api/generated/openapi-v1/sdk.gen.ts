@@ -233,6 +233,8 @@ import type {
   GetMemoryStatsResponses,
   GetNeoSkillPayloadData,
   GetNeoSkillPayloadResponses,
+  GetOidcStatusData,
+  GetOidcStatusResponses,
   GetPluginChangelogData,
   GetPluginChangelogResponses,
   GetPluginConfigData,
@@ -453,6 +455,7 @@ import type {
   MoveDataFileEntryResponses,
   MovePromptItemData,
   MovePromptItemResponses,
+  OidcCallbackData,
   OpenChatWebSocketData,
   OpenUnifiedChatWebSocketData,
   PromoteNeoSkillCandidateData,
@@ -550,6 +553,8 @@ import type {
   SetupTotpResponses,
   StartMcpOAuthData,
   StartMcpOAuthResponses,
+  StartOidcLoginData,
+  StartOidcLoginResponses,
   StatusBackupUploadData,
   StatusBackupUploadResponses,
   StatusFileUploadData,
@@ -1005,6 +1010,51 @@ export const login = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Get external identity provider (OIDC) login status
+ */
+export const getOidcStatus = <ThrowOnError extends boolean = false>(
+  options?: Options<GetOidcStatusData, ThrowOnError>,
+): RequestResult<GetOidcStatusResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    GetOidcStatusResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/api/v1/auth/oidc/status',
+    ...options,
+  });
+
+/**
+ * Begin an OIDC login and return the provider authorization URL
+ */
+export const startOidcLogin = <ThrowOnError extends boolean = false>(
+  options?: Options<StartOidcLoginData, ThrowOnError>,
+): RequestResult<StartOidcLoginResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    StartOidcLoginResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/api/v1/auth/oidc/start',
+    ...options,
+  });
+
+/**
+ * OIDC authorization callback
+ *
+ * Validates state and PKCE, verifies the ID token, and redirects to the Dashboard with a session cookie. Unknown or expired state redirects to the login page with a generic error.
+ */
+export const oidcCallback = <ThrowOnError extends boolean = false>(
+  options: Options<OidcCallbackData, ThrowOnError>,
+): RequestResult<unknown, unknown, ThrowOnError> =>
+  (options.client ?? client).get<unknown, unknown, ThrowOnError>({
+    url: '/api/v1/auth/oidc/callback',
+    ...options,
   });
 
 /**

@@ -1476,6 +1476,50 @@ export type LoginResponses = {
 
 export type LoginResponse = LoginResponses[keyof LoginResponses];
 
+export type GetOidcStatusData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/auth/oidc/status';
+};
+
+export type GetOidcStatusResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type GetOidcStatusResponse =
+  GetOidcStatusResponses[keyof GetOidcStatusResponses];
+
+export type StartOidcLoginData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/auth/oidc/start';
+};
+
+export type StartOidcLoginResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type StartOidcLoginResponse =
+  StartOidcLoginResponses[keyof StartOidcLoginResponses];
+
+export type OidcCallbackData = {
+  body?: never;
+  path?: never;
+  query: {
+    code: string;
+    state: string;
+  };
+  url: '/api/v1/auth/oidc/callback';
+};
+
 export type LogoutData = {
   body?: never;
   path?: never;
