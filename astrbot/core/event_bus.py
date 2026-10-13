@@ -12,6 +12,7 @@ class:
 
 import asyncio
 import time
+from contextlib import nullcontext
 
 from astrbot import logger
 from astrbot.core.astrbot_config_mgr import AstrBotConfigManager
@@ -90,11 +91,17 @@ class EventBus:
         event: AstrMessageEvent,
     ) -> None:
         observability = get_observability()
-        try:
-            with observability.span(
+        # Only build the span attributes when tracing is actually enabled.
+        span = (
+            observability.span(
                 "pipeline.execute",
                 {"platform": event.get_platform_name()},
-            ):
+            )
+            if observability.tracing_enabled
+            else nullcontext()
+        )
+        try:
+            with span:
                 await scheduler.execute(event)
         finally:
             self._semaphore.release()
