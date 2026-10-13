@@ -10,7 +10,26 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+import numpy as np
+
 from .result import Result
+
+
+@runtime_checkable
+class EmbeddingStorageBackend(Protocol):
+    """Vector-index storage surface shared by FAISS and the exact backend."""
+
+    dimension: int
+
+    async def insert(self, vector: np.ndarray, id: int) -> None: ...
+
+    async def insert_batch(self, vectors: np.ndarray, ids: list[int]) -> None: ...
+
+    async def search(self, vector: np.ndarray, k: int) -> tuple: ...
+
+    async def delete(self, ids: list[int]) -> None: ...
+
+    async def save_index(self) -> None: ...
 
 
 @runtime_checkable

@@ -7,6 +7,7 @@ from astrbot import logger
 from astrbot.core.exceptions import KnowledgeBaseUploadError
 from astrbot.core.provider.provider import EmbeddingProvider, RerankProvider
 
+from .base import EmbeddingStorageBackend
 from .document_storage import DocumentStorage
 from .embedding_storage import EmbeddingStorage
 from .result import Result
@@ -34,7 +35,7 @@ class FaissVecDB:
         self,
         dimension: int,
         index_store_path: str,
-    ) -> EmbeddingStorage:
+    ) -> EmbeddingStorageBackend:
         """Build the vector index storage for this backend.
 
         Subclasses override this to swap the index implementation while reusing
