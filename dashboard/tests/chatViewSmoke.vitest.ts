@@ -424,7 +424,7 @@ describe('Chat view smoke', () => {
     await flushPromises();
     const sessionItems = wrapper.findAll('.session-item');
 
-    await sessionItems[0].findAll('.session-action-btn')[1].trigger('click');
+    await sessionItems[0].findAll('.session-action-btn')[2].trigger('click');
     await flushPromises();
     expect(testState.deleteSessionMock).toHaveBeenCalledWith('session-a');
 

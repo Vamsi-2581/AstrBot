@@ -361,6 +361,13 @@ export type ChatSessionPatchRequest = {
   display_name?: string;
 };
 
+export type ChatShareCreateRequest = {
+  /**
+   * 0 means the link never expires.
+   */
+  expires_in_days?: 0 | 1 | 7 | 30 | 90;
+};
+
 export type ChatMessagePatchRequest = {
   content: {
     [key: string]: unknown;
@@ -2851,6 +2858,89 @@ export type StopChatSessionResponses = {
 
 export type StopChatSessionResponse =
   StopChatSessionResponses[keyof StopChatSessionResponses];
+
+export type CreateChatShareData = {
+  body: ChatShareCreateRequest;
+  path: {
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/chat/sessions/{session_id}/share';
+};
+
+export type CreateChatShareResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type CreateChatShareResponse =
+  CreateChatShareResponses[keyof CreateChatShareResponses];
+
+export type ListChatSharesData = {
+  body?: never;
+  path: {
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/chat/sessions/{session_id}/shares';
+};
+
+export type ListChatSharesResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type ListChatSharesResponse =
+  ListChatSharesResponses[keyof ListChatSharesResponses];
+
+export type RevokeChatShareData = {
+  body?: never;
+  path: {
+    share_id: string;
+  };
+  query?: never;
+  url: '/api/v1/chat/shares/{share_id}';
+};
+
+export type RevokeChatShareResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type RevokeChatShareResponse =
+  RevokeChatShareResponses[keyof RevokeChatShareResponses];
+
+export type GetSharedConversationData = {
+  body?: never;
+  path: {
+    token: string;
+  };
+  query?: never;
+  url: '/api/v1/shares/{token}';
+};
+
+export type GetSharedConversationErrors = {
+  /**
+   * Share not found
+   */
+  404: unknown;
+};
+
+export type GetSharedConversationResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type GetSharedConversationResponse =
+  GetSharedConversationResponses[keyof GetSharedConversationResponses];
 
 export type ResumeChatRunData = {
   body?: never;

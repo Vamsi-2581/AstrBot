@@ -1361,6 +1361,77 @@ paths:
         '200':
           $ref: '#/components/responses/Ok'
 
+  /api/v1/chat/sessions/{session_id}/share:
+    post:
+      tags: [Chat]
+      summary: Create a read-only share link for a webchat session
+      description: >-
+        Returns the raw share token once. Only its hash is stored; the link can
+        be revoked and may expire.
+      operationId: createChatShare
+      x-astrbot-scope: chat
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatShareCreateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+
+  /api/v1/chat/sessions/{session_id}/shares:
+    get:
+      tags: [Chat]
+      summary: List share links for a webchat session
+      operationId: listChatShares
+      x-astrbot-scope: chat
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+
+  /api/v1/chat/shares/{share_id}:
+    delete:
+      tags: [Chat]
+      summary: Revoke a share link
+      operationId: revokeChatShare
+      x-astrbot-scope: chat
+      parameters:
+        - name: share_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+
+  /api/v1/shares/{token}:
+    get:
+      tags: [Chat]
+      summary: Read a shared conversation transcript
+      description: >-
+        Unauthenticated read-only access to one shared transcript. Returns the
+        shared session's text messages only, never other sessions or file
+        tokens. Unknown, revoked, or expired tokens return 404.
+      operationId: getSharedConversation
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '404':
+          description: Share not found
+
   /api/v1/chat/runs/{run_id}/stream:
     get:
       tags: [Chat]
@@ -6156,6 +6227,16 @@ components:
       properties:
         display_name:
           type: string
+      additionalProperties: false
+
+    ChatShareCreateRequest:
+      type: object
+      properties:
+        expires_in_days:
+          type: integer
+          enum: [0, 1, 7, 30, 90]
+          default: 7
+          description: 0 means the link never expires.
       additionalProperties: false
 
     ChatMessagePatchRequest:

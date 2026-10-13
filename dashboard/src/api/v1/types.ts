@@ -651,6 +651,40 @@ export interface ChatSessionPage {
   total: number;
 }
 
+export interface ChatShareData {
+  share_id: string;
+  token: string;
+  created_at: string | null;
+  expires_at: string | null;
+}
+
+export interface ChatShareSummary {
+  share_id: string;
+  created_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+  active: boolean;
+}
+
+export interface ChatShareListData {
+  shares: ChatShareSummary[];
+}
+
+export interface SharedConversationMessage {
+  role: string;
+  text: string;
+  created_at: string | null;
+}
+
+export interface SharedConversationData {
+  title: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  expires_at: string | null;
+  truncated: boolean;
+  messages: SharedConversationMessage[];
+}
+
 export interface CronJobListParams {
   type?: string;
 }

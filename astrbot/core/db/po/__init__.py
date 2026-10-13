@@ -34,6 +34,7 @@ from astrbot.core.db.po.projects import ChatUIProject, SessionProjectRelation
 from astrbot.core.db.po.prompts import Prompt, PromptFolder
 from astrbot.core.db.po.session_bridge import SessionBridgeDelivery, SessionBridgeRule
 from astrbot.core.db.po.sessions import PlatformSession, UmoAlias
+from astrbot.core.db.po.shares import ConversationShare
 from astrbot.core.db.po.statistics import PlatformStat, ProviderStat
 from astrbot.core.db.po.webchat import WebChatThread
 
@@ -49,6 +50,7 @@ __all__ = [
     "ChatUIProject",
     "CommandConfig",
     "CommandConflict",
+    "ConversationShare",
     "ConversationV2",
     "CronJob",
     "DashboardAccount",

@@ -123,6 +123,14 @@
           }}</span>
           <div class="session-actions" @click.stop>
             <v-btn
+              icon="mdi-share-variant-outline"
+              size="x-small"
+              variant="text"
+              class="session-action-btn"
+              :title="tm('actions.share')"
+              @click="openShareDialog(session)"
+            />
+            <v-btn
               icon="mdi-pencil-outline"
               size="x-small"
               variant="text"
@@ -627,6 +635,10 @@
       @confirm="submitStepUp"
       @cancel="cancelWebChatTools"
     />
+    <ShareSessionDialog
+      v-model="shareDialogOpen"
+      :session-id="shareSessionId"
+    />
   </div>
 </template>
 
@@ -655,6 +667,7 @@ import ChatInput from '@/components/chat/ChatInput.vue';
 import DashboardStepUpDialog from '@/components/shared/DashboardStepUpDialog.vue';
 import ChatMessageList from '@/components/chat/ChatMessageList.vue';
 import ChatLoadError from '@/components/chat/ChatLoadError.vue';
+import ShareSessionDialog from '@/components/chat/ShareSessionDialog.vue';
 import type { RegenerateModelSelection } from '@/components/chat/RegenerateMenu.vue';
 import ReasoningSidebar from '@/components/chat/ReasoningSidebar.vue';
 import ThreadPanel from '@/components/chat/ThreadPanel.vue';
@@ -998,6 +1011,13 @@ const {
 watch(webChatStepUpExpiresAt, (expiresAt) => {
   if (expiresAt === null) webChatStepUpTokens.value = null;
 });
+
+const shareDialogOpen = ref(false);
+const shareSessionId = ref('');
+function openShareDialog(session: Session) {
+  shareSessionId.value = session.session_id;
+  shareDialogOpen.value = true;
+}
 
 watch(currSessionId, (sessionId, previousSessionId) => {
   if (!previousSessionId || sessionId === previousSessionId) return;

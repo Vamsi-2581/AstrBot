@@ -52,6 +52,8 @@ import type {
   CreateChatProjectResponses,
   CreateChatSessionData,
   CreateChatSessionResponses,
+  CreateChatShareData,
+  CreateChatShareResponses,
   CreateChatThreadData,
   CreateChatThreadResponses,
   CreateConfigProfileData,
@@ -258,6 +260,9 @@ import type {
   GetProviderTokenStatsResponses,
   GetPublicVersionsData,
   GetPublicVersionsResponses,
+  GetSharedConversationData,
+  GetSharedConversationErrors,
+  GetSharedConversationResponses,
   GetSkillFileData,
   GetSkillFileResponses,
   GetStartTimeData,
@@ -355,6 +360,8 @@ import type {
   ListChatProjectWorkspaceFilesResponses,
   ListChatSessionsData,
   ListChatSessionsResponses,
+  ListChatSharesData,
+  ListChatSharesResponses,
   ListCommandConflictsData,
   ListCommandConflictsResponses,
   ListCommandsData,
@@ -501,6 +508,8 @@ import type {
   RevokeAuthorizationRoleBindingResponses,
   RevokeAuthorizationRoleBindingsData,
   RevokeAuthorizationRoleBindingsResponses,
+  RevokeChatShareData,
+  RevokeChatShareResponses,
   RevokeMcpOAuthData,
   RevokeMcpOAuthResponses,
   RollbackNeoSkillReleaseData,
@@ -2435,6 +2444,85 @@ export const stopChatSession = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/chat/sessions/{session_id}/stop',
+    ...options,
+  });
+
+/**
+ * Create a read-only share link for a webchat session
+ *
+ * Returns the raw share token once. Only its hash is stored; the link can be revoked and may expire.
+ */
+export const createChatShare = <ThrowOnError extends boolean = false>(
+  options: Options<CreateChatShareData, ThrowOnError>,
+): RequestResult<CreateChatShareResponses, unknown, ThrowOnError> =>
+  (options.client ?? client).post<
+    CreateChatShareResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/chat/sessions/{session_id}/share',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List share links for a webchat session
+ */
+export const listChatShares = <ThrowOnError extends boolean = false>(
+  options: Options<ListChatSharesData, ThrowOnError>,
+): RequestResult<ListChatSharesResponses, unknown, ThrowOnError> =>
+  (options.client ?? client).get<
+    ListChatSharesResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/chat/sessions/{session_id}/shares',
+    ...options,
+  });
+
+/**
+ * Revoke a share link
+ */
+export const revokeChatShare = <ThrowOnError extends boolean = false>(
+  options: Options<RevokeChatShareData, ThrowOnError>,
+): RequestResult<RevokeChatShareResponses, unknown, ThrowOnError> =>
+  (options.client ?? client).delete<
+    RevokeChatShareResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/chat/shares/{share_id}',
+    ...options,
+  });
+
+/**
+ * Read a shared conversation transcript
+ *
+ * Unauthenticated read-only access to one shared transcript. Returns the shared session's text messages only, never other sessions or file tokens. Unknown, revoked, or expired tokens return 404.
+ */
+export const getSharedConversation = <ThrowOnError extends boolean = false>(
+  options: Options<GetSharedConversationData, ThrowOnError>,
+): RequestResult<
+  GetSharedConversationResponses,
+  GetSharedConversationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSharedConversationResponses,
+    GetSharedConversationErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/api/v1/shares/{token}',
     ...options,
   });
 

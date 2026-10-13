@@ -11,6 +11,7 @@ from astrbot.dashboard.schemas import (
     ChatMessageRegenerateRequest,
     ChatSessionBatchDeleteRequest,
     ChatSessionPatchRequest,
+    ChatShareCreateRequest,
     ChatThreadCreateRequest,
     ChatThreadMessageRequest,
     model_patch_dict,
@@ -173,6 +174,52 @@ async def get_chat_session(
             page_size=page_size,
         )
     )
+
+
+@router.post("/chat/sessions/{session_id}/share")
+async def create_chat_share(
+    session_id: str,
+    payload: ChatShareCreateRequest,
+    auth: AuthContext = Depends(require_chat_scope),
+    service: ChatService = Depends(get_service),
+):
+    return await _run(
+        lambda: service.create_share(
+            auth.username,
+            session_id,
+            payload.expires_in_days,
+        )
+    )
+
+
+@router.get("/chat/sessions/{session_id}/shares")
+async def list_chat_shares(
+    session_id: str,
+    auth: AuthContext = Depends(require_chat_scope),
+    service: ChatService = Depends(get_service),
+):
+    return await _run(lambda: service.list_shares(auth.username, session_id))
+
+
+@router.delete("/chat/shares/{share_id}")
+async def revoke_chat_share(
+    share_id: str,
+    auth: AuthContext = Depends(require_chat_scope),
+    service: ChatService = Depends(get_service),
+):
+    return await _run(lambda: service.revoke_share(auth.username, share_id))
+
+
+@router.get("/shares/{token}")
+async def get_shared_conversation(
+    token: str,
+    service: ChatService = Depends(get_service),
+):
+    """Serve a shared transcript without Dashboard authentication."""
+    try:
+        return ok(await service.get_shared_transcript(token))
+    except ChatServiceError:
+        return JSONResponse(error("Share not found"), status_code=404)
 
 
 @router.patch("/chat/sessions/{session_id}")
