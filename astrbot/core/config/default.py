@@ -157,7 +157,9 @@ DEFAULT_CONFIG = {
         "image_caption_prompt": "Please describe the image using Chinese.",
         "provider_pool": ["*"],  # "*" 表示使用所有可用的提供者
         "web_search": False,
-        "websearch_provider": "tavily",
+        "websearch_route": ["searxng", "duckduckgo"],
+        "websearch_oversample": 8,
+        "websearch_searxng_url": "",
         "websearch_tavily_key": [],
         "websearch_bocha_key": [],
         "websearch_brave_key": [],
@@ -3925,18 +3927,36 @@ CONFIG_METADATA_3 = {
                         "description": "启用网页搜索",
                         "type": "bool",
                     },
-                    "provider_settings.websearch_provider": {
-                        "description": "网页搜索提供商",
-                        "type": "string",
+                    "provider_settings.websearch_route": {
+                        "description": "网页搜索来源（按优先级排序，可多选）",
+                        "type": "list",
                         "options": [
+                            "searxng",
+                            "duckduckgo",
                             "tavily",
-                            "baidu_ai_search",
                             "bocha",
                             "brave",
                             "exa",
                             "firecrawl",
+                            "baidu_ai_search",
                             "anysearch",
                         ],
+                        "condition": {
+                            "provider_settings.web_search": True,
+                        },
+                    },
+                    "provider_settings.websearch_oversample": {
+                        "description": "每来源候选倍数",
+                        "type": "int",
+                        "hint": "每个来源按 目标结果数 × 该倍数 取候选，再经 canonical 去重与 RRF 融合。",
+                        "condition": {
+                            "provider_settings.web_search": True,
+                        },
+                    },
+                    "provider_settings.websearch_searxng_url": {
+                        "description": "SearXNG 实例地址",
+                        "type": "string",
+                        "hint": "自托管 SearXNG 需在实例 settings.yml 的 search.formats 中启用 json，否则返回 403。",
                         "condition": {
                             "provider_settings.web_search": True,
                         },
@@ -3947,7 +3967,6 @@ CONFIG_METADATA_3 = {
                         "items": {"type": "string"},
                         "hint": "可添加多个 Key 进行轮询。",
                         "condition": {
-                            "provider_settings.websearch_provider": "tavily",
                             "provider_settings.web_search": True,
                         },
                     },
@@ -3957,7 +3976,6 @@ CONFIG_METADATA_3 = {
                         "items": {"type": "string"},
                         "hint": "可添加多个 Key 进行轮询。",
                         "condition": {
-                            "provider_settings.websearch_provider": "bocha",
                             "provider_settings.web_search": True,
                         },
                     },
@@ -3967,7 +3985,6 @@ CONFIG_METADATA_3 = {
                         "items": {"type": "string"},
                         "hint": "可添加多个 Key 进行轮询。",
                         "condition": {
-                            "provider_settings.websearch_provider": "brave",
                             "provider_settings.web_search": True,
                         },
                     },
@@ -3977,7 +3994,6 @@ CONFIG_METADATA_3 = {
                         "items": {"type": "string"},
                         "hint": "可添加多个 Key 进行轮询。",
                         "condition": {
-                            "provider_settings.websearch_provider": "firecrawl",
                             "provider_settings.web_search": True,
                         },
                     },
@@ -3986,7 +4002,6 @@ CONFIG_METADATA_3 = {
                         "type": "string",
                         "hint": "参考：https://console.bce.baidu.com/iam/#/iam/apikey/list",
                         "condition": {
-                            "provider_settings.websearch_provider": "baidu_ai_search",
                             "provider_settings.web_search": True,
                         },
                     },
@@ -3996,7 +4011,6 @@ CONFIG_METADATA_3 = {
                         "items": {"type": "string"},
                         "hint": "可添加多个 Key 进行轮询。Get a key at https://dashboard.exa.ai",
                         "condition": {
-                            "provider_settings.websearch_provider": "exa",
                             "provider_settings.web_search": True,
                         },
                     },
@@ -4006,7 +4020,6 @@ CONFIG_METADATA_3 = {
                         "items": {"type": "string"},
                         "hint": "可添加多个 Key 进行轮询。留空则使用匿名模式（每日免费额度）。申请地址：https://anysearch.com/console/api-keys",
                         "condition": {
-                            "provider_settings.websearch_provider": "anysearch",
                             "provider_settings.web_search": True,
                         },
                     },

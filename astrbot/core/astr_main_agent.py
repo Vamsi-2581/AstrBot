@@ -85,6 +85,7 @@ from astrbot.core.tools.computer_tools import (
     resolve_local_permission_role,
 )
 from astrbot.core.tools.function_tool_manager import FunctionToolManager
+from astrbot.core.tools.web_search_route import normalize_route
 from astrbot.core.utils.astrbot_path import (
     get_astrbot_system_tmp_path,
     get_astrbot_temp_path,
@@ -134,16 +135,7 @@ WEEKDAY_NAMES = (
     "Saturday",
     "Sunday",
 )
-WEB_SEARCH_CITATION_TOOL_NAMES = frozenset(
-    {
-        "web_search_baidu",
-        "web_search_tavily",
-        "web_search_bocha",
-        "web_search_brave",
-        "web_search_exa",
-        "web_search_anysearch",
-    }
-)
+WEB_SEARCH_CITATION_TOOL_NAMES = frozenset({"web_search"})
 WEB_SEARCH_CITATION_PROMPT = (
     "Always cite web search results you rely on. "
     "Index is a unique identifier for each search result. "
@@ -1470,7 +1462,7 @@ def _assemble_request_tool_catalog(
         session_tool_names=session_tool_names,
         memory_enabled=memory_manager is not None,
         web_search_enabled=bool(provider_settings.get("web_search", False)),
-        web_search_provider=str(provider_settings.get("websearch_provider", "tavily")),
+        web_search_route=normalize_route(provider_settings.get("websearch_route")),
         group_history_enabled=bool(
             event.get_message_type() == MessageType.GROUP_MESSAGE
             and ltm_settings.get("group_message_history_enable", False)

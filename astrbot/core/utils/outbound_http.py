@@ -218,6 +218,35 @@ SHIPYARD_NEO_HEALTH = OutboundRequestPolicy(
 )
 
 
+def searxng_search_policy(endpoint: str) -> OutboundRequestPolicy:
+    """Build the outbound policy for one explicitly configured SearXNG endpoint.
+
+    A self-hosted SearXNG instance is commonly reached over a private or
+    loopback address, so the operator-configured host is treated as the
+    explicit opt-in and is the only host allowed. Redirects are never
+    followed, and results are not fetched server-side.
+
+    Args:
+        endpoint: The configured SearXNG instance base URL.
+
+    Returns:
+        A policy that allows only the configured hostname.
+    """
+
+    hostname = _normalize_hostname(urlparse(endpoint).hostname or "")
+    return OutboundRequestPolicy(
+        allowed_schemes=frozenset({"http", "https"}),
+        allowed_hosts=frozenset({hostname}) if hostname else frozenset(),
+        allowed_ports=None,
+        allow_private_network=True,
+        max_redirects=0,
+        max_url_length=_DEFAULT_MAX_URL_LENGTH,
+        max_response_bytes=_JSON_MAX_BYTES,
+        timeout_seconds=20.0,
+        allowed_content_types=None,
+    )
+
+
 def redact_outbound_url(url: str) -> str:
     """Return a log-safe URL description without credentials or query tokens."""
 

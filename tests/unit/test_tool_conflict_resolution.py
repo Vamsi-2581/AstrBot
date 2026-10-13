@@ -131,7 +131,7 @@ class TestFunctionToolManagerGetTool:
         manager = FunctionToolManager()
         manager.func_list = [make_tool("other_tool")]
 
-        result = manager.get_tool("web_search")
+        result = manager.get_tool("definitely_missing_tool")
         assert result is None
 
 
