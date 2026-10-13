@@ -363,7 +363,7 @@ class ChatSessionPatchRequest(OpenModel):
 
 
 class ChatShareCreateRequest(OpenModel):
-    expires_in_days: int = Field(default=7, ge=0, le=365)
+    expires_in_days: Literal[0, 1, 7, 30, 90] = 7
 
 
 class ChatMessagePatchRequest(OpenModel):

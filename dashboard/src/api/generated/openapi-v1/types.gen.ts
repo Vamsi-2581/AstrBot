@@ -365,7 +365,7 @@ export type ChatShareCreateRequest = {
   /**
    * 0 means the link never expires.
    */
-  expires_in_days?: number;
+  expires_in_days?: 0 | 1 | 7 | 30 | 90;
 };
 
 export type ChatMessagePatchRequest = {

@@ -83,7 +83,7 @@ export const chatApi = {
       openApiV1.stopChatSession({ path: { session_id: sessionId } }),
     );
   },
-  createShare(sessionId: string, expiresInDays: number) {
+  createShare(sessionId: string, expiresInDays: 0 | 1 | 7 | 30 | 90) {
     return typed<ChatShareData>(
       openApiV1.createChatShare({
         path: { session_id: sessionId },

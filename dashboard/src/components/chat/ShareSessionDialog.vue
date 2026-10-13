@@ -117,7 +117,8 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>();
 const { tm } = useModuleI18n('features/chat');
 const toast = useToast();
 
-const expiresInDays = ref(7);
+type ShareExpiry = 0 | 1 | 7 | 30 | 90;
+const expiresInDays = ref<ShareExpiry>(7);
 const creating = ref(false);
 const loading = ref(false);
 const shares = ref<
@@ -129,13 +130,15 @@ const shares = ref<
 >([]);
 const createdLink = ref('');
 
-const expiryOptions = computed(() => [
-  { value: 1, label: tm('share.expiry1') },
-  { value: 7, label: tm('share.expiry7') },
-  { value: 30, label: tm('share.expiry30') },
-  { value: 90, label: tm('share.expiry90') },
-  { value: 0, label: tm('share.expiryNever') },
-]);
+const expiryOptions = computed<Array<{ value: ShareExpiry; label: string }>>(
+  () => [
+    { value: 1, label: tm('share.expiry1') },
+    { value: 7, label: tm('share.expiry7') },
+    { value: 30, label: tm('share.expiry30') },
+    { value: 90, label: tm('share.expiry90') },
+    { value: 0, label: tm('share.expiryNever') },
+  ],
+);
 
 function buildLink(token: string): string {
   const base = import.meta.env.BASE_URL || '/';

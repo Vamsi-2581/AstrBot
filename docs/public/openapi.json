@@ -6265,8 +6265,7 @@
         "properties": {
           "expires_in_days": {
             "type": "integer",
-            "minimum": 0,
-            "maximum": 365,
+            "enum": [0, 1, 7, 30, 90],
             "default": 7,
             "description": "0 means the link never expires."
           }
