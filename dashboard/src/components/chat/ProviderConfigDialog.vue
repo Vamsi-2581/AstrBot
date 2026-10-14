@@ -16,7 +16,7 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { useModuleI18n } from '@/i18n/composables';
 import ProviderChatCompletionPanel from '@/components/provider/ProviderChatCompletionPanel.vue';

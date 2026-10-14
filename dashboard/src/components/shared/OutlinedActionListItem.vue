@@ -36,7 +36,7 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
 const props = defineProps({
   title: {
     type: String,
@@ -50,7 +50,7 @@ const props = defineProps({
 
 const emit = defineEmits(['click']);
 
-const handleClick = (event) => {
+const handleClick = (event: MouseEvent) => {
   if (!props.clickable) return;
   emit('click', event);
 };

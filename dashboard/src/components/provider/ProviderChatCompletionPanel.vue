@@ -7,9 +7,9 @@
       <div class="provider-workbench__sidebar">
         <ProviderSourcesPanel
           :displayed-provider-sources="displayedProviderSources"
-          :selected-provider-source="selectedProviderSource"
+          :selected-provider-source="selectedProviderSource ?? undefined"
           :available-source-types="availableSourceTypes"
-          :tm="tm"
+          :tm="tmForSources"
           :resolve-source-icon="resolveSourceIcon"
           :is-monochrome-source-icon="isMonochromeSourceIcon"
           :get-source-display-name="getSourceDisplayName"
@@ -178,14 +178,14 @@
           <v-spacer></v-spacer>
           <v-btn
             variant="text"
-            :disabled="savingProviders.includes(providerEditData?.id)"
+            :disabled="savingProviders.includes(providerEditData?.id ?? '')"
             @click="showProviderEditDialog = false"
           >
             {{ tm('dialogs.config.cancel') }}
           </v-btn>
           <v-btn
             color="primary"
-            :loading="savingProviders.includes(providerEditData?.id)"
+            :loading="savingProviders.includes(providerEditData?.id ?? '')"
             @click="saveEditedProvider"
           >
             {{ tm('dialogs.config.save') }}
@@ -213,7 +213,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useModuleI18n } from '@/i18n/composables';
 import AstrBotConfig from '@/components/shared/AstrBotConfig.vue';
@@ -224,6 +224,10 @@ import { useDashboardStepUp } from '@/composables/useDashboardStepUp';
 import { useProviderModelConfigDialog } from '@/composables/useProviderModelConfigDialog';
 import { useProviderSources } from '@/composables/useProviderSources';
 
+type ProviderModelConfigDialogOptions = Parameters<
+  typeof useProviderModelConfigDialog
+>[0];
+
 const props = defineProps({
   showBorder: {
     type: Boolean,
@@ -232,6 +236,8 @@ const props = defineProps({
 });
 
 const { tm } = useModuleI18n('features/provider');
+const tmForSources = (key: string, params?: Record<string, unknown>): string =>
+  tm(key, params as Record<string, string | number> | undefined);
 const {
   dialogOpen: stepUpDialogOpen,
   loading: stepUpLoading,
@@ -247,7 +253,7 @@ const snackbar = ref({
   color: 'success',
 });
 
-function showMessage(message, color = 'success') {
+function showMessage(message: string, color = 'success') {
   snackbar.value = { show: true, message, color };
 }
 
@@ -290,7 +296,7 @@ const {
   modelAlreadyConfigured,
 } = useProviderSources({
   defaultTab: 'chat_completion',
-  tm,
+  tm: tmForSources,
   showMessage,
   requestStepUp,
 });
@@ -319,7 +325,8 @@ const {
   saveEditedProvider,
 } = useProviderModelConfigDialog({
   selectedProviderSource,
-  configSchema,
+  configSchema:
+    configSchema as unknown as ProviderModelConfigDialogOptions['configSchema'],
   buildModelProviderConfig,
   modelAlreadyConfigured,
   loadConfig,

@@ -53,7 +53,7 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import QrCodeViewer from './QrCodeViewer.vue';
 import { useModuleI18n } from '@/i18n/composables';

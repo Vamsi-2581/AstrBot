@@ -145,10 +145,21 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { promptApi, skillApi, toolApi } from '@/api/v1';
+import type { PromptData, SkillItemData } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
+
+interface ToolMeta {
+  origin: string;
+  origin_name: string;
+  active?: boolean;
+}
+
+interface SkillMeta {
+  plugin_active?: boolean;
+}
 
 const props = defineProps({
   modelValue: {
@@ -160,10 +171,10 @@ const props = defineProps({
 const { tm } = useModuleI18n('core.shared');
 
 const loading = ref(false);
-const promptData = ref(null);
-const toolMetaMap = ref({});
-const skillMetaMap = ref({});
-const availableSkills = ref([]);
+const promptData = ref<PromptData | null>(null);
+const toolMetaMap = ref<Record<string, ToolMeta>>({});
+const skillMetaMap = ref<Record<string, SkillMeta>>({});
+const availableSkills = ref<SkillItemData[]>([]);
 
 const normalizedTools = computed(() =>
   Array.isArray(promptData.value?.tools) ? promptData.value.tools : [],
@@ -179,19 +190,19 @@ const allToolsCount = computed(
 const allSkillsCount = computed(() => availableSkills.value.length);
 const resolvedTools = computed(() =>
   normalizedTools.value.map((toolName) => {
-    const meta = toolMetaMap.value[toolName] || {};
+    const meta = toolMetaMap.value[toolName];
     return {
       name: toolName,
-      origin: meta.origin || '',
-      origin_name: meta.origin_name || '',
-      active: meta.active,
+      origin: meta?.origin || '',
+      origin_name: meta?.origin_name || '',
+      active: meta?.active,
     };
   }),
 );
 const resolvedSkills = computed(() =>
   normalizedSkills.value.map((skillName) => ({
     name: skillName,
-    ...(skillMetaMap.value[skillName] || {}),
+    plugin_active: skillMetaMap.value[skillName]?.plugin_active,
   })),
 );
 
@@ -200,7 +211,7 @@ async function loadToolsMeta() {
     const response = await toolApi.list();
     if (response.data?.status === 'ok') {
       const tools = response.data?.data || [];
-      const nextMap = {};
+      const nextMap: Record<string, ToolMeta> = {};
       for (const tool of tools) {
         if (!tool?.name) {
           continue;
@@ -224,8 +235,10 @@ async function loadSkillsMeta() {
     const response = await skillApi.list();
     if (response.data?.status === 'ok') {
       const payload = response.data?.data || [];
-      const skills = Array.isArray(payload) ? payload : payload.skills || [];
-      const nextMap = {};
+      const skills: SkillItemData[] = Array.isArray(payload)
+        ? payload
+        : payload.skills || [];
+      const nextMap: Record<string, SkillMeta> = {};
       for (const skill of skills) {
         if (skill?.name) {
           nextMap[skill.name] = {
@@ -247,7 +260,7 @@ async function loadSkillsMeta() {
   }
 }
 
-async function loadPromptPreview(promptId) {
+async function loadPromptPreview(promptId: string) {
   if (!promptId) {
     promptData.value = null;
     return;

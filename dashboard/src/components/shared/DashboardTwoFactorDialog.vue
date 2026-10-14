@@ -62,7 +62,7 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { useModuleI18n } from '@/i18n/composables';
 
@@ -94,7 +94,7 @@ function resetState() {
   code.value = '';
 }
 
-function onVisibilityChange(val) {
+function onVisibilityChange(val: boolean) {
   if (!val) {
     resetState();
   }

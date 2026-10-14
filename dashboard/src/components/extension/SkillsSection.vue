@@ -1,38 +1,13 @@
 <template>
   <div class="skills-page">
     <v-container fluid class="pa-0">
-      <v-row
-        v-if="neoEnabled"
-        class="d-flex justify-end align-center px-4 py-3 pb-4"
-      >
-        <v-btn-toggle v-model="mode" mandatory divided density="comfortable">
-          <v-btn value="local">{{ tm('skills.modeLocal') }}</v-btn>
-          <v-btn value="neo">{{ tm('skills.modeNeo') }}</v-btn>
-        </v-btn-toggle>
-      </v-row>
-
-      <div v-if="mode === 'local'" class="px-2 pb-2 d-flex flex-column ga-2">
-        <v-alert
-          v-if="runtime === 'sandbox' && !sandboxCache.ready"
-          type="info"
-          variant="tonal"
-          density="comfortable"
-          border="start"
-        >
-          {{ tm('skills.sandboxDiscoveryPending') }}
-        </v-alert>
-      </div>
-
-      <div v-if="mode === 'neo' && !neoEnabled" class="px-3 pb-3">
-        <v-alert
-          type="warning"
-          variant="tonal"
-          density="comfortable"
-          border="start"
-        >
-          {{ neoUnavailableMessage }}
-        </v-alert>
-      </div>
+      <SkillsModeHeader
+        v-model:mode="mode"
+        :neo-enabled="neoEnabled"
+        :runtime="runtime"
+        :sandbox-ready="sandboxCache.ready"
+        :neo-unavailable-message="neoUnavailableMessage"
+      />
 
       <SkillsLocalList
         v-if="mode === 'local'"
@@ -91,130 +66,32 @@
           </v-btn>
         </template>
 
-        <OutlinedActionListItem
+        <SkillListItem
           v-for="skill in filteredSkills"
           :key="skill.name"
-          :title="skill.name"
+          v-model:selected-names="selectedSkillNames"
+          :name="skill.name"
+          :description="skill.description"
+          :path="skill.path"
+          :active="skill.active"
+          :source-color="sourceTypeColor(skill.source_type)"
+          :source-label="sourceTypeLabel(skill.source_type, skill)"
+          :read-only="isReadOnlySourceSkill(skill)"
+          :inactive-plugin="isInactivePluginSkill(skill)"
+          :loading="Boolean(itemLoading[skill.name])"
+          :batch-selection-enabled="batchSelectionEnabled"
+          :batch-deleting="batchDeleting"
+          :clickable="!batchSelectionEnabled"
           :class="{
             'skill-list-item--inactive': isInactivePluginSkill(skill),
             'skill-list-item--selected':
               batchSelectionEnabled && selectedSkillNames.includes(skill.name),
           }"
-          :clickable="!batchSelectionEnabled"
-          @click="openSkillEditor(skill)"
-        >
-          <template #title-prepend>
-            <v-checkbox-btn
-              v-if="batchSelectionEnabled && !isReadOnlySourceSkill(skill)"
-              v-model="selectedSkillNames"
-              :value="skill.name"
-              density="compact"
-              hide-details
-              :disabled="batchDeleting"
-              :aria-label="
-                tm('skills.selectSkill', {
-                  name: skill.name,
-                })
-              "
-              @click.stop
-            />
-          </template>
-          <template #title-extra>
-            <v-chip
-              size="x-small"
-              variant="tonal"
-              :color="sourceTypeColor(skill.source_type)"
-            >
-              {{ sourceTypeLabel(skill.source_type, skill) }}
-            </v-chip>
-            <v-chip
-              v-if="isInactivePluginSkill(skill)"
-              size="x-small"
-              color="warning"
-              variant="tonal"
-            >
-              {{ tm('skills.pluginDisabled') }}
-            </v-chip>
-          </template>
-
-          <div class="skill-description text-body-2 text-medium-emphasis">
-            {{ skill.description || tm('skills.noDescription') }}
-          </div>
-
-          <div class="skill-path text-caption text-medium-emphasis">
-            <v-icon size="small" class="me-1">mdi-file-document</v-icon>
-            {{ tm('skills.path') }}: {{ skill.path }}
-          </div>
-
-          <template v-if="!batchSelectionEnabled" #actions>
-            <v-tooltip :text="tm('skills.download')" location="top">
-              <template #activator="{ props }">
-                <v-btn
-                  v-bind="props"
-                  icon="mdi-download-outline"
-                  variant="text"
-                  size="small"
-                  class="list-action-icon-btn"
-                  :aria-label="tm('skills.download')"
-                  :disabled="
-                    itemLoading[skill.name] || isReadOnlySourceSkill(skill)
-                  "
-                  @click.stop="downloadSkill(skill)"
-                />
-              </template>
-            </v-tooltip>
-
-            <v-tooltip :text="t('core.common.itemCard.delete')" location="top">
-              <template #activator="{ props }">
-                <v-btn
-                  v-bind="props"
-                  icon="mdi-delete-outline"
-                  variant="text"
-                  size="small"
-                  class="list-action-icon-btn"
-                  :aria-label="t('core.common.itemCard.delete')"
-                  :disabled="
-                    itemLoading[skill.name] || isReadOnlySourceSkill(skill)
-                  "
-                  @click.stop="confirmDelete(skill)"
-                />
-              </template>
-            </v-tooltip>
-          </template>
-
-          <template v-if="!batchSelectionEnabled" #control>
-            <v-tooltip location="top">
-              <template #activator="{ props }">
-                <v-switch
-                  v-bind="props"
-                  color="primary"
-                  density="compact"
-                  hide-details
-                  inset
-                  :aria-label="
-                    skill.active
-                      ? t('core.common.itemCard.enabled')
-                      : t('core.common.itemCard.disabled')
-                  "
-                  :model-value="skill.active && !isInactivePluginSkill(skill)"
-                  :loading="itemLoading[skill.name] || false"
-                  :disabled="
-                    itemLoading[skill.name] ||
-                    isReadOnlySourceSkill(skill) ||
-                    isInactivePluginSkill(skill)
-                  "
-                  @click.stop
-                  @update:model-value="toggleSkill(skill)"
-                />
-              </template>
-              <span>{{
-                skill.active
-                  ? t('core.common.itemCard.enabled')
-                  : t('core.common.itemCard.disabled')
-              }}</span>
-            </v-tooltip>
-          </template>
-        </OutlinedActionListItem>
+          @open="openSkillEditor(skill)"
+          @download="downloadSkill(skill)"
+          @delete="confirmDelete(skill)"
+          @toggle="toggleSkill(skill)"
+        />
       </SkillsLocalList>
 
       <SkillsNeoPanel
@@ -236,40 +113,11 @@
       />
     </v-container>
 
-    <div class="skills-fab-stack">
-      <v-tooltip :text="tm('skills.refresh')" location="left">
-        <template #activator="{ props }">
-          <v-btn
-            v-bind="props"
-            color="primary"
-            icon="mdi-refresh"
-            size="x-large"
-            variant="elevated"
-            class="skills-fab"
-            :aria-label="tm('skills.refresh')"
-            @click="refreshCurrentMode"
-          />
-        </template>
-      </v-tooltip>
-      <v-tooltip
-        v-if="mode === 'local'"
-        :text="tm('skills.upload')"
-        location="left"
-      >
-        <template #activator="{ props }">
-          <v-btn
-            v-bind="props"
-            color="primary"
-            icon="mdi-upload"
-            size="x-large"
-            variant="elevated"
-            class="skills-fab"
-            :aria-label="tm('skills.upload')"
-            @click="openUploadDialog"
-          />
-        </template>
-      </v-tooltip>
-    </div>
+    <SkillsFabStack
+      :mode="mode"
+      @refresh="refreshCurrentMode"
+      @upload="openUploadDialog"
+    />
 
     <SkillUploadDialog
       :show="uploadDialog"
@@ -341,11 +189,13 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import type { SkillItemData } from '@/api/v1';
 import { skillApi, systemConfigApi } from '@/api/v1';
-import { useI18n, useModuleI18n } from '@/i18n/composables';
-import OutlinedActionListItem from '@/components/shared/OutlinedActionListItem.vue';
+import { useModuleI18n } from '@/i18n/composables';
 import { buildSearchQuery, matchesText } from '@/utils/pluginSearch';
 import SkillsLocalList from './SkillsLocalList.vue';
 import SkillsNeoPanel from './SkillsNeoPanel.vue';
+import SkillsModeHeader from './skills/SkillsModeHeader.vue';
+import SkillsFabStack from './skills/SkillsFabStack.vue';
+import SkillListItem from './skills/SkillListItem.vue';
 import SkillUploadDialog from './SkillUploadDialog.vue';
 import SkillDeleteDialog from './SkillDeleteDialog.vue';
 import SkillBatchDeleteDialog from './SkillBatchDeleteDialog.vue';
@@ -395,7 +245,6 @@ interface SkillItem extends SkillItemData {
   readonly?: boolean;
 }
 
-const { t } = useI18n();
 const { tm } = useModuleI18n('features/extension');
 
 const mode = ref<SkillMode>('local');
@@ -1448,53 +1297,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.list-action-icon-btn {
-  color: rgba(var(--v-theme-on-surface), 0.78);
-}
-
-.list-action-icon-btn:hover {
-  background: rgba(var(--v-theme-on-surface), 0.08);
-  color: rgb(var(--v-theme-on-surface));
-}
-
-.skills-fab-stack {
-  align-items: center;
-  bottom: 52px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  position: fixed;
-  right: 52px;
-  z-index: 10000;
-}
-
-.skills-fab {
-  border-radius: 16px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
-.skills-fab:hover {
-  box-shadow: 0 12px 20px rgba(var(--v-theme-primary), 0.4);
-  transform: translateY(-4px) scale(1.05);
-}
-
-.skill-description {
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.skill-path {
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  margin-top: 6px;
-  overflow: hidden;
-  word-break: break-all;
-}
-
 .skill-list-item--inactive {
   opacity: 0.58;
 }

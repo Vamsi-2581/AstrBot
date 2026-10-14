@@ -117,7 +117,7 @@
               <v-list-item
                 v-for="(providerId, index) in selectedProviderIds"
                 :key="`selected-${providerId}`"
-                rounded="lg"
+                rounded="md"
                 class="selected-provider-item"
               >
                 <v-list-item-title class="provider-item-title">
@@ -166,7 +166,7 @@
             <v-list-item
               v-if="!multiple && allowEmpty && !searchQuery"
               :active="!modelValue"
-              rounded="lg"
+              rounded="md"
               class="provider-menu-item"
               @click="clearSelection"
             >
@@ -208,7 +208,7 @@
                 :key="provider.id"
                 :data-selected="isProviderSelected(provider.id) || undefined"
                 :active="isProviderSelected(provider.id)"
-                rounded="lg"
+                rounded="md"
                 class="provider-menu-item"
                 @click="selectProvider(provider)"
               >
@@ -402,7 +402,7 @@
     :scrim="true"
     @click:outside="closeProviderDrawer"
   >
-    <v-card class="provider-drawer-card" elevation="12">
+    <v-card class="provider-drawer-card" elevation="4">
       <div class="provider-drawer-header">
         <v-btn icon variant="text" @click="closeProviderDrawer">
           <v-icon>mdi-close</v-icon>

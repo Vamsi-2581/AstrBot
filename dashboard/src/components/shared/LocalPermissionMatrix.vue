@@ -101,7 +101,7 @@
               variant="outlined"
               density="compact"
               hide-details
-              :menu-props="{ rounded: 'lg', maxWidth: 420 }"
+              :menu-props="filesystemMenuProps"
               @update:model-value="
                 updatePermission(role, { filesystem_scope: $event })
               "
@@ -170,11 +170,13 @@
     >
       <v-icon size="16" aria-hidden="true">mdi-shield-alert-outline</v-icon>
       <span>{{
-        tm(`runtime.setupHint.${runtime.sandbox.status}`, {
+        tm(`runtime.setupHint.${runtime?.sandbox?.status}`, {
           backend:
-            runtime.sandbox.backend === 'seatbelt' ? 'Seatbelt' : 'bubblewrap',
+            runtime?.sandbox?.backend === 'seatbelt'
+              ? 'Seatbelt'
+              : 'bubblewrap',
           dependency:
-            runtime.sandbox.backend === 'seatbelt' ? 'sandbox-exec' : 'bwrap',
+            runtime?.sandbox?.backend === 'seatbelt' ? 'sandbox-exec' : 'bwrap',
         })
       }}</span>
     </button>
@@ -228,7 +230,7 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 export const windowsPermissionDefaults = {
   member: {
     filesystem_scope: 'none',
@@ -243,15 +245,34 @@ export const windowsPermissionDefaults = {
 };
 </script>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import type { PropType } from 'vue';
 import { useI18n, useModuleI18n } from '@/i18n/composables';
 import { statsApi } from '@/api/v1';
+import type { RuntimeInfo } from '@/api/v1';
 import { docsHref } from '@/utils/docsHref';
+
+interface PermissionPolicy {
+  filesystem_scope: string;
+  allow_execution: boolean;
+  allow_network: boolean;
+}
+
+interface PermissionDefaults {
+  member: PermissionPolicy;
+  admin: PermissionPolicy;
+}
+
+type PermissionRole = keyof PermissionDefaults;
+
+type PermissionModelValue = Partial<
+  Record<PermissionRole, Partial<PermissionPolicy>>
+>;
 
 const props = defineProps({
   modelValue: {
-    type: Object,
+    type: Object as PropType<PermissionModelValue>,
     default: () => ({}),
   },
 });
@@ -261,37 +282,36 @@ const { locale } = useI18n();
 const { tm } = useModuleI18n(
   'features/config-metadata.ai_group.agent_computer_use.local_permissions',
 );
-const runtime = ref(null);
+const runtime = ref<RuntimeInfo | null>(null);
 const runtimeLoading = ref(true);
 const isolationDialogOpen = ref(false);
+const filesystemMenuProps = { rounded: 'lg', maxWidth: 420 };
 const isolationDocumentationUrl = computed(() =>
   docsHref('use/astrbot-agent-sandbox.html', locale.value),
 );
 const unsupported = computed(
   () => runtime.value?.sandbox?.status === 'unsupported',
 );
-const sandboxUnavailable = computed(() =>
-  ['missing', 'unavailable'].includes(runtime.value?.sandbox?.status),
-);
+const sandboxUnavailable = computed(() => {
+  const status = runtime.value?.sandbox?.status;
+  return status === 'missing' || status === 'unavailable';
+});
 const isolationUnavailable = computed(
   () => unsupported.value || sandboxUnavailable.value,
 );
-const executionUnavailableHint = computed(() =>
-  isolationUnavailable.value
-    ? tm(`runtime.executionUnavailable.${runtime.value.sandbox.status}`, {
-        backend:
-          runtime.value.sandbox.backend === 'seatbelt'
-            ? 'Seatbelt'
-            : 'bubblewrap',
-        dependency:
-          runtime.value.sandbox.backend === 'seatbelt'
-            ? 'sandbox-exec'
-            : 'bwrap',
-      })
-    : '',
-);
-const roles = ['member', 'admin'];
-const defaults = computed(() =>
+const executionUnavailableHint = computed(() => {
+  const current = runtime.value;
+  if (!isolationUnavailable.value || !current) {
+    return '';
+  }
+  return tm(`runtime.executionUnavailable.${current.sandbox.status}`, {
+    backend: current.sandbox.backend === 'seatbelt' ? 'Seatbelt' : 'bubblewrap',
+    dependency:
+      current.sandbox.backend === 'seatbelt' ? 'sandbox-exec' : 'bwrap',
+  });
+});
+const roles: PermissionRole[] = ['member', 'admin'];
+const defaults = computed<PermissionDefaults>(() =>
   runtime.value?.os === 'windows'
     ? windowsPermissionDefaults
     : {
@@ -319,8 +339,8 @@ onMounted(async () => {
   }
 });
 
-function policy(role) {
-  const resolved = {
+function policy(role: PermissionRole): PermissionPolicy {
+  const resolved: PermissionPolicy = {
     ...defaults.value[role],
     ...(props.modelValue?.[role] || {}),
   };
@@ -336,8 +356,11 @@ function policy(role) {
   return resolved;
 }
 
-function updatePermission(role, changes) {
-  const updatedRole = {
+function updatePermission(
+  role: PermissionRole,
+  changes: Partial<PermissionPolicy>,
+) {
+  const updatedRole: PermissionPolicy = {
     ...policy(role),
     ...changes,
   };
@@ -372,7 +395,7 @@ const permissionLocks = computed(() =>
               current.filesystem_scope === 'workspace'),
           network: !runtime.value || !current.allow_execution,
         },
-      ];
+      ] as const;
     }),
   ),
 );

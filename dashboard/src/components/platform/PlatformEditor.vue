@@ -16,14 +16,14 @@
 
       <div class="bot-editor__actions">
         <v-btn
-          v-if="runtimeStat?.error_count > 0"
+          v-if="(runtimeStat?.error_count ?? 0) > 0"
           color="error"
           prepend-icon="mdi-alert-circle-outline"
           variant="text"
           rounded="md"
           @click="$emit('show-error')"
         >
-          {{ runtimeStat.error_count }} {{ tm('runtimeStatus.errors') }}
+          {{ runtimeStat?.error_count }} {{ tm('runtimeStatus.errors') }}
         </v-btn>
         <v-btn
           v-if="hasQrPayload"
@@ -86,7 +86,7 @@
 
         <AstrBotConfig
           :iterable="draft"
-          :metadata="metadata['platform_group']?.metadata"
+          :metadata="metadata['platform_group']?.metadata ?? {}"
           metadata-key="platform"
           :is-editing="true"
         />
@@ -392,7 +392,7 @@
   <ConfigProfileDrawer v-model="configDrawerOpen" :config-id="configDrawerId" />
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import {
   botApi,
@@ -407,31 +407,111 @@ import UmoDisplay from '@/components/shared/UmoDisplay.vue';
 import { useModuleI18n } from '@/i18n/composables';
 import { getPlatformIcon, getTutorialLink } from '@/utils/platformUtils';
 import { runBotMutationWithStepUp } from '@/utils/stepUp';
+import type { RequestDashboardStepUp } from '@/utils/stepUp';
 import { resolveErrorMessage } from '@/utils/errorUtils';
 
 const SYSTEM_DEFAULT_CONFIG = '__astrbot_system_default__';
 
-const props = defineProps({
-  platform: {
-    type: Object,
-    required: true,
-  },
-  metadata: {
-    type: Object,
-    default: () => ({}),
-  },
-  runtimeStat: {
-    type: Object,
-    default: null,
-  },
-  hasQrPayload: {
-    type: Boolean,
-    default: false,
-  },
-  requestStepUp: {
-    type: Function,
-    default: null,
-  },
+interface PlatformConfig {
+  id?: string;
+  type?: string;
+  enable?: boolean;
+  webhook_uuid?: string;
+  [key: string]: unknown;
+}
+
+interface PlatformTemplate {
+  id?: string;
+  type?: string;
+  logo_token?: string;
+  [key: string]: unknown;
+}
+
+interface PlatformMetadata {
+  platform_group?: {
+    metadata?: {
+      platform?: {
+        config_template?: Record<string, PlatformTemplate>;
+      };
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+interface RuntimeStat {
+  status?: string;
+  error_count?: number;
+  unified_webhook?: boolean;
+  [key: string]: unknown;
+}
+
+interface ConfigProfile {
+  id?: string;
+  name?: string;
+  value?: string;
+  [key: string]: unknown;
+}
+
+interface ConfigOption {
+  id?: string;
+  name?: string;
+  value?: string;
+  [key: string]: unknown;
+}
+
+interface SimpleBinding {
+  key: string;
+  umo: string;
+  configId?: string;
+}
+
+interface AdvancedRoute {
+  key: string;
+  pattern: string;
+  configId?: string;
+}
+
+interface ParsedUmo {
+  platform: string;
+  messageType: string;
+  sessionId: string;
+}
+
+interface SessionInfo {
+  umo?: string;
+  platform?: string;
+  message_type?: string;
+  session_id?: string;
+  auto_name?: string;
+  user_alias?: string;
+  [key: string]: unknown;
+}
+
+interface SessionDisplayProps {
+  umo: string;
+  platform: string;
+  messageType: string;
+  sessionId: string;
+  autoName: string;
+  userAlias: string;
+  customName: string;
+}
+
+interface PlatformEditorProps {
+  platform: PlatformConfig;
+  metadata?: PlatformMetadata;
+  runtimeStat?: RuntimeStat | null;
+  hasQrPayload?: boolean;
+  requestStepUp?: RequestDashboardStepUp | null;
+}
+
+const props = withDefaults(defineProps<PlatformEditorProps>(), {
+  metadata: () => ({}),
+  runtimeStat: null,
+  hasQrPayload: false,
+  requestStepUp: null,
 });
 
 const emit = defineEmits([
@@ -446,15 +526,15 @@ const { tm } = useModuleI18n('features/platform');
 const { tm: sharedTm } = useModuleI18n('core/shared');
 
 const configDrawerOpen = ref(false);
-const configDrawerId = ref('');
+const configDrawerId = ref<string | undefined>('');
 
-function openConfigDrawer(configId) {
+function openConfigDrawer(configId?: string): void {
   configDrawerId.value =
     configId === SYSTEM_DEFAULT_CONFIG ? 'default' : configId;
   configDrawerOpen.value = true;
 }
 
-const draft = ref({});
+const draft = ref<PlatformConfig>({});
 const originalPlatformId = ref('');
 const initialConfigSnapshot = ref('');
 const initialRouteSnapshot = ref('');
@@ -463,14 +543,14 @@ const saving = ref(false);
 const routesReady = ref(false);
 const routeLoadFailed = ref(false);
 const loadingSessions = ref(false);
-const fullRoutingTable = ref({});
-const configProfiles = ref([]);
-const knownSessionUmos = ref([]);
-const knownSessionInfo = ref({});
-const simpleBindings = ref([]);
-const advancedRoutes = ref([]);
+const fullRoutingTable = ref<Record<string, string>>({});
+const configProfiles = ref<ConfigProfile[]>([]);
+const knownSessionUmos = ref<string[]>([]);
+const knownSessionInfo = ref<Record<string, SessionInfo>>({});
+const simpleBindings = ref<SimpleBinding[]>([]);
+const advancedRoutes = ref<AdvancedRoute[]>([]);
 const fallbackConfigId = ref(SYSTEM_DEFAULT_CONFIG);
-const pendingSessionUmo = ref(null);
+const pendingSessionUmo = ref<string | null>(null);
 const pendingConfigId = ref('default');
 let routeKey = 0;
 let loadVersion = 0;
@@ -486,11 +566,11 @@ const platformIcon = computed(() => {
     return fileApi.tokenUrl(template.logo_token);
   }
   return getPlatformIcon(
-    draft.value.type || props.platform.type || props.platform.id,
+    draft.value.type || props.platform.type || props.platform.id || '',
   );
 });
 
-const defaultConfigOptions = computed(() => [
+const defaultConfigOptions = computed<ConfigOption[]>(() => [
   {
     id: SYSTEM_DEFAULT_CONFIG,
     name: tm('workspace.routes.systemDefault'),
@@ -560,7 +640,9 @@ watch(
   },
 );
 
-function findPlatformTemplate(platform) {
+function findPlatformTemplate(
+  platform: PlatformConfig,
+): PlatformTemplate | undefined {
   if (platform?.type && platformTemplates.value[platform.type]) {
     return platformTemplates.value[platform.type];
   }
@@ -572,22 +654,28 @@ function findPlatformTemplate(platform) {
   );
 }
 
-function mergeConfigWithTemplate(sourceConfig, templateConfig) {
-  const clone = (value) =>
+function mergeConfigWithTemplate(
+  sourceConfig: unknown,
+  templateConfig: unknown,
+): Record<string, unknown> {
+  const clone = (value: unknown): unknown =>
     value === undefined ? undefined : JSON.parse(JSON.stringify(value));
-  const merge = (source, reference) => {
-    const target = {};
-    const sourceObject =
+  const merge = (
+    source: unknown,
+    reference: unknown,
+  ): Record<string, unknown> => {
+    const target: Record<string, unknown> = {};
+    const sourceObject: Record<string, unknown> =
       source && typeof source === 'object' && !Array.isArray(source)
-        ? source
+        ? (source as Record<string, unknown>)
         : {};
-    const referenceObject =
+    const referenceObject: Record<string, unknown> | null =
       reference && typeof reference === 'object' && !Array.isArray(reference)
-        ? reference
+        ? (reference as Record<string, unknown>)
         : null;
 
     if (!referenceObject) {
-      return clone(sourceObject);
+      return clone(sourceObject) as Record<string, unknown>;
     }
 
     for (const [key, referenceValue] of Object.entries(referenceObject)) {
@@ -616,13 +704,15 @@ function mergeConfigWithTemplate(sourceConfig, templateConfig) {
   return merge(sourceConfig, templateConfig);
 }
 
-async function initialize(platform) {
+async function initialize(platform: PlatformConfig): Promise<void> {
   const version = ++loadVersion;
   loading.value = true;
   routesReady.value = false;
   routeLoadFailed.value = false;
   originalPlatformId.value = platform?.id || '';
-  const platformCopy = JSON.parse(JSON.stringify(platform || {}));
+  const platformCopy: PlatformConfig = JSON.parse(
+    JSON.stringify(platform || {}),
+  );
   const template = findPlatformTemplate(platformCopy);
   draft.value = template
     ? mergeConfigWithTemplate(platformCopy, template)
@@ -691,11 +781,11 @@ async function initialize(platform) {
   loading.value = false;
 }
 
-function loadBotRoutes(platformId) {
+function loadBotRoutes(platformId: string): void {
   let fallbackFound = false;
   for (const [pattern, configId] of Object.entries(fullRoutingTable.value)) {
     const parsed = parseUmo(pattern);
-    if (!parsed || parsed.platform !== platformId) continue;
+    if (parsed?.platform !== platformId) continue;
 
     if (!fallbackFound && isBotFallbackPattern(parsed)) {
       fallbackConfigId.value = configId;
@@ -720,7 +810,7 @@ function loadBotRoutes(platformId) {
   }
 }
 
-function parseUmo(umo) {
+function parseUmo(umo: unknown): ParsedUmo | null {
   if (typeof umo !== 'string') return null;
   const firstSeparator = umo.indexOf(':');
   if (firstSeparator === -1) return null;
@@ -733,24 +823,24 @@ function parseUmo(umo) {
   };
 }
 
-function hasGlob(value) {
+function hasGlob(value: string): boolean {
   return value.includes('*') || value.includes('?') || value.includes('[');
 }
 
-function isBotFallbackPattern(parsed) {
+function isBotFallbackPattern(parsed: ParsedUmo): boolean {
   return (
     ['', '*'].includes(parsed.messageType) &&
     ['', '*'].includes(parsed.sessionId)
   );
 }
 
-function isExactSessionPattern(parsed) {
+function isExactSessionPattern(parsed: ParsedUmo): boolean {
   return !hasGlob(parsed.messageType) && !hasGlob(parsed.sessionId);
 }
 
-function getSessionDisplayProps(umo) {
-  const parsed = parseUmo(umo) || {};
-  const info = knownSessionInfo.value[umo] || {};
+function getSessionDisplayProps(umo: string): SessionDisplayProps {
+  const parsed: Partial<ParsedUmo> = parseUmo(umo) ?? {};
+  const info: SessionInfo = knownSessionInfo.value[umo] ?? {};
   const messageType = info.message_type || parsed.messageType || '';
   const sessionId = info.session_id || parsed.sessionId || umo;
   let sessionType = tm('workspace.routes.sessionTypes.other');
@@ -775,7 +865,7 @@ function getSessionDisplayProps(umo) {
   };
 }
 
-function addBinding() {
+function addBinding(): void {
   if (!pendingSessionUmo.value || !pendingConfigId.value) return;
   simpleBindings.value.push({
     key: `session-${routeKey++}`,
@@ -785,10 +875,10 @@ function addBinding() {
   pendingSessionUmo.value = null;
 }
 
-function addAdvancedRoute() {
+function addAdvancedRoute(): void {
   const platformId = draft.value.id || originalPlatformId.value;
   const profiles = configProfiles.value;
-  let defaultConfigId = '';
+  let defaultConfigId: string | undefined = '';
   for (const profile of profiles) {
     if (profile.id === 'default') {
       defaultConfigId = profile.id;
@@ -807,7 +897,7 @@ function addAdvancedRoute() {
   });
 }
 
-function moveAdvancedRoute(index, offset) {
+function moveAdvancedRoute(index: number, offset: number): void {
   const targetIndex = index + offset;
   if (targetIndex < 0 || targetIndex >= advancedRoutes.value.length) return;
   const routes = [...advancedRoutes.value];
@@ -815,7 +905,7 @@ function moveAdvancedRoute(index, offset) {
   advancedRoutes.value = routes;
 }
 
-function getPatternError(pattern) {
+function getPatternError(pattern: string): string {
   if (!pattern) return tm('workspace.routes.patternRequired');
   const parsed = parseUmo(pattern);
   if (!parsed) return tm('workspace.routes.patternInvalid');
@@ -829,19 +919,22 @@ function getPatternError(pattern) {
   return '';
 }
 
-function rewritePatternPlatform(pattern, targetPlatformId) {
+function rewritePatternPlatform(
+  pattern: string,
+  targetPlatformId: string,
+): string {
   const parsed = parseUmo(pattern);
   if (!parsed) return pattern;
   return `${targetPlatformId}:${parsed.messageType}:${parsed.sessionId}`;
 }
 
-async function save() {
+async function save(): Promise<void> {
   if (!canSave.value) return;
   saving.value = true;
   try {
     const oldPlatformId = originalPlatformId.value;
     const newPlatformId = draft.value.id || oldPlatformId;
-    let nextRoutingTable = null;
+    let nextRoutingTable: Record<string, string> | null = null;
     if (routesReady.value) {
       const retainedEntries = Object.entries(fullRoutingTable.value).filter(
         ([pattern]) => {
@@ -851,8 +944,8 @@ async function save() {
           );
         },
       );
-      const botEntries = [];
-      const routePatterns = new Set();
+      const botEntries: [string, string][] = [];
+      const routePatterns = new Set<string>();
 
       for (const binding of simpleBindings.value) {
         if (!binding.configId) continue;
@@ -870,7 +963,7 @@ async function save() {
           throw new Error(tm('workspace.routes.duplicatePattern'));
         }
         routePatterns.add(pattern);
-        botEntries.push([pattern, route.configId]);
+        botEntries.push([pattern, route.configId as string]);
       }
 
       if (fallbackConfigId.value !== SYSTEM_DEFAULT_CONFIG) {
@@ -893,7 +986,7 @@ async function save() {
           ? botApi.update(oldPlatformId, draft.value, stepUp)
           : botApi.update(oldPlatformId, draft.value),
       oldPlatformId,
-      props.requestStepUp,
+      props.requestStepUp ?? undefined,
     );
     if (!response) return;
     if (response.data.status === 'error') {
@@ -918,15 +1011,15 @@ async function save() {
   }
 }
 
-function openTutorial() {
-  window.open(getTutorialLink(draft.value.type), '_blank');
+function openTutorial(): void {
+  window.open(getTutorialLink(draft.value.type || ''), '_blank');
 }
 
-function showSuccess(message) {
+function showSuccess(message: string): void {
   emit('show-toast', { message, type: 'success' });
 }
 
-function showError(error) {
+function showError(error: unknown): void {
   emit('show-toast', {
     message: resolveErrorMessage(error, tm('messages.platformUpdateFailed')),
     type: 'error',

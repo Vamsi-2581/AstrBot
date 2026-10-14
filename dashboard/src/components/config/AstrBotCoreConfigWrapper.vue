@@ -107,6 +107,7 @@ interface ConfigMetadataItem {
   hint?: string;
   docs?: string;
   items?: Record<string, ConfigMetadataItem>;
+  [key: string]: unknown;
 }
 
 interface ConfigSectionValue {

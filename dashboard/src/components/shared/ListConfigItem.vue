@@ -234,48 +234,38 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
 import { useI18n } from '@/i18n/composables';
 
 const { t } = useI18n();
 
-const props = defineProps({
-  modelValue: {
-    type: Array,
-    default: () => [],
+const props = withDefaults(
+  defineProps<{
+    modelValue?: string[];
+    label?: string;
+    buttonText?: string;
+    dialogTitle?: string;
+    maxDisplayItems?: number;
+    preferSingleItem?: boolean;
+    secret?: boolean;
+  }>(),
+  {
+    modelValue: () => [],
+    label: '',
+    buttonText: '',
+    dialogTitle: '',
+    maxDisplayItems: 1,
+    preferSingleItem: true,
+    secret: false,
   },
-  label: {
-    type: String,
-    default: '',
-  },
-  buttonText: {
-    type: String,
-    default: '',
-  },
-  dialogTitle: {
-    type: String,
-    default: '',
-  },
-  maxDisplayItems: {
-    type: Number,
-    default: 1,
-  },
-  preferSingleItem: {
-    type: Boolean,
-    default: true,
-  },
-  secret: {
-    type: Boolean,
-    default: false,
-  },
-});
+);
 
 const emit = defineEmits(['update:modelValue']);
 
 const dialog = ref(false);
-const localItems = ref([]);
-const originalItems = ref([]);
+const localItems = ref<string[]>([]);
+const originalItems = ref<string[]>([]);
 const newItem = ref('');
 const editIndex = ref(-1);
 const editItem = ref('');
@@ -365,11 +355,11 @@ function addItem() {
   }
 }
 
-function removeItem(index) {
+function removeItem(index: number) {
   localItems.value.splice(index, 1);
 }
 
-function startEdit(index, item) {
+function startEdit(index: number, item: string) {
   editIndex.value = index;
   editItem.value = item;
 }

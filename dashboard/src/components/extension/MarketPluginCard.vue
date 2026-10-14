@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { useModuleI18n } from '@/i18n/composables';
 import PluginPlatformChip from '@/components/shared/PluginPlatformChip.vue';
@@ -24,7 +24,7 @@ const props = defineProps({
 
 const emit = defineEmits(['install', 'open']);
 
-const normalizePlatformList = (platforms) => {
+const normalizePlatformList = (platforms: unknown) => {
   if (!Array.isArray(platforms)) return [];
   return platforms.filter((item) => typeof item === 'string');
 };
@@ -40,7 +40,7 @@ const cardDescription = computed(() =>
   ),
 );
 
-const handleInstall = (plugin) => {
+const handleInstall = (plugin: Record<string, unknown>) => {
   emit('install', plugin);
 };
 

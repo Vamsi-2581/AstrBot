@@ -1,8 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import { LazyMonacoEditor as VueMonacoEditor } from './LazyMonacoEditor';
-import { ref, computed } from 'vue';
+import { ref, computed, type ComputedRef } from 'vue';
 import ConfigItemRenderer from './ConfigItemRenderer.vue';
 import TemplateListEditor from './TemplateListEditor.vue';
 import PromptQuickPreview from './PromptQuickPreview.vue';
@@ -10,35 +10,86 @@ import ConfigDocsLink from './ConfigDocsLink.vue';
 import { useI18n, useModuleI18n } from '@/i18n/composables';
 import { useConfigTextResolver } from '@/composables/useConfigTextResolver';
 
-const props = defineProps({
-  metadata: {
-    type: Object,
-    required: true,
-  },
-  iterable: {
-    type: Object,
-    required: true,
-  },
-  metadataKey: {
-    type: String,
-    required: true,
-  },
-  searchKeyword: {
-    type: String,
-    default: '',
-  },
-  pluginName: {
-    type: String,
-    default: '',
-  },
-  pluginI18n: {
-    type: Object,
-    default: () => ({}),
-  },
-  pathPrefix: {
-    type: String,
-    default: '',
-  },
+interface TemplateItemMeta {
+  type?: string;
+  default?: unknown;
+  invisible?: boolean;
+  description?: string;
+  hint?: string;
+  condition?: Record<string, unknown>;
+  items: Record<string, TemplateItemMeta>;
+  [key: string]: unknown;
+}
+
+interface TemplateMeta {
+  name?: string;
+  hint?: string;
+  description?: string;
+  hide_hint_in_list?: boolean;
+  display_item?: string;
+  items: Record<string, TemplateItemMeta>;
+  [key: string]: unknown;
+}
+
+type TemplateValue =
+  | string
+  | number
+  | boolean
+  | TemplateValue[]
+  | { [key: string]: TemplateValue };
+
+type TemplateEntryValue = TemplateValue & { [key: string]: TemplateValue };
+
+type TemplateEntry = {
+  __template_key?: string;
+} & {
+  [key: string]: TemplateEntryValue;
+};
+
+interface ConfigItemMeta {
+  type?: string;
+  description?: string;
+  hint?: string;
+  docs?: unknown;
+  obvious_hint?: boolean;
+  collapsed?: boolean;
+  invisible?: boolean;
+  full_width?: boolean;
+  condition?: Record<string, unknown>;
+  templates?: Record<string, TemplateMeta>;
+  _special?: string;
+  editor_mode?: boolean;
+  editor_theme?: string;
+  editor_language?: string;
+  [key: string]: unknown;
+}
+
+interface ConfigSectionMeta {
+  type?: string;
+  description?: string;
+  hint?: string;
+  docs?: unknown;
+  obvious_hint?: boolean;
+  condition?: Record<string, unknown>;
+  items?: Record<string, ConfigItemMeta>;
+  [key: string]: unknown;
+}
+
+interface Props {
+  metadata: Record<string, ConfigSectionMeta>;
+  iterable: Record<string, unknown>;
+  metadataKey: string;
+  searchKeyword?: string;
+  pluginName?: string;
+  pluginI18n?: Record<string, unknown>;
+  pathPrefix?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  searchKeyword: '',
+  pluginName: '',
+  pluginI18n: () => ({}),
+  pathPrefix: '',
 });
 
 const { t } = useI18n();
@@ -50,10 +101,10 @@ const hintMarkdown = new MarkdownIt({
   breaks: true,
 });
 
-const renderHint = (value) => {
+const renderHint = (value: unknown): string => {
   const text = translateIfKey(value);
   if (!text) return '';
-  return DOMPurify.sanitize(hintMarkdown.renderInline(text));
+  return DOMPurify.sanitize(hintMarkdown.renderInline(text as string));
 };
 
 const dialog = ref(false);
@@ -61,14 +112,14 @@ const showCollapsedItems = ref(false);
 const currentEditingKey = ref('');
 const currentEditingLanguage = ref('json');
 const currentEditingTheme = ref('vs-light');
-let currentEditingKeyIterable = null;
+let currentEditingKeyIterable: Record<string, string> = {};
 
-function getValueBySelector(obj, selector) {
+function getValueBySelector(obj: unknown, selector: string): unknown {
   const keys = selector.split('.');
-  let current = obj;
+  let current: unknown = obj;
   for (const key of keys) {
     if (current && typeof current === 'object' && key in current) {
-      current = current[key];
+      current = (current as Record<string, unknown>)[key];
     } else {
       return undefined;
     }
@@ -76,17 +127,22 @@ function getValueBySelector(obj, selector) {
   return current;
 }
 
-function setValueBySelector(obj, selector, value) {
+function setValueBySelector(
+  obj: Record<string, unknown>,
+  selector: string,
+  value: unknown,
+): void {
   const keys = selector.split('.');
-  let current = obj;
+  let current: Record<string, unknown> = obj;
 
   // 创建嵌套对象路径
   for (let i = 0; i < keys.length - 1; i++) {
     const key = keys[i];
-    if (!current[key] || typeof current[key] !== 'object') {
+    const next = current[key];
+    if (!next || typeof next !== 'object') {
       current[key] = {};
     }
-    current = current[key];
+    current = current[key] as Record<string, unknown>;
   }
 
   // 设置最终值
@@ -94,10 +150,10 @@ function setValueBySelector(obj, selector, value) {
 }
 
 // 创建一个计算属性来处理 JSON selector 的获取和设置
-function createSelectorModel(selector) {
-  return computed({
+function createSelectorModel(selector: string): ComputedRef<TemplateEntry[]> {
+  return computed<TemplateEntry[]>({
     get() {
-      return getValueBySelector(props.iterable, selector);
+      return getValueBySelector(props.iterable, selector) as TemplateEntry[];
     },
     set(value) {
       setValueBySelector(props.iterable, selector, value);
@@ -105,11 +161,14 @@ function createSelectorModel(selector) {
   });
 }
 
-function getItemPath(key) {
+function getItemPath(key: string): string {
   return props.pathPrefix ? `${props.pathPrefix}.${key}` : key;
 }
 
-function getItemDescription(itemKey, itemMeta) {
+function getItemDescription(
+  itemKey: string,
+  itemMeta?: ConfigItemMeta,
+): string {
   return (
     resolveConfigText(
       getItemPath(itemKey),
@@ -119,23 +178,28 @@ function getItemDescription(itemKey, itemMeta) {
   );
 }
 
-function getItemHint(itemKey, itemMeta) {
+function getItemHint(itemKey: string, itemMeta?: ConfigItemMeta): string {
   return resolveConfigText(getItemPath(itemKey), 'hint', itemMeta?.hint);
 }
 
-function openEditorDialog(key, value, theme, language) {
+function openEditorDialog(
+  key: string,
+  value: Record<string, unknown>,
+  theme?: string,
+  language?: string,
+): void {
   currentEditingKey.value = key;
   currentEditingLanguage.value = language || 'json';
   currentEditingTheme.value = theme || 'vs-light';
-  currentEditingKeyIterable = value;
+  currentEditingKeyIterable = value as Record<string, string>;
   dialog.value = true;
 }
 
-function saveEditedContent() {
+function saveEditedContent(): void {
   dialog.value = false;
 }
 
-function shouldShowItem(itemMeta, itemKey) {
+function shouldShowItem(itemMeta: ConfigItemMeta, itemKey: string): boolean {
   if (itemMeta?.condition) {
     for (const [conditionKey, expectedValue] of Object.entries(
       itemMeta.condition,
@@ -166,7 +230,7 @@ function shouldShowItem(itemMeta, itemKey) {
 }
 
 /** Return metadata entries that should render in the requested section. */
-function getVisibleItemEntries(collapsed = false) {
+function getVisibleItemEntries(collapsed = false): [string, ConfigItemMeta][] {
   const sectionItems = props.metadata?.[props.metadataKey]?.items || {};
   return Object.entries(sectionItems).filter(([itemKey, itemMeta]) => {
     const isCollapsed = Boolean(itemMeta?.collapsed);
@@ -178,15 +242,18 @@ function getVisibleItemEntries(collapsed = false) {
   });
 }
 
-function hasCollapsedItems() {
+function hasCollapsedItems(): boolean {
   return getVisibleItemEntries(true).length > 0;
 }
 
-function hasVisibleEntriesAfter(entries, currentIndex) {
+function hasVisibleEntriesAfter(
+  entries: [string, ConfigItemMeta][],
+  currentIndex: number,
+): boolean {
   return currentIndex < entries.length - 1;
 }
 
-function areCollapsedItemsVisible() {
+function areCollapsedItemsVisible(): boolean {
   if (!hasCollapsedItems()) {
     return false;
   }
@@ -196,12 +263,12 @@ function areCollapsedItemsVisible() {
   return showCollapsedItems.value;
 }
 
-function toggleCollapsedItems() {
+function toggleCollapsedItems(): void {
   showCollapsedItems.value = !showCollapsedItems.value;
 }
 
 // 检查最外层的 object 是否应该显示
-function shouldShowSection() {
+function shouldShowSection(): boolean {
   const sectionMeta = props.metadata[props.metadataKey];
   if (!sectionMeta?.condition) {
     return true;
@@ -302,7 +369,7 @@ function shouldShowSection() {
             <ConfigItemRenderer
               v-else
               v-model="createSelectorModel(itemKey).value"
-              :item-meta="itemMeta || null"
+              :item-meta="itemMeta"
               :config-root="iterable"
               :plugin-name="pluginName"
               :plugin-i18n="pluginI18n"
@@ -341,7 +408,8 @@ function shouldShowSection() {
               </div>
               <div class="d-flex flex-wrap ga-2 mt-2">
                 <v-chip
-                  v-for="plugin in createSelectorModel(itemKey).value || []"
+                  v-for="plugin in (createSelectorModel(itemKey)
+                    .value as unknown as string[]) || []"
                   :key="plugin"
                   size="small"
                   label
@@ -365,7 +433,7 @@ function shouldShowSection() {
         >
           <v-col cols="12" class="prompt-preview-display">
             <PromptQuickPreview
-              :model-value="createSelectorModel(itemKey).value"
+              :model-value="String(createSelectorModel(itemKey).value ?? '')"
             />
           </v-col>
         </v-row>
@@ -438,7 +506,7 @@ function shouldShowSection() {
                 <ConfigItemRenderer
                   v-else
                   v-model="createSelectorModel(itemKey).value"
-                  :item-meta="itemMeta || null"
+                  :item-meta="itemMeta"
                   :config-root="iterable"
                   :plugin-name="pluginName"
                   :plugin-i18n="pluginI18n"
@@ -478,7 +546,8 @@ function shouldShowSection() {
                   </div>
                   <div class="d-flex flex-wrap ga-2 mt-2">
                     <v-chip
-                      v-for="plugin in createSelectorModel(itemKey).value || []"
+                      v-for="plugin in (createSelectorModel(itemKey)
+                        .value as unknown as string[]) || []"
                       :key="plugin"
                       size="small"
                       label
@@ -504,7 +573,9 @@ function shouldShowSection() {
             >
               <v-col cols="12" class="prompt-preview-display">
                 <PromptQuickPreview
-                  :model-value="createSelectorModel(itemKey).value"
+                  :model-value="
+                    String(createSelectorModel(itemKey).value ?? '')
+                  "
                 />
               </v-col>
             </v-row>

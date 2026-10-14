@@ -8,9 +8,10 @@ import {
   watch,
 } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { LazyMonacoEditor as VueMonacoEditor } from '@/components/shared/LazyMonacoEditor';
 import { conversationApi } from '@/api/v1';
+import ConversationEditTitleDialog from '@/components/conversation/ConversationEditTitleDialog.vue';
 import ConversationHistoryPreview from '@/components/conversation/ConversationHistoryPreview.vue';
+import ConversationRawDataDialog from '@/components/conversation/ConversationRawDataDialog.vue';
 import DashboardStepUpDialog from '@/components/shared/DashboardStepUpDialog.vue';
 import { useDashboardStepUp } from '@/composables/useDashboardStepUp';
 import { useI18n, useModuleI18n } from '@/i18n/composables';
@@ -1292,97 +1293,18 @@ function changePage(nextPage: number) {
       </section>
     </main>
 
-    <v-dialog
+    <ConversationRawDataDialog
       v-model="rawDataDialog"
-      max-width="900"
-      scrollable
-      :aria-label="tm('workspace.preview.rawData')"
-    >
-      <v-card class="raw-data-card">
-        <v-card-title class="text-h3 pa-4 pb-0 pl-6 raw-data-title">
-          <span>{{ tm('workspace.preview.rawData') }}</span>
-          <v-btn
-            icon
-            size="small"
-            variant="text"
-            :aria-label="tm('workspace.preview.copyRawData')"
-            @click="copyRawData"
-          >
-            <v-icon size="17" aria-hidden="true">mdi-content-copy</v-icon>
-            <v-tooltip activator="parent" location="top">
-              {{ tm('workspace.preview.copyRawData') }}
-            </v-tooltip>
-          </v-btn>
-        </v-card-title>
-        <v-card-text class="pa-6">
-          <div class="raw-data-editor">
-            <VueMonacoEditor
-              v-model:value="rawHistoryText"
-              theme="vs-dark"
-              language="json"
-              :options="{
-                automaticLayout: true,
-                domReadOnly: true,
-                fontSize: 13,
-                minimap: { enabled: false },
-                readOnly: true,
-                scrollBeyondLastLine: false,
-                tabSize: 2,
-                wordWrap: 'on',
-                wrappingIndent: 'indent',
-              }"
-            />
-          </div>
-        </v-card-text>
-        <v-card-actions class="pa-4 pt-0">
-          <v-spacer />
-          <v-btn variant="text" @click="rawDataDialog = false">
-            {{ tm('dialogs.view.close') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      :text="rawHistoryText"
+      @copy="copyRawData"
+    />
 
-    <v-dialog
+    <ConversationEditTitleDialog
       v-model="editDialog"
-      max-width="500"
-      :aria-label="tm('dialogs.edit.title')"
-    >
-      <v-card>
-        <v-card-title class="text-h3 pa-4 pb-0 pl-6">
-          {{ tm('dialogs.edit.title') }}
-        </v-card-title>
-        <v-card-text class="pa-6 pb-2">
-          <v-text-field
-            v-model="editedTitle"
-            :label="tm('dialogs.edit.titleLabel')"
-            :placeholder="tm('dialogs.edit.titlePlaceholder')"
-            variant="solo-filled"
-            flat
-            autofocus
-            @keyup.enter="saveTitle"
-          />
-        </v-card-text>
-        <v-card-actions class="pa-4 pt-0">
-          <v-spacer />
-          <v-btn
-            variant="text"
-            :disabled="actionLoading"
-            @click="editDialog = false"
-          >
-            {{ tm('dialogs.edit.cancel') }}
-          </v-btn>
-          <v-btn
-            variant="tonal"
-            color="primary"
-            :loading="actionLoading"
-            @click="saveTitle"
-          >
-            {{ tm('dialogs.edit.save') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      v-model:title="editedTitle"
+      :loading="actionLoading"
+      @save="saveTitle"
+    />
 
     <v-snackbar
       v-model="snackbar.show"
@@ -2004,23 +1926,6 @@ function changePage(nextPage: number) {
   overflow: auto;
   overscroll-behavior: contain;
   padding: 2px 6px 10px;
-}
-
-.raw-data-card {
-  max-height: min(82dvh, 760px);
-}
-
-.raw-data-title {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-}
-
-.raw-data-editor {
-  border-radius: 12px;
-  height: min(62dvh, 580px);
-  min-height: 360px;
-  overflow: hidden;
 }
 
 @media (min-width: 801px) {

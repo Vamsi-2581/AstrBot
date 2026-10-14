@@ -214,21 +214,45 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
+import type { PropType } from 'vue';
 import StyledMenu from '@/components/shared/StyledMenu.vue';
+
+interface ProviderSource {
+  id?: string;
+  provider?: string;
+  api_base?: string;
+  templateKey?: string;
+  isPlaceholder?: boolean;
+  [key: string]: unknown;
+}
+
+interface ProviderSourceTypeOption {
+  value: string;
+  label: string;
+  icon: string;
+  isMonochrome: boolean;
+}
+
+interface ProviderSourceSelectOption {
+  title: string;
+  subtitle: string;
+  value: string;
+  source: ProviderSource;
+}
 
 const props = defineProps({
   displayedProviderSources: {
-    type: Array,
+    type: Array as PropType<ProviderSource[]>,
     default: () => [],
   },
   selectedProviderSource: {
-    type: Object,
+    type: Object as PropType<ProviderSource | null>,
     default: null,
   },
   availableSourceTypes: {
-    type: Array,
+    type: Array as PropType<ProviderSourceTypeOption[]>,
     default: () => [],
   },
   title: {
@@ -252,19 +276,21 @@ const props = defineProps({
     default: false,
   },
   tm: {
-    type: Function,
+    type: Function as PropType<
+      (key: string, params?: Record<string, unknown>) => string
+    >,
     required: true,
   },
   resolveSourceIcon: {
-    type: Function,
+    type: Function as PropType<(source?: ProviderSource | null) => string>,
     required: true,
   },
   isMonochromeSourceIcon: {
-    type: Function,
+    type: Function as PropType<(source?: ProviderSource | null) => boolean>,
     default: () => false,
   },
   getSourceDisplayName: {
-    type: Function,
+    type: Function as PropType<(source?: ProviderSource | null) => string>,
     required: true,
   },
 });
@@ -282,20 +308,20 @@ const canDeleteSelectedSource = computed(() =>
   ),
 );
 
-const isActive = (source) => {
+const isActive = (source: ProviderSource): boolean => {
   if (source.isPlaceholder) return false;
   return selectedId.value !== null && selectedId.value === source.id;
 };
 
-const sourceBadge = (source) =>
+const sourceBadge = (source: ProviderSource): string =>
   source.provider || source.templateKey || 'source';
 
-const sourceValue = (source) =>
+const sourceValue = (source: ProviderSource): string =>
   source.isPlaceholder
     ? `template:${source.templateKey}`
     : `source:${source.id}`;
 
-const sourceOptions = computed(() =>
+const sourceOptions = computed<ProviderSourceSelectOption[]>(() =>
   props.displayedProviderSources.map((source) => ({
     title: props.getSourceDisplayName(source),
     subtitle: source.api_base || sourceBadge(source),
@@ -304,11 +330,11 @@ const sourceOptions = computed(() =>
   })),
 );
 
-const resolveOption = (item) => {
+const resolveOption = (item: unknown): ProviderSourceSelectOption | null => {
   if (!item || typeof item !== 'object') {
     return null;
   }
-  return item;
+  return item as ProviderSourceSelectOption;
 };
 
 const selectedSourceValue = computed(() => {
@@ -316,13 +342,13 @@ const selectedSourceValue = computed(() => {
   return sourceValue(props.selectedProviderSource);
 });
 
-const emitAddSource = (type) => {
+const emitAddSource = (type: string) => {
   emit('add-provider-source', type);
 };
-const emitSelectSource = (source) => {
+const emitSelectSource = (source: ProviderSource) => {
   emit('select-provider-source', source);
 };
-const emitDeleteSource = (source) => {
+const emitDeleteSource = (source: ProviderSource | null) => {
   emit('delete-provider-source', source);
 };
 
@@ -332,7 +358,7 @@ const deleteSelectedSource = () => {
   }
 };
 
-const selectSourceByValue = (value) => {
+const selectSourceByValue = (value: unknown) => {
   const option = sourceOptions.value.find((item) => item.value === value);
   if (option?.source) {
     emitSelectSource(option.source);

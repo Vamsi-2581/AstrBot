@@ -135,7 +135,7 @@
                     color="primary"
                     class="provider-model-row__switch"
                     :aria-label="tm('providerSources.enabled')"
-                    :disabled="isProviderSaving(entry.provider.id)"
+                    :disabled="isProviderSaving(entry.provider.id ?? '')"
                     @update:model-value="
                       emit('toggle-provider-enable', entry.provider, $event)
                     "
@@ -151,9 +151,9 @@
                         :aria-label="tm('models.testButton')"
                         :disabled="
                           !entry.provider.enable ||
-                          isProviderSaving(entry.provider.id)
+                          isProviderSaving(entry.provider.id ?? '')
                         "
-                        :loading="isProviderTesting(entry.provider.id)"
+                        :loading="isProviderTesting(entry.provider.id ?? '')"
                         @click.stop="emit('test-provider', entry.provider)"
                       ></v-btn>
                     </template>
@@ -307,13 +307,48 @@
   </div>
 </template>
 
-<script setup>
-import { computed } from 'vue';
+<script setup lang="ts">
+import { computed, type PropType } from 'vue';
 import { normalizeTextInput } from '@/utils/inputValue';
+
+interface ProviderModelMetadata {
+  modalities?: { input?: string[] };
+  tool_call?: boolean;
+  reasoning?: boolean;
+  limit?: { context?: number };
+}
+
+interface ProviderItem {
+  id?: string;
+  model?: string;
+  enable?: boolean;
+  modalities?: string[];
+  [key: string]: unknown;
+}
+
+interface ConfiguredModelEntry {
+  type: 'configured';
+  provider: ProviderItem;
+  metadata: ProviderModelMetadata | null;
+  hasModelMetadata?: boolean;
+}
+
+interface AvailableModelEntry {
+  type: 'available';
+  model: string;
+  metadata: ProviderModelMetadata | null;
+  hasModelMetadata?: boolean;
+}
+
+type MergedModelEntry = ConfiguredModelEntry | AvailableModelEntry;
+
+type SupportsCapability = (
+  meta: ProviderModelMetadata | null | undefined,
+) => boolean;
 
 const props = defineProps({
   entries: {
-    type: Array,
+    type: Array as PropType<MergedModelEntry[]>,
     default: () => [],
   },
   availableCount: {
@@ -333,35 +368,39 @@ const props = defineProps({
     default: false,
   },
   supportsImageInput: {
-    type: Function,
+    type: Function as PropType<SupportsCapability>,
     required: true,
   },
   supportsAudioInput: {
-    type: Function,
+    type: Function as PropType<SupportsCapability>,
     required: true,
   },
   supportsToolCall: {
-    type: Function,
+    type: Function as PropType<SupportsCapability>,
     required: true,
   },
   supportsReasoning: {
-    type: Function,
+    type: Function as PropType<SupportsCapability>,
     required: true,
   },
   formatContextLimit: {
-    type: Function,
+    type: Function as PropType<
+      (meta: ProviderModelMetadata | null | undefined) => string
+    >,
     required: true,
   },
   testingProviders: {
-    type: Array,
+    type: Array as PropType<string[]>,
     default: () => [],
   },
   savingProviders: {
-    type: Array,
+    type: Array as PropType<string[]>,
     default: () => [],
   },
   tm: {
-    type: Function,
+    type: Function as PropType<
+      (key: string, params?: Record<string, string | number>) => string
+    >,
     required: true,
   },
 });
@@ -383,21 +422,25 @@ const modelSearchProxy = computed({
 });
 
 const configuredEntries = computed(() =>
-  (props.entries || []).filter((entry) => entry.type === 'configured'),
+  (props.entries || []).filter(
+    (entry): entry is ConfiguredModelEntry => entry.type === 'configured',
+  ),
 );
 
 const availableEntries = computed(() =>
-  (props.entries || []).filter((entry) => entry.type === 'available'),
+  (props.entries || []).filter(
+    (entry): entry is AvailableModelEntry => entry.type === 'available',
+  ),
 );
 
-const capabilityBadges = (entry) => {
-  const metadata = entry?.metadata;
-  const provider = entry?.provider;
+const capabilityBadges = (entry: MergedModelEntry) => {
+  const metadata = entry.metadata;
+  const isConfigured = entry.type === 'configured';
+  const provider = isConfigured ? entry.provider : undefined;
   const modalities = Array.isArray(provider?.modalities)
     ? provider.modalities
     : [];
-  const isConfigured = entry?.type === 'configured';
-  const hasModelMetadata = Boolean(entry?.hasModelMetadata);
+  const hasModelMetadata = Boolean(entry.hasModelMetadata);
   const definitions = [
     {
       key: 'image',
@@ -452,9 +495,9 @@ const capabilityBadges = (entry) => {
     });
 };
 
-const isProviderTesting = (providerId) =>
+const isProviderTesting = (providerId: string) =>
   props.testingProviders.includes(providerId);
-const isProviderSaving = (providerId) =>
+const isProviderSaving = (providerId: string) =>
   props.savingProviders.includes(providerId);
 </script>
 

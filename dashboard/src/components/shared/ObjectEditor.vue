@@ -360,7 +360,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useI18n } from '@/i18n/composables';
 import { useToast } from '@/utils/toast';
@@ -368,6 +368,48 @@ import { useConfigTextResolver } from '@/composables/useConfigTextResolver';
 
 const { t } = useI18n();
 const { warning: toastWarning } = useToast();
+
+interface TemplateSlider {
+  min?: number;
+  max?: number;
+  step?: number;
+}
+
+interface TemplateField {
+  type?: string;
+  name?: string;
+  description?: string;
+  hint?: string;
+  default?: unknown;
+  slider?: TemplateSlider;
+}
+
+type TemplateSchema = Record<string, TemplateField>;
+
+interface ObjectEditorItemMeta {
+  template_schema?: TemplateSchema;
+}
+
+interface KeyValuePair {
+  _id: number;
+  key: string;
+  value: unknown;
+  type: string;
+  slider?: TemplateSlider;
+  template?: TemplateField;
+  jsonError: string;
+  _originalKey?: string;
+}
+
+interface CreatePairInput {
+  key: string;
+  value: unknown;
+  type: string;
+  slider?: TemplateSlider;
+  template?: TemplateField;
+  jsonError?: string;
+  _originalKey?: string;
+}
 
 const props = defineProps({
   modelValue: {
@@ -416,15 +458,16 @@ const resolveDialogTitle = computed(
 );
 
 const dialog = ref(false);
-const localKeyValuePairs = ref([]);
-const originalKeyValuePairs = ref([]);
+const localKeyValuePairs = ref<KeyValuePair[]>([]);
+const originalKeyValuePairs = ref<KeyValuePair[]>([]);
 const newKey = ref('');
 const newValueType = ref('string');
 const nextPairId = ref(0);
 
 // Template schema support
-const templateSchema = computed(() => {
-  return props.itemMeta?.template_schema || {};
+const templateSchema = computed<TemplateSchema>(() => {
+  const meta = props.itemMeta as ObjectEditorItemMeta | null;
+  return meta?.template_schema || {};
 });
 
 const hasTemplateSchema = computed(() => {
@@ -461,7 +504,7 @@ function createPair({
   template,
   jsonError = '',
   _originalKey,
-}) {
+}: CreatePairInput): KeyValuePair {
   return {
     _id: nextPairId.value++,
     key,
@@ -479,7 +522,7 @@ function initializeLocalKeyValuePairs() {
   nextPairId.value = 0;
   for (const [key, value] of Object.entries(props.modelValue)) {
     let _type = typeof value === 'object' ? 'json' : typeof value;
-    let _value = _type === 'json' ? JSON.stringify(value) : value;
+    let _value: unknown = _type === 'json' ? JSON.stringify(value) : value;
 
     // Check if this key has a template schema
     const template = templateSchema.value[key];
@@ -552,23 +595,23 @@ function addKeyValuePair() {
   }
 }
 
-function validateJSON(pair) {
+function validateJSON(pair: KeyValuePair) {
   try {
-    JSON.parse(pair.value);
+    JSON.parse(pair.value as string);
     pair.jsonError = '';
   } catch {
     pair.jsonError = t('core.common.objectEditor.invalidJson');
   }
 }
 
-function removeKeyValuePairByKey(key) {
+function removeKeyValuePairByKey(key: string) {
   const index = localKeyValuePairs.value.findIndex((pair) => pair.key === key);
   if (index >= 0) {
     localKeyValuePairs.value.splice(index, 1);
   }
 }
 
-function onKeyBlur(pair) {
+function onKeyBlur(pair: KeyValuePair) {
   const originalKey = pair._originalKey;
   const newKey = pair.key;
   if (originalKey === undefined || originalKey === newKey) return;
@@ -597,11 +640,11 @@ function onKeyBlur(pair) {
   }
 }
 
-function isTemplateKeyAdded(templateKey) {
+function isTemplateKeyAdded(templateKey: string) {
   return localKeyValuePairs.value.some((pair) => pair.key === templateKey);
 }
 
-function getTemplateValue(templateKey) {
+function getTemplateValue(templateKey: string) {
   for (const pair of localKeyValuePairs.value) {
     if (pair.key === templateKey) {
       return pair.value;
@@ -613,7 +656,7 @@ function getTemplateValue(templateKey) {
     : getDefaultValueForType(template?.type || 'string');
 }
 
-function updateTemplateValue(templateKey, newValue) {
+function updateTemplateValue(templateKey: string, newValue: unknown) {
   const existingIndex = localKeyValuePairs.value.findIndex(
     (pair) => pair.key === templateKey,
   );
@@ -637,7 +680,7 @@ function updateTemplateValue(templateKey, newValue) {
   }
 }
 
-function removeTemplateKey(templateKey) {
+function removeTemplateKey(templateKey: string) {
   const index = localKeyValuePairs.value.findIndex(
     (pair) => pair.key === templateKey,
   );
@@ -646,7 +689,7 @@ function removeTemplateKey(templateKey) {
   }
 }
 
-function getDefaultValueForType(type) {
+function getDefaultValueForType(type: string) {
   switch (type) {
     case 'int':
     case 'float':
@@ -664,14 +707,14 @@ function getDefaultValueForType(type) {
 }
 
 function confirmDialog() {
-  const updatedValue = {};
+  const updatedValue: Record<string, unknown> = {};
   for (const pair of localKeyValuePairs.value) {
     if (pair.type === 'json' && pair.jsonError) return;
     let convertedValue = pair.value;
     // 根据声明的类型进行转换
     switch (pair.type) {
       case 'int':
-        convertedValue = parseInt(pair.value) || 0;
+        convertedValue = parseInt(pair.value as string) || 0;
         break;
       case 'float':
       case 'number':
@@ -688,7 +731,7 @@ function confirmDialog() {
         // convertedValue = Boolean(pair.value)
         break;
       case 'json':
-        convertedValue = JSON.parse(pair.value);
+        convertedValue = JSON.parse(pair.value as string);
         break;
       case 'string':
       default:
@@ -710,7 +753,7 @@ function cancelDialog() {
   dialog.value = false;
 }
 
-function getTemplateTitle(template, templateKey) {
+function getTemplateTitle(template: TemplateField, templateKey: string) {
   return resolveTemplateText(
     templateKey,
     'name',
@@ -718,9 +761,13 @@ function getTemplateTitle(template, templateKey) {
   );
 }
 
-function resolveTemplateText(templateKey, attr, fallback) {
+function resolveTemplateText(
+  templateKey: string,
+  attr: string,
+  fallback: unknown,
+) {
   if (!props.configKey) {
-    return translateIfKey(fallback) || '';
+    return (translateIfKey(fallback) as string) || '';
   }
   return resolveConfigText(
     `${props.configKey}.template_schema.${templateKey}`,
@@ -744,7 +791,7 @@ function resolveTemplateText(templateKey, attr, fallback) {
 }
 
 .object-editor-empty-label {
-  color: rgb(var(--v-theme-primaryText));
+  color: rgb(var(--v-theme-on-surface));
 }
 
 .object-editor-dialog__content {

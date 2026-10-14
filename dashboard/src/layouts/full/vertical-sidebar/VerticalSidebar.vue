@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import {
   ref,
   shallowRef,
@@ -13,7 +13,12 @@ import { useCustomizerStore } from '../../../stores/customizer';
 import { useI18n } from '@/i18n/composables';
 import sidebarItems from './sidebarItem';
 import NavItem from './NavItem.vue';
-import { applySidebarCustomization } from '@/utils/sidebarCustomization';
+import {
+  applySidebarCustomization,
+  type SidebarItem,
+} from '@/utils/sidebarCustomization';
+
+const rawSidebarItems: unknown = sidebarItems;
 
 const { t } = useI18n();
 const ChangelogDialog = defineAsyncComponent(
@@ -23,11 +28,22 @@ const ChangelogDialog = defineAsyncComponent(
 const customizer = useCustomizerStore();
 const { mobile } = useDisplay();
 
-function buildSidebarMenu() {
-  return applySidebarCustomization(sidebarItems);
+function buildSidebarMenu(): SidebarItem[] {
+  return applySidebarCustomization(rawSidebarItems as SidebarItem[]);
 }
 
-function collectGroupValues(items, values = new Set()) {
+function getSidebarItemKey(item: SidebarItem, index: number): string {
+  return (
+    item.title ||
+    (typeof item.to === 'string' ? item.to : '') ||
+    `sidebar-item-${index}`
+  );
+}
+
+function collectGroupValues(
+  items: SidebarItem[],
+  values: Set<string> = new Set(),
+): Set<string> {
   items.forEach((item) => {
     if (item?.children && item.title) {
       values.add(item.title);
@@ -37,18 +53,21 @@ function collectGroupValues(items, values = new Set()) {
   return values;
 }
 
-function sanitizeOpenedItems(items, menuItems) {
+function sanitizeOpenedItems(
+  items: unknown,
+  menuItems: SidebarItem[],
+): string[] {
   if (!Array.isArray(items)) {
     return [];
   }
 
   const groupValues = collectGroupValues(menuItems);
   return items.filter(
-    (item) => typeof item === 'string' && groupValues.has(item),
+    (item: unknown) => typeof item === 'string' && groupValues.has(item),
   );
 }
 
-function getInitialOpenedItems(menuItems) {
+function getInitialOpenedItems(menuItems: SidebarItem[]): string[] {
   try {
     const stored = JSON.parse(
       localStorage.getItem('sidebar_openedItems') || '[]',
@@ -80,7 +99,7 @@ function refreshSidebarMenu() {
 }
 
 // Apply customization on mount and listen for storage changes
-const handleStorageChange = (e) => {
+const handleStorageChange = (e: StorageEvent) => {
   if (e.key === 'astrbot_sidebar_customization') {
     refreshSidebarMenu();
   }
@@ -103,7 +122,7 @@ onUnmounted(() => {
   );
 });
 
-const starCount = ref(null);
+const starCount = ref<number | null>(null);
 const STAR_COUNT_CACHE_KEY = 'astrbot_github_star_count_cache';
 const STAR_COUNT_CACHE_TTL_MS = 30 * 60 * 1000;
 
@@ -128,19 +147,19 @@ watch(
   { immediate: true },
 );
 
-function openExternalLink(url) {
+function openExternalLink(url: string) {
   if (typeof window !== 'undefined') {
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 }
 
-function startSidebarResize(event) {
+function startSidebarResize(event: MouseEvent) {
   isResizing.value = true;
   document.body.style.userSelect = 'none';
   document.body.style.cursor = 'ew-resize';
 
   // 拖拽时禁用 iframe 的 pointer-events，防止 iframe 截获 mousemove 事件导致拖拽卡住
-  const iframes = document.querySelectorAll('.plugin-page-frame');
+  const iframes = document.querySelectorAll<HTMLElement>('.plugin-page-frame');
   iframes.forEach((el) => {
     el.style.pointerEvents = 'none';
   });
@@ -148,7 +167,7 @@ function startSidebarResize(event) {
   const startX = event.clientX;
   const startWidth = sidebarWidth.value;
 
-  function onMouseMoveResize(event) {
+  function onMouseMoveResize(event: MouseEvent) {
     if (!isResizing.value) return;
 
     const deltaX = event.clientX - startX;
@@ -174,11 +193,11 @@ function startSidebarResize(event) {
   document.addEventListener('mouseup', onMouseUpResize);
 }
 
-function formatNumber(num) {
+function formatNumber(num: number) {
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
-function readCachedStarCount() {
+function readCachedStarCount(): number | null {
   try {
     const raw = localStorage.getItem(STAR_COUNT_CACHE_KEY);
     if (!raw) {
@@ -200,7 +219,7 @@ function readCachedStarCount() {
   }
 }
 
-function writeCachedStarCount(value) {
+function writeCachedStarCount(value: number) {
   try {
     localStorage.setItem(
       STAR_COUNT_CACHE_KEY,
@@ -276,7 +295,7 @@ function openChangelogDialog() {
       >
         <template
           v-for="(item, i) in sidebarMenu"
-          :key="item.title || item.to || `sidebar-item-${i}`"
+          :key="getSidebarItemKey(item, i)"
         >
           <NavItem :item="item" class="leftPadding" :rail="isRailSidebar" />
         </template>

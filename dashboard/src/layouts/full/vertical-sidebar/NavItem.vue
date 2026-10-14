@@ -1,9 +1,33 @@
-<script setup>
+<script setup lang="ts">
 import { useI18n } from '@/i18n/composables';
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
-const props = defineProps({ item: Object, level: Number, rail: Boolean });
+type ChipVariant =
+  'flat' | 'text' | 'plain' | 'elevated' | 'outlined' | 'tonal' | undefined;
+
+interface NavItemType {
+  title?: string;
+  icon?: string;
+  iconSize?: string | number;
+  to?: string;
+  type?: string;
+  children?: NavItemType[];
+  disabled?: boolean;
+  subCaption?: string;
+  chip?: string;
+  chipColor?: string;
+  chipVariant?: string;
+  chipIcon?: string;
+  isRawTitle?: boolean;
+  [key: string]: unknown;
+}
+
+const props = defineProps<{
+  item: NavItemType;
+  level?: number;
+  rail?: boolean;
+}>();
 const { t } = useI18n();
 const route = useRoute();
 
@@ -154,7 +178,7 @@ const itemTitle = computed(() => {
         :color="item.chipColor"
         class="sidebarchip hide-menu"
         :size="item.chipIcon ? 'small' : 'default'"
-        :variant="item.chipVariant"
+        :variant="item.chipVariant as ChipVariant"
         :prepend-icon="item.chipIcon"
       >
         {{ item.chip }}

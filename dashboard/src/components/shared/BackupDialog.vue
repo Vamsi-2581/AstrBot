@@ -51,7 +51,7 @@
               <v-btn
                 color="primary"
                 size="large"
-                :loading="exportStatus === 'processing'"
+                :loading="isExportProcessing"
                 @click="startExport"
               >
                 <v-icon class="mr-2">mdi-export</v-icon>
@@ -151,7 +151,7 @@
                   color="primary"
                   size="large"
                   :disabled="!importFile"
-                  :loading="importStatus === 'uploading'"
+                  :loading="isImportUploading"
                   @click="uploadAndCheck"
                 >
                   <v-icon class="mr-2">mdi-upload</v-icon>
@@ -576,7 +576,7 @@
   />
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { backupApi } from '@/api/v1';
 import { useChunkedUpload } from '@/composables/useChunkedUpload';
@@ -591,6 +591,64 @@ const { t } = useI18n();
 
 const confirmDialog = useConfirmDialog();
 
+interface BackupProgress {
+  current: number;
+  total: number;
+  message: string;
+}
+
+interface BackupListItem {
+  filename: string;
+  size: number;
+  created_at: number;
+  type: string;
+  astrbot_version: string;
+}
+
+interface BackupExportResult {
+  filename: string;
+  path?: string;
+  size?: number;
+}
+
+interface BackupSummary {
+  tables?: string[];
+  has_knowledge_bases?: boolean;
+  has_config?: boolean;
+  directories?: string[];
+}
+
+interface BackupCheckResult {
+  valid: boolean;
+  can_import: boolean;
+  version_status: string;
+  backup_version: string;
+  current_version: string;
+  backup_time: string;
+  confirm_message?: string;
+  warnings?: string[];
+  error?: string;
+  backup_summary?: BackupSummary;
+}
+
+interface BackupTaskProgress {
+  status: string;
+  progress?: BackupProgress;
+  result?: BackupExportResult | null;
+  error?: string | null;
+}
+
+function getRequestErrorMessage(error: unknown, fallback: string): string {
+  const err = error as {
+    response?: { data?: { message?: unknown } };
+    message?: unknown;
+  } | null;
+  const responseMessage = err?.response?.data?.message;
+  if (responseMessage) return String(responseMessage);
+  if (err?.message) return String(err.message);
+  return fallback;
+}
+
 const isOpen = ref(false);
 const activeTab = ref('export');
 const wfr = ref(null);
@@ -604,20 +662,28 @@ const {
 } = useDashboardStepUp();
 
 // 导出状态
-const exportStatus = ref('idle'); // idle, processing, completed, failed
-const exportTaskId = ref(null);
-const exportProgress = ref({ current: 0, total: 100, message: '' });
-const exportResult = ref(null);
+const exportStatus = ref<string>('idle'); // idle, processing, completed, failed
+const exportTaskId = ref<string | null>(null);
+const exportProgress = ref<BackupProgress>({
+  current: 0,
+  total: 100,
+  message: '',
+});
+const exportResult = ref<BackupExportResult | null>(null);
 const exportError = ref('');
 
 // 导入状态
-const importStatus = ref('idle'); // idle, uploading, confirm, processing, completed, failed
-const importFile = ref(null);
-const importTaskId = ref(null);
-const importProgress = ref({ current: 0, total: 100, message: '' });
+const importStatus = ref<string>('idle'); // idle, uploading, confirm, processing, completed, failed
+const importFile = ref<File | File[] | null>(null);
+const importTaskId = ref<string | null>(null);
+const importProgress = ref<BackupProgress>({
+  current: 0,
+  total: 100,
+  message: '',
+});
 const importError = ref('');
 const uploadedFilename = ref(''); // 已上传的文件名
-const checkResult = ref(null); // 预检查结果
+const checkResult = ref<BackupCheckResult | null>(null); // 预检查结果
 
 const chunkedUploader = useChunkedUpload({
   initUpload: (payload) => backupApi.initUpload(payload),
@@ -641,7 +707,7 @@ const uploadProgressMessage = ref('');
 
 // 备份列表
 const loadingList = ref(false);
-const backupList = ref([]);
+const backupList = ref<BackupListItem[]>([]);
 
 // 重命名对话框状态
 const renameDialogOpen = ref(false);
@@ -651,6 +717,8 @@ const renameLoading = ref(false);
 const renameError = ref('');
 
 // 计算属性
+const isExportProcessing = computed(() => exportStatus.value === 'processing');
+const isImportUploading = computed(() => importStatus.value === 'uploading');
 const isProcessing = computed(() => {
   return (
     exportStatus.value === 'processing' ||
@@ -714,7 +782,8 @@ const loadBackupList = async () => {
   try {
     const response = await backupApi.list();
     if (response.data.status === 'ok') {
-      backupList.value = response.data.data.items || [];
+      const data = response.data.data as { items?: BackupListItem[] };
+      backupList.value = data.items || [];
     }
   } catch (error) {
     console.error('Failed to load backup list:', error);
@@ -731,14 +800,14 @@ const startExport = async () => {
   try {
     const response = await backupApi.create();
     if (response.data.status === 'ok') {
-      exportTaskId.value = response.data.data.task_id;
+      exportTaskId.value = response.data.data.task_id as string;
       void pollExportProgress();
     } else {
-      throw new Error(response.data.message);
+      throw new Error(response.data.message as string);
     }
   } catch (error) {
     exportStatus.value = 'failed';
-    exportError.value = error.message || 'Export failed';
+    exportError.value = getRequestErrorMessage(error, 'Export failed');
   }
 };
 
@@ -750,7 +819,7 @@ const pollExportProgress = async () => {
     const response = await backupApi.progress(exportTaskId.value);
 
     if (response.data.status === 'ok') {
-      const data = response.data.data;
+      const data = response.data.data as unknown as BackupTaskProgress;
 
       if (data.status === 'processing' && data.progress) {
         exportProgress.value = {
@@ -761,7 +830,7 @@ const pollExportProgress = async () => {
         setTimeout(pollExportProgress, 1000);
       } else if (data.status === 'completed') {
         exportStatus.value = 'completed';
-        exportResult.value = data.result;
+        exportResult.value = data.result ?? null;
         void loadBackupList();
       } else if (data.status === 'failed') {
         exportStatus.value = 'failed';
@@ -772,7 +841,10 @@ const pollExportProgress = async () => {
     }
   } catch (error) {
     exportStatus.value = 'failed';
-    exportError.value = error.message || 'Failed to get export progress';
+    exportError.value = getRequestErrorMessage(
+      error,
+      'Failed to get export progress',
+    );
   }
 };
 
@@ -785,30 +857,34 @@ const resetExport = () => {
   exportError.value = '';
 };
 
-const finishUploadedBackup = async (result) => {
-  uploadedFilename.value = result.filename;
+const finishUploadedBackup = async (result: unknown) => {
+  const { filename } = result as BackupExportResult;
+  uploadedFilename.value = filename;
   uploadProgressMessage.value = t('features.settings.backup.import.checking');
   const checkResponse = await backupApi.check(uploadedFilename.value);
   if (checkResponse.data.status !== 'ok') {
-    throw new Error(checkResponse.data.message);
+    throw new Error(checkResponse.data.message as string);
   }
-  checkResult.value = checkResponse.data.data;
-  if (!checkResult.value.valid) {
+  const checkData = checkResponse.data.data as unknown as BackupCheckResult;
+  checkResult.value = checkData;
+  if (!checkData.valid) {
     importStatus.value = 'failed';
     importError.value =
-      checkResult.value.error ||
-      t('features.settings.backup.import.invalidBackup');
+      checkData.error || t('features.settings.backup.import.invalidBackup');
     return;
   }
   importStatus.value = 'confirm';
 };
 
 const uploadAndCheck = async () => {
-  if (!importFile.value) return;
+  const selected = Array.isArray(importFile.value)
+    ? importFile.value[0]
+    : importFile.value;
+  if (!selected) return;
 
   importStatus.value = 'uploading';
   uploadProgressMessage.value = t('features.settings.backup.import.uploadInit');
-  const result = await chunkedUploader.start(importFile.value);
+  const result = await chunkedUploader.start(selected);
   if (!result) {
     importStatus.value = 'failed';
     importError.value = chunkedUploader.errorMessage.value || 'Upload failed';
@@ -821,8 +897,7 @@ const uploadAndCheck = async () => {
     await finishUploadedBackup(result);
   } catch (error) {
     importStatus.value = 'failed';
-    importError.value =
-      error.response?.data?.message || error.message || 'Upload failed';
+    importError.value = getRequestErrorMessage(error, 'Upload failed');
   }
 };
 
@@ -841,8 +916,7 @@ const resumeImportUpload = async () => {
     await finishUploadedBackup(result);
   } catch (error) {
     importStatus.value = 'failed';
-    importError.value =
-      error.response?.data?.message || error.message || 'Upload failed';
+    importError.value = getRequestErrorMessage(error, 'Upload failed');
   }
 };
 
@@ -857,15 +931,14 @@ const confirmImport = async () => {
     const response = await backupApi.importBackup(uploadedFilename.value, true);
 
     if (response.data.status === 'ok') {
-      importTaskId.value = response.data.data.task_id;
+      importTaskId.value = response.data.data.task_id as string;
       void pollImportProgress();
     } else {
-      throw new Error(response.data.message);
+      throw new Error(response.data.message as string);
     }
   } catch (error) {
     importStatus.value = 'failed';
-    importError.value =
-      error.response?.data?.message || error.message || 'Import failed';
+    importError.value = getRequestErrorMessage(error, 'Import failed');
   }
 };
 
@@ -877,7 +950,7 @@ const pollImportProgress = async () => {
     const response = await backupApi.progress(importTaskId.value);
 
     if (response.data.status === 'ok') {
-      const data = response.data.data;
+      const data = response.data.data as unknown as BackupTaskProgress;
 
       if (data.status === 'processing' && data.progress) {
         importProgress.value = {
@@ -897,7 +970,10 @@ const pollImportProgress = async () => {
     }
   } catch (error) {
     importStatus.value = 'failed';
-    importError.value = error.message || 'Failed to get import progress';
+    importError.value = getRequestErrorMessage(
+      error,
+      'Failed to get import progress',
+    );
   }
 };
 
@@ -921,7 +997,7 @@ const resetImport = async () => {
 
 // Download through the authenticated API client so the Dashboard token never
 // appears in a URL, browser history, or a referrer header.
-const downloadBackup = async (filename) => {
+const downloadBackup = async (filename?: string) => {
   if (!filename) return;
   try {
     const response = await backupApi.download(filename);
@@ -935,12 +1011,12 @@ const downloadBackup = async (filename) => {
     link.remove();
     URL.revokeObjectURL(url);
   } catch (error) {
-    alert(error.response?.data?.message || error.message || 'Download failed');
+    alert(getRequestErrorMessage(error, 'Download failed'));
   }
 };
 
 // 从列表中恢复备份
-const restoreFromList = async (filename) => {
+const restoreFromList = async (filename: string) => {
   // 切换到导入标签页并设置文件名
   uploadedFilename.value = filename;
 
@@ -949,15 +1025,15 @@ const restoreFromList = async (filename) => {
     const checkResponse = await backupApi.check(filename);
 
     if (checkResponse.data.status !== 'ok') {
-      throw new Error(checkResponse.data.message);
+      throw new Error(checkResponse.data.message as string);
     }
 
-    checkResult.value = checkResponse.data.data;
+    const checkData = checkResponse.data.data as unknown as BackupCheckResult;
+    checkResult.value = checkData;
 
-    if (!checkResult.value.valid) {
+    if (!checkData.valid) {
       alert(
-        checkResult.value.error ||
-          t('features.settings.backup.import.invalidBackup'),
+        checkData.error || t('features.settings.backup.import.invalidBackup'),
       );
       return;
     }
@@ -966,12 +1042,12 @@ const restoreFromList = async (filename) => {
     activeTab.value = 'import';
     importStatus.value = 'confirm';
   } catch (error) {
-    alert(error.response?.data?.message || error.message || 'Check failed');
+    alert(getRequestErrorMessage(error, 'Check failed'));
   }
 };
 
 // 删除备份
-const deleteBackup = async (filename) => {
+const deleteBackup = async (filename: string) => {
   if (
     !(await askForConfirmation(
       t('features.settings.backup.list.confirmDelete'),
@@ -988,12 +1064,13 @@ const deleteBackup = async (filename) => {
       alert(response.data.message || 'Delete failed');
     }
   } catch (error) {
-    alert(error.message || 'Delete failed');
+    const err = error as { message?: string };
+    alert(err.message || 'Delete failed');
   }
 };
 
 // 重命名相关函数
-const openRenameDialog = (filename) => {
+const openRenameDialog = (filename: string) => {
   renameOldFilename.value = filename;
   // 移除 .zip 后缀，只显示文件名部分
   renameNewName.value = filename.replace(/\.zip$/i, '');
@@ -1009,7 +1086,7 @@ const closeRenameDialog = () => {
 };
 
 // 文件名验证规则
-const renameValidationRule = (value) => {
+const renameValidationRule = (value: string): string | true => {
   if (!value) return t('features.settings.backup.list.renameRequired');
   // 检查是否包含非法字符
   if (/[\\/:*?"<>|]/.test(value)) {
@@ -1049,17 +1126,17 @@ const confirmRename = async () => {
         t('features.settings.backup.list.renameFailed');
     }
   } catch (error) {
-    renameError.value =
-      error.response?.data?.message ||
-      error.message ||
-      t('features.settings.backup.list.renameFailed');
+    renameError.value = getRequestErrorMessage(
+      error,
+      t('features.settings.backup.list.renameFailed'),
+    );
   } finally {
     renameLoading.value = false;
   }
 };
 
 // 格式化文件大小
-const formatFileSize = (bytes) => {
+const formatFileSize = (bytes: number) => {
   if (bytes === 0) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
@@ -1068,12 +1145,12 @@ const formatFileSize = (bytes) => {
 };
 
 // 格式化日期（从时间戳）
-const formatDate = (timestamp) => {
+const formatDate = (timestamp: number) => {
   return new Date(timestamp * 1000).toLocaleString();
 };
 
 // 格式化 ISO 日期字符串
-const formatISODate = (isoString) => {
+const formatISODate = (isoString?: string) => {
   if (!isoString) return '';
   try {
     return new Date(isoString).toLocaleString();

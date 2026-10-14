@@ -3,35 +3,35 @@
     <!-- Special handling for specific metadata types -->
     <template v-if="itemMeta?._special === 'select_provider'">
       <ProviderSelector
-        :model-value="modelValue"
+        :model-value="modelValue as ProviderSelectorValue"
         @update:model-value="emitUpdate"
         :provider-type="'chat_completion'"
       />
     </template>
     <template v-else-if="itemMeta?._special === 'select_provider_classifier'">
       <ProviderSelector
-        :model-value="modelValue"
+        :model-value="modelValue as ProviderSelectorValue"
         @update:model-value="emitUpdate"
         :provider-type="'classifier'"
       />
     </template>
     <template v-else-if="itemMeta?._special === 'select_provider_stt'">
       <ProviderSelector
-        :model-value="modelValue"
+        :model-value="modelValue as ProviderSelectorValue"
         @update:model-value="emitUpdate"
         :provider-type="'speech_to_text'"
       />
     </template>
     <template v-else-if="itemMeta?._special === 'select_provider_tts'">
       <ProviderSelector
-        :model-value="modelValue"
+        :model-value="modelValue as ProviderSelectorValue"
         @update:model-value="emitUpdate"
         :provider-type="'text_to_speech'"
       />
     </template>
     <template v-else-if="itemMeta?._special === 'select_providers'">
       <ProviderSelector
-        :model-value="modelValue"
+        :model-value="modelValue as ProviderSelectorValue"
         @update:model-value="emitUpdate"
         :provider-type="'chat_completion'"
         :multiple="true"
@@ -39,7 +39,7 @@
     </template>
     <template v-else-if="itemMeta?._special === 'provider_pool'">
       <ProviderSelector
-        :model-value="modelValue"
+        :model-value="modelValue as ProviderSelectorValue"
         @update:model-value="emitUpdate"
         :provider-type="'chat_completion'"
         :button-text="t('core.shared.providerSelector.selectProviderPool')"
@@ -47,26 +47,26 @@
     </template>
     <template v-else-if="itemMeta?._special === 'select_prompt'">
       <PromptSelector
-        :model-value="modelValue"
+        :model-value="modelValue as OptionalString"
         @update:model-value="emitUpdate"
       />
     </template>
     <template v-else-if="itemMeta?._special === 'prompt_pool'">
       <PromptSelector
-        :model-value="modelValue"
+        :model-value="modelValue as OptionalString"
         @update:model-value="emitUpdate"
         :button-text="t('core.shared.promptSelector.selectPromptPool')"
       />
     </template>
     <template v-else-if="itemMeta?._special === 'select_knowledgebase'">
       <KnowledgeBaseSelector
-        :model-value="modelValue"
+        :model-value="modelValue as OptionalStringArray"
         @update:model-value="emitUpdate"
       />
     </template>
     <template v-else-if="itemMeta?._special === 'select_plugin_set'">
       <PluginSetSelector
-        :model-value="modelValue"
+        :model-value="modelValue as OptionalStringArray"
         @update:model-value="emitUpdate"
       />
     </template>
@@ -102,13 +102,13 @@
     <template v-else-if="itemMeta?._special === 'dashboard_totp_manager'">
       <DashboardTotpManager
         :model-value="Boolean(modelValue)"
-        :config-root="configRoot"
+        :config-root="configRoot as OptionalRecord"
         @update:model-value="emitUpdate"
       />
     </template>
     <template v-else-if="itemMeta?._special === 'local_permission_matrix'">
       <LocalPermissionMatrix
-        :model-value="modelValue"
+        :model-value="modelValue as OptionalRecord"
         @update:model-value="emitUpdate"
         class="config-field config-field--full-width"
       />
@@ -162,7 +162,7 @@
 
     <v-autocomplete
       v-else-if="itemMeta?.type === 'list' && itemMeta?.options"
-      :model-value="modelValue"
+      :model-value="modelValue as OptionalUnknownArray"
       @update:model-value="
         (val) => {
           emitUpdate(val);
@@ -200,12 +200,8 @@
       <VueMonacoEditor
         :theme="itemMeta?.editor_theme || 'vs-light'"
         :language="itemMeta?.editor_language || 'json'"
-        style="
-          min-height: 100px;
-          flex-grow: 1;
-          border: 1px solid rgba(0, 0, 0, 0.1);
-        "
-        :value="modelValue"
+        class="config-editor"
+        :value="modelValue as OptionalString"
         @update:value="emitUpdate"
       >
       </VueMonacoEditor>
@@ -242,16 +238,15 @@
       v-else-if="itemMeta?.type === 'int' || itemMeta?.type === 'float'"
       class="d-flex align-center gap-3"
     >
-      <div
-        v-if="itemMeta?.slider"
-        style="flex: 3; display: flex; align-items: center; gap: 8px"
-      >
-        <span style="min-width: 5px; text-align: right">
+      <div v-if="itemMeta?.slider" class="config-slider">
+        <span class="config-slider__bound config-slider__bound--start">
           {{ itemMeta?.slider?.min ?? 0 }}
         </span>
 
         <v-slider
-          :model-value="toNumber(numericTemp ?? modelValue)"
+          :model-value="
+            toNumber((numericTemp ?? modelValue) as number | string)
+          "
           @update:model-value="
             (val) => {
               numericTemp = val;
@@ -265,11 +260,11 @@
           color="primary"
           density="compact"
           hide-details
-          style="flex: 1"
+          class="config-slider__input"
           :aria-label="fieldAriaLabel"
         ></v-slider>
 
-        <span style="min-width: 5px; text-align: left">
+        <span class="config-slider__bound config-slider__bound--end">
           {{ itemMeta?.slider?.max ?? 100 }}
         </span>
       </div>
@@ -287,10 +282,9 @@
         "
         density="compact"
         variant="outlined"
-        class="config-field"
+        class="config-field config-number-field"
         type="number"
         hide-details
-        style="flex: 2"
         :aria-label="fieldAriaLabel"
       ></v-text-field>
     </div>
@@ -319,7 +313,7 @@
 
     <FileConfigItem
       v-else-if="itemMeta?.type === 'file'"
-      :model-value="modelValue"
+      :model-value="modelValue as OptionalStringArray"
       :item-meta="itemMeta"
       :plugin-name="pluginName"
       :config-key="configKey"
@@ -329,7 +323,7 @@
 
     <ListConfigItem
       v-else-if="itemMeta?.type === 'list'"
-      :model-value="modelValue"
+      :model-value="modelValue as OptionalStringArray"
       @update:model-value="emitUpdate"
       :secret="Boolean(itemMeta?.secret)"
       class="config-field"
@@ -337,7 +331,7 @@
 
     <ObjectEditor
       v-else-if="itemMeta?.type === 'dict'"
-      :model-value="modelValue"
+      :model-value="modelValue as Record<string, unknown>"
       :item-meta="itemMeta"
       :plugin-name="pluginName"
       :plugin-i18n="pluginI18n"
@@ -363,7 +357,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { LazyMonacoEditor as VueMonacoEditor } from './LazyMonacoEditor';
 import ListConfigItem from './ListConfigItem.vue';
 import FileConfigItem from './FileConfigItem.vue';
@@ -382,43 +376,68 @@ import { computed, ref } from 'vue';
 import { useI18n, useModuleI18n } from '@/i18n/composables';
 import { usePluginI18n } from '@/utils/pluginI18n';
 
-const numericTemp = ref(null);
+interface SliderMeta {
+  min?: number;
+  max?: number;
+  step?: number;
+}
+
+interface TemplateSchemaEntry {
+  type?: string;
+  slider?: SliderMeta;
+}
+
+interface ConfigItemMeta {
+  type?: string;
+  _special?: string;
+  options?: unknown[];
+  render_type?: string;
+  labels?: string | string[];
+  readonly?: boolean;
+  editor_mode?: boolean;
+  editor_theme?: string;
+  editor_language?: string;
+  secret?: boolean;
+  slider?: SliderMeta;
+  template_schema?: Record<string, TemplateSchemaEntry>;
+  runner_defaults?: Record<string, unknown>;
+  description?: string;
+  hint?: string;
+  file_types?: string[];
+  [key: string]: unknown;
+}
+
+interface Props {
+  modelValue?:
+    string | number | boolean | unknown[] | Record<string, unknown> | null;
+  itemMeta?: ConfigItemMeta | null;
+  pluginName?: string;
+  pluginI18n?: Record<string, unknown>;
+  configKey?: string;
+  loading?: boolean;
+  showFullscreenBtn?: boolean;
+  configRoot?: Record<string, unknown> | null;
+}
+
+type ProviderSelectorValue = string | string[];
+type OptionalString = string | undefined;
+type OptionalStringArray = string[] | undefined;
+type OptionalUnknownArray = unknown[] | null | undefined;
+type OptionalRecord = Record<string, unknown> | undefined;
+
+const numericTemp = ref<number | string | null>(null);
 const listSearchText = ref('');
 const secretVisible = ref(false);
 
-const props = defineProps({
-  modelValue: {
-    type: [String, Number, Boolean, Array, Object],
-    default: null,
-  },
-  itemMeta: {
-    type: Object,
-    default: null,
-  },
-  pluginName: {
-    type: String,
-    default: '',
-  },
-  pluginI18n: {
-    type: Object,
-    default: () => ({}),
-  },
-  configKey: {
-    type: String,
-    default: '',
-  },
-  loading: {
-    type: Boolean,
-    default: false,
-  },
-  showFullscreenBtn: {
-    type: Boolean,
-    default: false,
-  },
-  configRoot: {
-    type: Object,
-    default: null,
-  },
+const props = withDefaults(defineProps<Props>(), {
+  modelValue: null,
+  itemMeta: null,
+  pluginName: '',
+  pluginI18n: () => ({}),
+  configKey: '',
+  loading: false,
+  showFullscreenBtn: false,
+  configRoot: null,
 });
 
 const emit = defineEmits([
@@ -430,15 +449,20 @@ const { t } = useI18n();
 const { getRaw } = useModuleI18n('features/config-metadata');
 const { configText } = usePluginI18n();
 
-function emitUpdate(val) {
+function emitUpdate(val: unknown): void {
   val = validateNumericConfig(props.itemMeta?.type, val);
+  const runnerDefaults = props.itemMeta?.runner_defaults;
   if (
     props.itemMeta?._special === 'agent_runner_type' &&
     props.configRoot?.agent_runner &&
-    props.itemMeta?.runner_defaults?.[val]
+    runnerDefaults?.[String(val)]
   ) {
-    props.configRoot.agent_runner.config = JSON.parse(
-      JSON.stringify(props.itemMeta.runner_defaults[val]),
+    const agentRunner = props.configRoot.agent_runner as Record<
+      string,
+      unknown
+    >;
+    agentRunner.config = JSON.parse(
+      JSON.stringify(runnerDefaults[String(val)]),
     );
   }
   emit('update:modelValue', val);
@@ -462,23 +486,24 @@ const fieldAriaLabel = computed(
   () => props.itemMeta?.description || props.itemMeta?.hint || '',
 );
 
-function toNumber(val) {
-  const n = parseFloat(val);
+function toNumber(val: number | string): number {
+  const n = parseFloat(String(val));
   return isNaN(n) ? 0 : n;
 }
 
-function validateNumericConfig(modelType, rawValue) {
+function validateNumericConfig(modelType: unknown, rawValue: unknown): unknown {
   if (modelType === 'int' || modelType === 'float') {
     // 如果有滑动条定义，应用边界限制
     const slider = props.itemMeta?.slider;
     if (slider) {
       const min = slider.min ?? 0;
       const max = slider.max ?? 100;
-      return Math.max(min, Math.min(max, rawValue));
+      return Math.max(min, Math.min(max, Number(rawValue)));
     }
     return rawValue;
   } else if (modelType === 'dict') {
-    Object.entries(rawValue).forEach(([key, value]) => {
+    const dict = rawValue as Record<string, unknown>;
+    Object.entries(dict).forEach(([key, value]) => {
       const templatesSchema = props.itemMeta?.template_schema;
       const templateType = templatesSchema?.[key]?.type;
       const templateSlider = templatesSchema?.[key]?.slider;
@@ -488,7 +513,7 @@ function validateNumericConfig(modelType, rawValue) {
       ) {
         const min = templateSlider.min ?? 0;
         const max = templateSlider.max ?? 100;
-        rawValue[key] = Math.max(min, Math.min(max, value));
+        dict[key] = Math.max(min, Math.min(max, Number(value)));
       }
     });
     return rawValue;
@@ -496,12 +521,16 @@ function validateNumericConfig(modelType, rawValue) {
   return rawValue;
 }
 
-function getLabel(itemMeta, index, option) {
+function getLabel(
+  itemMeta: ConfigItemMeta | undefined,
+  index: number,
+  option: unknown,
+): string {
   const labels = getTranslatedLabels(itemMeta);
-  return labels ? labels[index] : option;
+  return labels ? labels[index] : (option as string);
 }
 
-function getTranslatedLabels(itemMeta) {
+function getTranslatedLabels(itemMeta?: ConfigItemMeta): string[] | null {
   if (
     props.pluginName &&
     props.configKey &&
@@ -512,7 +541,7 @@ function getTranslatedLabels(itemMeta) {
       props.pluginI18n,
       props.configKey,
       'labels',
-      null,
+      undefined,
     );
     if (Array.isArray(translatedLabels)) {
       return translatedLabels;
@@ -531,21 +560,54 @@ function getTranslatedLabels(itemMeta) {
   return null;
 }
 
-function getSelectItems(itemMeta) {
+function getSelectItems(itemMeta?: ConfigItemMeta): unknown[] {
   const labels = getTranslatedLabels(itemMeta);
-  if (labels && itemMeta.options) {
+  if (labels && itemMeta?.options) {
     return itemMeta.options.map((value, index) => ({
       title: labels[index] || value,
       value,
     }));
   }
-  return itemMeta.options || [];
+  return itemMeta?.options || [];
 }
 </script>
 
 <style scoped>
 .config-field {
   margin-bottom: 0;
+}
+
+.config-editor {
+  min-height: 100px;
+  flex-grow: 1;
+  border: 1px solid rgb(var(--v-theme-outline-variant));
+}
+
+.config-slider {
+  display: flex;
+  flex: 3;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-slider__bound {
+  min-width: 5px;
+}
+
+.config-slider__bound--start {
+  text-align: right;
+}
+
+.config-slider__bound--end {
+  text-align: left;
+}
+
+.config-slider__input {
+  flex: 1;
+}
+
+.config-number-field {
+  flex: 2;
 }
 
 .editor-container {

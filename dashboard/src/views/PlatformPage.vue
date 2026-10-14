@@ -131,7 +131,7 @@
               </div>
 
               <div v-else-if="!loadingPlatforms" class="bot-list-empty">
-                <v-icon size="42" color="grey-lighten-1"
+                <v-icon size="42" color="on-surface-variant"
                   >mdi-robot-outline</v-icon
                 >
                 <p>{{ tm('workspace.empty') }}</p>
@@ -167,7 +167,7 @@
             />
 
             <div v-else class="platform-empty-state">
-              <v-icon size="48" color="grey-lighten-1"
+              <v-icon size="48" color="on-surface-variant"
                 >mdi-cursor-default-click</v-icon
               >
               <p>{{ tm('workspace.selectHint') }}</p>
@@ -299,7 +299,7 @@
                 {{ tm('errorDialog.occurredAt') }}:
                 {{
                   new Date(
-                    currentErrorPlatform.last_error.timestamp,
+                    currentErrorPlatform.last_error.timestamp as TimestampValue,
                   ).toLocaleString()
                 }}
               </div>
@@ -348,7 +348,7 @@
       v-model="snackbar.show"
       :timeout="3000"
       :color="snackbar.color"
-      elevation="6"
+      elevation="4"
       location="top"
     >
       {{ snackbar.message }}
@@ -356,7 +356,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { botApi, fileApi, systemConfigApi } from '@/api/v1';
 import AddNewPlatform from '@/components/platform/AddNewPlatform.vue';
@@ -364,6 +364,10 @@ import PlatformEditor from '@/components/platform/PlatformEditor.vue';
 import PlatformQuickActionsDialog from '@/components/platform/PlatformQuickActionsDialog.vue';
 import DashboardStepUpDialog from '@/components/shared/DashboardStepUpDialog.vue';
 import QrCodeViewer from '@/components/shared/QrCodeViewer.vue';
+import {
+  asRecord,
+  type ToastPayload,
+} from '@/components/platform/platformConfigHelpers';
 import { useDashboardStepUp } from '@/composables/useDashboardStepUp';
 import { mergeDynamicTranslations, useModuleI18n } from '@/i18n/composables';
 import { copyToClipboard } from '@/utils/clipboard';
@@ -386,27 +390,96 @@ const {
   cancelStepUp,
 } = useDashboardStepUp();
 
-const configData = ref({});
-const metadata = ref({});
+interface PlatformRuntimeError {
+  message?: string;
+  timestamp?: string | number;
+  traceback?: string;
+}
+
+interface PlatformItem {
+  id: string;
+  type?: string;
+  enable?: boolean;
+  error_count?: number;
+  last_error?: PlatformRuntimeError | null;
+  [key: string]: unknown;
+}
+
+interface QrLoginStat {
+  qr_status?: string;
+  qrcode?: string;
+  qrcode_img_content?: string;
+  [key: string]: unknown;
+}
+
+interface PlatformStat {
+  id?: string;
+  status?: string;
+  meta?: { supported_actions?: string[] } & Record<string, unknown>;
+  weixin_oc?: QrLoginStat;
+  error_count?: number;
+  last_error?: PlatformRuntimeError | null;
+  [key: string]: unknown;
+}
+
+interface PlatformTemplateItem {
+  type?: string;
+  logo_token?: string;
+  [key: string]: unknown;
+}
+
+interface PlatformMetadataState {
+  platform_group?: {
+    metadata?: {
+      platform?: {
+        config_template?: Record<string, PlatformTemplateItem>;
+      };
+      [key: string]: unknown;
+    };
+  };
+  [key: string]: unknown;
+}
+
+interface PlatformConfigData {
+  platform?: PlatformItem[];
+  [key: string]: unknown;
+}
+
+interface SnackbarState {
+  show: boolean;
+  message: string;
+  color: string;
+}
+
+type TimestampValue = string | number;
+
+const configData = ref<PlatformConfigData>({});
+const metadata = ref<PlatformMetadataState>({});
 const loadingPlatforms = ref(true);
-const selectedPlatformId = ref(null);
+const selectedPlatformId = ref<string | null>(null);
 const showAddPlatformDialog = ref(false);
-const platformStats = ref({});
+const platformStats = ref<Record<string, PlatformStat>>({});
 const showWebhookDialog = ref(false);
 const currentWebhookUuid = ref('');
 const showQrDialog = ref(false);
 const currentQrPlatformId = ref('');
 const showErrorDialog = ref(false);
-const currentErrorPlatform = ref(null);
+const currentErrorPlatform = ref<PlatformStat | null>(null);
 const showQuickActionDialog = ref(false);
 const currentQuickActionPlatformId = ref('');
-const currentQuickActionSupportedActions = ref([]);
-const snackbar = ref({ show: false, message: '', color: 'success' });
-let statsRefreshInterval = null;
+const currentQuickActionSupportedActions = ref<string[]>([]);
+const snackbar = ref<SnackbarState>({
+  show: false,
+  message: '',
+  color: 'success',
+});
+let statsRefreshInterval: number | null = null;
 
-const platforms = computed(() => configData.value.platform || []);
+const platforms = computed<PlatformItem[]>(
+  () => configData.value.platform || [],
+);
 
-const selectedPlatform = computed(
+const selectedPlatform = computed<PlatformItem | null>(
   () =>
     platforms.value.find(
       (platform) => platform.id === selectedPlatformId.value,
@@ -440,16 +513,20 @@ onBeforeUnmount(() => {
   window.removeEventListener('astrbot-locale-changed', handleLocaleChange);
 });
 
-async function getConfig(preferredPlatformId = null) {
+async function getConfig(preferredPlatformId: string | null = null) {
   loadingPlatforms.value = true;
   try {
     const response = await systemConfigApi.runtime();
-    configData.value = response.data.data.config;
-    metadata.value = response.data.data.metadata;
+    const runtimeData = response.data.data;
+    configData.value = asRecord(runtimeData.config) ?? {};
+    metadata.value = asRecord(runtimeData.metadata) ?? {};
 
-    const platformI18n = response.data.data.platform_i18n_translations;
+    const platformI18n = runtimeData.platform_i18n_translations;
     if (platformI18n && typeof platformI18n === 'object') {
-      mergeDynamicTranslations('features.config-metadata', platformI18n);
+      mergeDynamicTranslations(
+        'features.config-metadata',
+        platformI18n as Record<string, Record<string, unknown>>,
+      );
     }
 
     const nextSelectedId = preferredPlatformId || selectedPlatformId.value;
@@ -471,8 +548,8 @@ async function getPlatformStats() {
     if (response.data.status !== 'ok') return;
     platformStats.value = Object.fromEntries(
       (response.data.data.platforms || []).map((platform) => [
-        platform.id,
-        platform,
+        String(platform.id),
+        platform as PlatformStat,
       ]),
     );
   } catch (error) {
@@ -484,24 +561,28 @@ function handleLocaleChange() {
   void getConfig(selectedPlatformId.value);
 }
 
-function getPlatformIconFor(platform) {
+function getPlatformIconFor(
+  platform?: PlatformItem | null,
+): string | undefined {
   const templates =
     metadata.value.platform_group?.metadata?.platform?.config_template || {};
+  const type = platform?.type;
+  const id = platform?.id;
   const template =
-    templates[platform?.type] ||
-    templates[platform?.id] ||
-    Object.values(templates).find((item) => item?.type === platform?.type);
+    (type ? templates[type] : undefined) ||
+    (id ? templates[id] : undefined) ||
+    Object.values(templates).find((item) => item?.type === type);
   if (template?.logo_token) {
     return fileApi.tokenUrl(template.logo_token);
   }
-  return getPlatformIcon(platform?.type || platform?.id);
+  return getPlatformIcon(type || id || '');
 }
 
-function getPlatformStat(platformId) {
+function getPlatformStat(platformId: string): PlatformStat | null {
   return platformStats.value[platformId] || null;
 }
 
-function getPlatformStatusLabel(platform) {
+function getPlatformStatusLabel(platform: PlatformItem): string {
   if (platform.enable === false) {
     return tm('workspace.disabled');
   }
@@ -509,7 +590,7 @@ function getPlatformStatusLabel(platform) {
   return tm(`runtimeStatus.${status}`);
 }
 
-function getPlatformStatusClass(platform) {
+function getPlatformStatusClass(platform: PlatformItem): string {
   if (platform.enable === false) return 'bot-list-item__status-dot--disabled';
   const status = getPlatformStat(platform.id)?.status;
   if (status === 'running') return 'bot-list-item__status-dot--success';
@@ -518,18 +599,18 @@ function getPlatformStatusClass(platform) {
   return 'bot-list-item__status-dot--disabled';
 }
 
-function getSupportedActions(platform) {
+function getSupportedActions(platform: PlatformItem): string[] {
   return getPlatformStat(platform.id)?.meta?.supported_actions || [];
 }
 
-function openQuickActionDialog(platform) {
+function openQuickActionDialog(platform: PlatformItem): void {
   if (!platform?.id) return;
   currentQuickActionPlatformId.value = platform.id;
   currentQuickActionSupportedActions.value = getSupportedActions(platform);
   showQuickActionDialog.value = true;
 }
 
-async function deletePlatform(platform) {
+async function deletePlatform(platform: PlatformItem): Promise<void> {
   const message = `${tm('messages.deleteConfirm')} ${platform.id}?`;
   if (!(await askForConfirmationDialog(message, confirmDialog))) return;
 
@@ -553,62 +634,64 @@ async function deletePlatform(platform) {
   }
 }
 
-function handlePlatformCreated(platformId) {
+function handlePlatformCreated(platformId?: string) {
   void getConfig(platformId || null);
   void getPlatformStats();
 }
 
-function handlePlatformSaved(platformId) {
+function handlePlatformSaved(platformId: string) {
   void getConfig(platformId);
   void getPlatformStats();
 }
 
-function getPlatformQrLoginStat(platformId) {
+function getPlatformQrLoginStat(platformId: string): QrLoginStat | null {
   const stat = getPlatformStat(platformId);
   if (stat?.weixin_oc) return stat.weixin_oc;
-  if (stat && typeof stat === 'object') {
-    return Object.values(stat).find(
+  if (stat) {
+    const found = Object.values(stat).find(
       (value) =>
         value &&
         typeof value === 'object' &&
         ('qrcode_img_content' in value || 'qrcode' in value),
     );
+    return (found as QrLoginStat | undefined) ?? null;
   }
   return null;
 }
 
-function hasQrPayload(platformId) {
+function hasQrPayload(platformId: string): boolean {
   const stat = getPlatformQrLoginStat(platformId);
   return Boolean(stat?.qrcode_img_content || stat?.qrcode);
 }
 
-function openPlatformQrDialog(platformId) {
+function openPlatformQrDialog(platformId: string): void {
   currentQrPlatformId.value = platformId;
   showQrDialog.value = true;
 }
 
-function showErrorDetails(platform) {
+function showErrorDetails(platform: PlatformItem): void {
   const stat = getPlatformStat(platform.id);
-  if (!stat || stat.error_count <= 0) return;
+  if (!stat || Number(stat.error_count) <= 0) return;
   currentErrorPlatform.value = stat;
   showErrorDialog.value = true;
 }
 
-function getWebhookUrl(webhookUuid) {
+function getWebhookUrl(webhookUuid: string): string {
   const callbackBase =
-    configData.value.callback_api_base || 'http(s)://<your-domain-or-ip>';
+    (configData.value.callback_api_base as string) ||
+    'http(s)://<your-domain-or-ip>';
   return `${callbackBase.replace(
     /\/$/,
     '',
   )}/api/v1/webhooks/platforms/${webhookUuid}`;
 }
 
-function openWebhookDialog(webhookUuid) {
+function openWebhookDialog(webhookUuid: string): void {
   currentWebhookUuid.value = webhookUuid;
   showWebhookDialog.value = true;
 }
 
-async function copyWebhookUrl(webhookUuid) {
+async function copyWebhookUrl(webhookUuid: string): Promise<void> {
   const copied = await copyToClipboard(getWebhookUrl(webhookUuid));
   if (copied) {
     showSuccess(tm('webhookCopied'));
@@ -617,7 +700,7 @@ async function copyWebhookUrl(webhookUuid) {
   }
 }
 
-function showToast({ message, type }) {
+function showToast({ message, type }: ToastPayload): void {
   snackbar.value = {
     show: true,
     message,
@@ -625,13 +708,16 @@ function showToast({ message, type }) {
   };
 }
 
-function showSuccess(message) {
+function showSuccess(message: string): void {
   showToast({ message, type: 'success' });
 }
 
-function showError(error) {
-  const message =
-    error?.response?.data?.message || error?.message || String(error);
+function showError(error: unknown): void {
+  const err = error as {
+    response?: { data?: { message?: string } };
+    message?: string;
+  };
+  const message = err?.response?.data?.message || err?.message || String(error);
   showToast({ message, type: 'error' });
 }
 </script>

@@ -9,24 +9,40 @@
     target="_blank"
     clickable
   >
-    <v-icon start size="x-small" color>mdi-link-variant</v-icon>
+    <v-icon start size="x-small" color="">mdi-link-variant</v-icon>
     <span>{{ domain || resultData.title || refIndex }}</span>
   </v-chip>
 </template>
 
-<script setup>
-import { computed, inject, unref, useSlots } from 'vue';
+<script setup lang="ts">
+import { computed, inject, unref, useSlots, type VNode } from 'vue';
 
-const props = defineProps({
-  node: {
-    type: Object,
-    default: null,
+interface RefNodeProp {
+  content?: string;
+}
+
+interface WebSearchResult {
+  title?: string;
+  url?: string;
+}
+
+type WebSearchResults = Record<string, WebSearchResult>;
+
+const props = withDefaults(
+  defineProps<{
+    node?: RefNodeProp | null;
+  }>(),
+  {
+    node: null,
   },
-});
+);
 
 const slots = useSlots();
 const injectedIsDark = inject('isDark', false);
-const webSearchResults = inject('webSearchResults', () => ({}));
+const webSearchResults = inject<WebSearchResults | (() => WebSearchResults)>(
+  'webSearchResults',
+  () => ({}),
+);
 
 const isDark = computed(() => Boolean(unref(injectedIsDark)));
 const refIndex = computed(() => {
@@ -65,11 +81,12 @@ const chipStyle = computed(() => ({
     : 'rgba(var(--v-theme-on-surface), 0.72)',
 }));
 
-function slotText(nodes = []) {
+function slotText(nodes: VNode[] = []): string {
   return nodes
     .map((node) => {
       if (typeof node.children === 'string') return node.children;
-      if (Array.isArray(node.children)) return slotText(node.children);
+      if (Array.isArray(node.children))
+        return slotText(node.children as VNode[]);
       return '';
     })
     .join('');

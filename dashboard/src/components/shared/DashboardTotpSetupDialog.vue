@@ -118,7 +118,7 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { authApi } from '@/api/v1';
 import QrCodeViewer from './QrCodeViewer.vue';
@@ -136,7 +136,7 @@ const props = defineProps({
   mode: {
     type: String,
     default: 'setup',
-    validator: (v) => ['setup', 'rotate'].includes(v),
+    validator: (v: string) => ['setup', 'rotate'].includes(v),
   },
 });
 
@@ -210,7 +210,7 @@ function resetState() {
   verifyingIdentity.value = false;
 }
 
-function onVisibilityChange(val) {
+function onVisibilityChange(val: boolean) {
   if (!val) {
     resetState();
   }

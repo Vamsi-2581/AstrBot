@@ -10,40 +10,9 @@
       </div>
 
       <template v-else>
-        <div class="overview-grid">
-          <section
-            v-for="card in overviewCards"
-            :key="card.label"
-            class="stat-card overview-card"
-          >
-            <div class="card-icon">
-              <v-icon size="18">{{ card.icon }}</v-icon>
-            </div>
-            <div class="card-label">{{ card.label }}</div>
-            <div class="card-value">{{ card.value }}</div>
-            <div class="card-note">{{ card.note }}</div>
-          </section>
-        </div>
+        <StatsOverviewSection :cards="overviewCards" />
 
-        <section class="stat-card t2i-runtime-card">
-          <div class="card-head">
-            <div>
-              <div class="section-title">{{ t('t2i.title') }}</div>
-              <div class="section-subtitle">{{ t('t2i.subtitle') }}</div>
-            </div>
-          </div>
-          <div class="t2i-runtime-grid">
-            <div
-              v-for="metric in t2iRuntimeMetrics"
-              :key="metric.label"
-              class="t2i-runtime-metric"
-            >
-              <span class="metric-label">{{ metric.label }}</span>
-              <strong>{{ metric.value }}</strong>
-              <span class="card-note">{{ metric.note }}</span>
-            </div>
-          </div>
-        </section>
+        <StatsT2iRuntimeCard :metrics="t2iRuntimeMetrics" />
 
         <div class="section-toolbar">
           <div>
@@ -66,69 +35,13 @@
           </div>
         </div>
 
-        <div class="panel-grid">
-          <section class="stat-card chart-card chart-card-wide">
-            <div class="card-head">
-              <div>
-                <div class="section-title">{{ t('messageTrend.title') }}</div>
-                <div class="section-subtitle">
-                  {{ t('messageTrend.subtitle', { range: rangeLabel }) }}
-                </div>
-              </div>
-              <div class="card-head-actions">
-                <div class="section-metric">
-                  <span class="metric-label">{{
-                    t('messageTrend.totalMessages')
-                  }}</span>
-                  <span class="metric-value">{{
-                    formatNumber(baseStats?.message_count ?? 0)
-                  }}</span>
-                </div>
-              </div>
-            </div>
-            <VueApexCharts
-              type="area"
-              height="320"
-              :options="messageChartOptions"
-              :series="messageChartSeries"
-            />
-          </section>
-
-          <section class="stat-card provider-list-card">
-            <div class="card-head compact">
-              <div>
-                <div class="section-title">
-                  {{ t('platformRanking.title') }}
-                </div>
-                <div class="section-subtitle">
-                  {{ t('platformRanking.subtitle', { range: rangeLabel }) }}
-                </div>
-              </div>
-            </div>
-            <div v-if="platformRanking.length" class="provider-list">
-              <div
-                v-for="platform in platformRanking"
-                :key="platform.name"
-                class="provider-row"
-              >
-                <div class="provider-identity">
-                  <img
-                    v-if="platform.icon"
-                    :src="platform.icon"
-                    alt=""
-                    class="platform-icon"
-                  />
-                  <v-icon v-else size="18" aria-hidden="true"
-                    >mdi-message-outline</v-icon
-                  >
-                  <span class="provider-name">{{ platform.name }}</span>
-                </div>
-                <strong>{{ formatNumber(platform.count) }}</strong>
-              </div>
-            </div>
-            <div v-else class="empty-state">{{ t('empty.platformStats') }}</div>
-          </section>
-        </div>
+        <StatsTrendPanel
+          :message-chart-options="messageChartOptions"
+          :message-chart-series="messageChartSeries"
+          :message-count="baseStats?.message_count ?? 0"
+          :platform-ranking="platformRanking"
+          :range-label="rangeLabel"
+        />
 
         <div class="token-section-head">
           <div>
@@ -137,191 +50,23 @@
           </div>
         </div>
 
-        <div class="token-grid">
-          <section
-            class="stat-card chart-card chart-card-wide provider-trend-card"
-          >
-            <div class="card-head">
-              <div>
-                <div class="section-title">{{ t('modelTrend.title') }}</div>
-                <div class="section-subtitle">
-                  {{ t('modelTrend.subtitle') }}
-                </div>
-              </div>
-            </div>
-            <VueApexCharts
-              type="bar"
-              height="420"
-              :options="providerChartOptions"
-              :series="providerTrendSeries"
-            />
-          </section>
+        <StatsModelCallsPanel
+          :provider-chart-options="providerChartOptions"
+          :provider-trend-series="providerTrendSeries"
+          :range-total-tokens="providerStats?.range_total_tokens ?? 0"
+          :range-total-calls="providerStats?.range_total_calls ?? 0"
+          :avg-ttft-label="rangeAvgTtftLabel"
+          :avg-duration-label="rangeAvgDurationLabel"
+          :avg-tpm-label="rangeAvgTpmLabel"
+          :success-rate-label="rangeSuccessRateLabel"
+          :range-label="rangeLabel"
+          :ranking="rangeProviderRanking"
+        />
 
-          <section class="token-side-column">
-            <section class="stat-card token-total-card">
-              <div class="card-label">
-                {{ t('modelTotal.title', { range: rangeLabel }) }}
-              </div>
-              <div class="token-total-value">
-                {{ formatNumber(providerStats?.range_total_tokens ?? 0) }}
-                <span class="token-total-unit">{{ t('units.tokens') }}</span>
-              </div>
-              <div class="card-note">
-                {{
-                  t('modelTotal.callCount', {
-                    count: formatNumber(providerStats?.range_total_calls ?? 0),
-                  })
-                }}
-              </div>
-              <div class="token-meta-list">
-                <div class="token-meta-item">
-                  <span>{{ t('modelTotal.avgTtft') }}</span>
-                  <strong>{{ rangeAvgTtftLabel }}</strong>
-                </div>
-                <div class="token-meta-item">
-                  <span>{{ t('modelTotal.avgDuration') }}</span>
-                  <strong>{{ rangeAvgDurationLabel }}</strong>
-                </div>
-                <div class="token-meta-item">
-                  <span>{{ t('modelTotal.avgTpm') }}</span>
-                  <strong>{{ rangeAvgTpmLabel }}</strong>
-                </div>
-                <div class="token-meta-item">
-                  <span>{{ t('modelTotal.successRate') }}</span>
-                  <strong>{{ rangeSuccessRateLabel }}</strong>
-                </div>
-              </div>
-            </section>
-
-            <section class="stat-card provider-list-card">
-              <div class="card-head compact">
-                <div>
-                  <div class="section-title">
-                    {{ t('modelRanking.title', { range: rangeLabel }) }}
-                  </div>
-                  <div class="section-subtitle">
-                    {{ t('modelRanking.subtitle') }}
-                  </div>
-                </div>
-              </div>
-              <div
-                v-if="rangeProviderRanking.length"
-                class="provider-list provider-list--scrollable"
-              >
-                <div
-                  v-for="provider in rangeProviderRanking"
-                  :key="provider.provider_id"
-                  class="provider-row"
-                >
-                  <span class="provider-name">{{ provider.provider_id }}</span>
-                  <strong>{{ formatNumber(provider.tokens) }}</strong>
-                </div>
-              </div>
-              <div v-else class="empty-state">
-                {{ t('empty.modelCalls', { range: rangeLabel }) }}
-              </div>
-            </section>
-          </section>
-        </div>
-
-        <section class="stat-card provider-list-card">
-          <div class="card-head compact">
-            <div>
-              <div class="section-title">
-                {{ t('sessionRanking.title', { range: rangeLabel }) }}
-              </div>
-              <div class="section-subtitle">
-                {{ t('sessionRanking.subtitle') }}
-              </div>
-            </div>
-          </div>
-          <div v-if="rangeUmoRanking.length" class="provider-list">
-            <div
-              v-for="item in rangeUmoRanking"
-              :key="item.umo"
-              class="provider-row"
-            >
-              <div class="provider-identity provider-identity--umo">
-                <img
-                  v-if="item.icon"
-                  :src="item.icon"
-                  alt=""
-                  class="platform-icon"
-                />
-                <v-icon v-else size="18" aria-hidden="true"
-                  >mdi-message-outline</v-icon
-                >
-                <v-tooltip
-                  v-if="item.display_name && item.display_name !== item.umo"
-                  location="top"
-                  max-width="520"
-                >
-                  <template #activator="{ props }">
-                    <span
-                      v-bind="props"
-                      class="provider-name provider-name--alias"
-                    >
-                      {{ item.display_name }}
-                    </span>
-                  </template>
-                  <span class="umo-tooltip">{{ item.umo }}</span>
-                </v-tooltip>
-                <span v-else class="provider-name">{{ item.umo }}</span>
-                <v-tooltip location="top">
-                  <template #activator="{ props }">
-                    <button
-                      v-bind="props"
-                      type="button"
-                      class="umo-copy-button"
-                      :class="{
-                        'umo-copy-button--copied': copiedUmo === item.umo,
-                      }"
-                      :aria-label="
-                        copiedUmo === item.umo
-                          ? globalT('core.common.copied')
-                          : globalT('core.common.copy')
-                      "
-                      @click="copyUmo(item.umo)"
-                    >
-                      <v-icon v-if="copiedUmo === item.umo" size="15"
-                        >mdi-check</v-icon
-                      >
-                      <v-icon v-else size="15">mdi-content-copy</v-icon>
-                    </button>
-                  </template>
-                  <span>
-                    {{
-                      failedCopyUmo === item.umo
-                        ? globalT('core.common.copyFailed')
-                        : copiedUmo === item.umo
-                          ? globalT('core.common.copied')
-                          : globalT('core.common.copy')
-                    }}
-                  </span>
-                </v-tooltip>
-                <v-tooltip location="top">
-                  <template #activator="{ props }">
-                    <RouterLink
-                      v-bind="props"
-                      class="umo-conversation-link"
-                      :to="{ name: 'Conversation', query: { umo: item.umo } }"
-                      :aria-label="t('sessionRanking.openConversation')"
-                    >
-                      <v-icon size="15" aria-hidden="true"
-                        >mdi-message-text-outline</v-icon
-                      >
-                    </RouterLink>
-                  </template>
-                  <span>{{ t('sessionRanking.openConversation') }}</span>
-                </v-tooltip>
-              </div>
-              <strong>{{ formatNumber(item.tokens) }}</strong>
-            </div>
-          </div>
-          <div v-else class="empty-state">
-            {{ t('empty.sessionCalls', { range: rangeLabel }) }}
-          </div>
-        </section>
+        <StatsSessionRankingPanel
+          :ranking="rangeUmoRanking"
+          :range-label="rangeLabel"
+        />
       </template>
     </v-container>
   </div>
@@ -329,14 +74,16 @@
 
 <script setup lang="ts">
 import type { ApexOptions } from 'apexcharts';
-import VueApexCharts from 'vue3-apexcharts';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { RouterLink } from 'vue-router';
 import { useTheme } from 'vuetify';
 import { statsApi, type T2iRuntimeStatsData } from '@/api/v1';
 import { useI18n, useModuleI18n } from '@/i18n/composables';
-import { copyToClipboard } from '@/utils/clipboard';
 import { getPlatformIcon } from '@/utils/platformUtils';
+import StatsModelCallsPanel from './components/StatsModelCallsPanel.vue';
+import StatsOverviewSection from './components/StatsOverviewSection.vue';
+import StatsSessionRankingPanel from './components/StatsSessionRankingPanel.vue';
+import StatsT2iRuntimeCard from './components/StatsT2iRuntimeCard.vue';
+import StatsTrendPanel from './components/StatsTrendPanel.vue';
 
 type TokenRange = 1 | 3 | 7;
 type ChartSeries = Array<{
@@ -407,7 +154,7 @@ interface ProviderTokenStatsResponse {
   today_by_provider: ProviderRankingItem[];
 }
 
-const { locale, t: globalT } = useI18n();
+const { locale } = useI18n();
 const { tm: t } = useModuleI18n('features/stats');
 const theme = useTheme();
 const loading = ref(true);
@@ -416,8 +163,6 @@ const baseStats = ref<BaseStatsResponse | null>(null);
 const providerStats = ref<ProviderTokenStatsResponse | null>(null);
 const t2iRuntimeStats = ref<T2iRuntimeStatsData | null>(null);
 const selectedRange = ref<TokenRange>(1);
-const copiedUmo = ref('');
-const failedCopyUmo = ref('');
 const isDark = computed(() => theme.global.current.value.dark);
 const themePalette = computed(() => {
   const colors = theme.global.current.value.colors as Record<string, string>;
@@ -439,21 +184,7 @@ const themePalette = computed(() => {
 });
 
 let refreshTimer: number | null = null;
-let copyFeedbackTimer: number | null = null;
 let isUnmounted = false;
-
-async function copyUmo(umo: string): Promise<void> {
-  const copied = await copyToClipboard(umo);
-  copiedUmo.value = copied ? umo : '';
-  failedCopyUmo.value = copied ? '' : umo;
-  if (copyFeedbackTimer !== null) {
-    window.clearTimeout(copyFeedbackTimer);
-  }
-  copyFeedbackTimer = window.setTimeout(() => {
-    copiedUmo.value = '';
-    failedCopyUmo.value = '';
-  }, 2000);
-}
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat(locale.value).format(value);
@@ -917,9 +648,6 @@ onBeforeUnmount(() => {
   if (refreshTimer !== null) {
     window.clearInterval(refreshTimer);
   }
-  if (copyFeedbackTimer !== null) {
-    window.clearTimeout(copyFeedbackTimer);
-  }
 });
 </script>
 
@@ -975,10 +703,7 @@ onBeforeUnmount(() => {
 }
 
 .stats-page.is-dark .stats-subtitle,
-.stats-page.is-dark .metric-label,
-.stats-page.is-dark .section-subtitle,
-.stats-page.is-dark .card-note,
-.stats-page.is-dark .empty-state {
+.stats-page.is-dark .section-subtitle {
   color: var(--stats-muted);
 }
 
@@ -1011,144 +736,6 @@ onBeforeUnmount(() => {
   padding: 80px 0;
 }
 
-.overview-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.t2i-runtime-card {
-  margin-bottom: 20px;
-  padding: 20px;
-}
-
-.t2i-runtime-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.t2i-runtime-metric {
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-  padding: 14px;
-  border: 1px solid var(--stats-border);
-  border-radius: 12px;
-  background: var(--stats-soft);
-}
-
-.t2i-runtime-metric strong {
-  overflow: hidden;
-  color: var(--stats-text);
-  font-size: 1.1rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.panel-grid,
-.token-grid {
-  display: grid;
-  grid-template-columns: 1.6fr 0.9fr;
-  gap: 20px;
-  margin-bottom: 20px;
-  align-items: stretch;
-}
-
-.panel-grid > *,
-.token-grid > * {
-  min-width: 0;
-  width: 100%;
-}
-
-.token-side-column {
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 20px;
-  min-width: 0;
-  width: 100%;
-}
-
-.token-side-column > * {
-  min-width: 0;
-}
-
-.stat-card {
-  border: 1px solid var(--stats-border);
-  border-radius: 16px;
-  background: var(--stats-surface);
-}
-
-.stats-page.is-dark .stat-card {
-  border-color: var(--stats-border-strong);
-  background: var(--stats-surface);
-}
-
-.overview-card {
-  padding: 20px 20px 18px;
-}
-
-.card-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-  background: var(--stats-soft);
-  color: rgb(var(--v-theme-primary));
-}
-
-.stats-page.is-dark .card-icon {
-  background: var(--stats-soft-strong);
-  color: rgb(var(--v-theme-primary));
-}
-
-.card-label {
-  margin-top: 8px;
-  color: var(--stats-muted);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.stats-page.is-dark .card-label,
-.stats-page.is-dark .system-row,
-.stats-page.is-dark .system-meta-item,
-.stats-page.is-dark .provider-name {
-  color: var(--stats-muted);
-}
-
-.card-value {
-  margin-top: 8px;
-  font-size: clamp(24px, 2vw, 34px);
-  line-height: 1.1;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-}
-
-.card-note {
-  margin-top: 8px;
-  color: var(--stats-subtle);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.chart-card,
-.system-card,
-.provider-list-card,
-.token-total-card {
-  padding: 22px;
-}
-
-.card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
-  margin-bottom: 18px;
-}
-
 .section-toolbar {
   display: flex;
   justify-content: space-between;
@@ -1159,18 +746,6 @@ onBeforeUnmount(() => {
 
 .section-toolbar .section-subtitle {
   max-width: 680px;
-}
-
-.card-head-actions {
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.card-head.compact {
-  margin-bottom: 14px;
 }
 
 .section-title {
@@ -1185,67 +760,6 @@ onBeforeUnmount(() => {
   margin-top: 6px;
   color: var(--stats-muted);
   font-size: 13px;
-}
-
-.section-metric {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-}
-
-.metric-label {
-  color: var(--stats-subtle);
-  font-size: 12px;
-}
-
-.metric-value {
-  font-size: 22px;
-  font-weight: 650;
-}
-
-.system-metric + .system-metric {
-  margin-top: 18px;
-}
-
-.system-row,
-.system-meta-item,
-.provider-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-
-.system-row {
-  margin-bottom: 10px;
-  color: var(--stats-muted);
-  font-size: 14px;
-}
-
-.system-meta-list {
-  margin-top: 20px;
-  border-top: 1px solid var(--stats-border);
-  padding-top: 14px;
-}
-
-.stats-page.is-dark .system-meta-list {
-  border-top-color: var(--stats-border-strong);
-}
-
-.system-meta-item {
-  padding: 10px 0;
-  color: var(--stats-muted);
-  font-size: 14px;
-}
-
-.system-meta-item + .system-meta-item {
-  border-top: 1px solid var(--stats-border);
-}
-
-.stats-page.is-dark .system-meta-item + .system-meta-item,
-.stats-page.is-dark .provider-row {
-  border-color: var(--stats-border-strong);
 }
 
 .token-section-head {
@@ -1298,184 +812,7 @@ onBeforeUnmount(() => {
   color: rgb(var(--v-theme-primary));
 }
 
-.token-total-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 170px;
-  width: 100%;
-}
-
-.provider-trend-card {
-  min-height: 520px;
-}
-
-.provider-list-card {
-  width: 100%;
-}
-
-.token-total-value {
-  margin-top: var(--astrbot-space-2);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 32px;
-  line-height: 32px;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-
-.token-total-unit {
-  font-size: 18px;
-  line-height: 24px;
-}
-
-.token-meta-list {
-  margin-top: 18px;
-  border-top: 1px solid var(--stats-border);
-  padding-top: 14px;
-  display: grid;
-  gap: 10px;
-}
-
-.token-meta-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  color: var(--stats-muted);
-  font-size: 14px;
-}
-
-.provider-list {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-
-.provider-list--scrollable {
-  max-height: 296px;
-  overflow-y: auto;
-  padding-right: 6px;
-}
-
-.provider-row {
-  min-width: 0;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--stats-border);
-  font-size: 14px;
-  width: 100%;
-}
-
-.provider-row > strong {
-  flex: 0 0 auto;
-}
-
-.provider-row:last-child {
-  border-bottom: 0;
-}
-
-.provider-name {
-  color: var(--stats-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.provider-identity {
-  align-items: center;
-  display: flex;
-  gap: 9px;
-  min-width: 0;
-}
-
-.provider-identity--umo {
-  flex: 1 1 auto;
-}
-
-.platform-icon {
-  flex: 0 0 auto;
-  height: 20px;
-  object-fit: contain;
-  width: 20px;
-}
-
-.provider-name--alias {
-  border-bottom: 1px dotted currentColor;
-  cursor: help;
-}
-
-.umo-tooltip {
-  overflow-wrap: anywhere;
-}
-
-.umo-copy-button,
-.umo-conversation-link {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  color: var(--stats-subtle);
-  cursor: pointer;
-  display: inline-flex;
-  flex: 0 0 auto;
-  height: 26px;
-  justify-content: center;
-  padding: 0;
-  text-decoration: none;
-  transition:
-    background-color 0.18s ease,
-    color 0.18s ease;
-  width: 26px;
-}
-
-.umo-copy-button:hover,
-.umo-conversation-link:hover {
-  background: rgba(var(--v-theme-on-surface), 0.07);
-  color: var(--stats-text);
-}
-
-.umo-copy-button--copied {
-  color: rgb(var(--v-theme-success));
-}
-
-.token-total-card .card-label,
-.token-total-card .card-note,
-.token-side-column .section-subtitle {
-  overflow-wrap: anywhere;
-}
-
-.empty-state {
-  color: var(--stats-muted);
-  font-size: 14px;
-}
-
-.empty-state.large {
-  padding: 56px 0;
-  text-align: center;
-}
-
-@media (max-width: 1400px) {
-  .overview-grid,
-  .t2i-runtime-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 1080px) {
-  .panel-grid,
-  .token-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 900px) {
-  .overview-grid,
-  .t2i-runtime-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .stats-header,
   .token-section-head {
     flex-direction: column;
@@ -1487,32 +824,12 @@ onBeforeUnmount(() => {
     align-items: flex-start;
     flex-direction: column;
   }
-
-  .card-head,
-  .card-head-actions {
-    flex-direction: column;
-    align-items: flex-start;
-  }
 }
 
 @media (max-width: 640px) {
-  .overview-grid,
-  .t2i-runtime-grid {
-    grid-template-columns: 1fr;
-  }
-
   .stats-shell {
     padding-left: 12px !important;
     padding-right: 12px !important;
-  }
-
-  .chart-card,
-  .system-card,
-  .provider-list-card,
-  .token-total-card,
-  .t2i-runtime-card {
-    padding: 18px;
-    border-radius: 14px;
   }
 }
 </style>

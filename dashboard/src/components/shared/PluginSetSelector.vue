@@ -87,17 +87,14 @@
       <div class="flex-grow-1">
         <span
           v-if="!modelValue || modelValue.length === 0"
-          style="color: rgb(var(--v-theme-primaryText))"
+          class="plugin-set-selector__status"
         >
           {{ tm('pluginSetSelector.notSelected') }}
         </span>
-        <span
-          v-else-if="isAllPlugins"
-          style="color: rgb(var(--v-theme-primaryText))"
-        >
+        <span v-else-if="isAllPlugins" class="plugin-set-selector__status">
           {{ tm('pluginSetSelector.allPlugins') }}
         </span>
-        <span v-else style="color: rgb(var(--v-theme-primaryText))">
+        <span v-else class="plugin-set-selector__status">
           {{
             tm('pluginSetSelector.selectedCount', { count: modelValue.length })
           }}
@@ -156,7 +153,7 @@
           <!-- 自定义选择时显示插件列表 -->
           <div
             v-if="selectionMode === 'custom'"
-            style="max-height: 300px; overflow-y: auto"
+            class="plugin-set-dialog__list"
           >
             <v-list v-if="pluginList.length > 0" density="compact">
               <v-list-item
@@ -186,7 +183,7 @@
                   <v-chip
                     v-if="!plugin.activated"
                     size="x-small"
-                    color="grey"
+                    color="surface-variant"
                     class="ml-1"
                   >
                     {{ tm('pluginSetSelector.notActivated') }}
@@ -200,7 +197,7 @@
             </v-list>
 
             <div v-else class="text-center py-8">
-              <v-icon size="64" color="grey-lighten-1"
+              <v-icon size="64" color="on-surface-variant"
                 >mdi-puzzle-outline</v-icon
               >
               <p class="text-grey mt-4">
@@ -224,15 +221,21 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
+import type { PropType } from 'vue';
 import { pluginApi } from '@/api/v1';
+import type { PluginData } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
 import { usePluginI18n } from '@/utils/pluginI18n';
 
+interface PluginListItem extends PluginData {
+  name: string;
+}
+
 const props = defineProps({
   modelValue: {
-    type: Array,
+    type: Array as PropType<string[]>,
     default: () => [],
   },
   buttonText: {
@@ -258,14 +261,15 @@ const { tm } = useModuleI18n('core.shared');
 const { pluginName, pluginDesc } = usePluginI18n();
 
 const dialog = ref(false);
-const pluginList = ref([]);
+const pluginList = ref<PluginListItem[]>([]);
 const loading = ref(false);
 const selectionMode = ref('custom'); // 'all', 'none', 'custom'
-const selectedPlugins = ref([]);
+const selectedPlugins = ref<string[]>([]);
 const pluginSearchKeyword = ref('');
 
-const pluginDisplayName = (plugin) => pluginName(plugin) || plugin.name;
-const pluginDescription = (plugin) => pluginDesc(plugin);
+const pluginDisplayName = (plugin: PluginListItem) =>
+  pluginName(plugin) || plugin.name;
+const pluginDescription = (plugin: PluginListItem) => pluginDesc(plugin);
 
 // 判断是否为"所有插件"模式
 const isAllPlugins = computed(() => {
@@ -340,6 +344,10 @@ async function loadPlugins() {
     if (response.data.status === 'ok') {
       const activatedPlugins = (response.data.data || [])
         .filter((plugin) => plugin.activated)
+        .map((plugin): PluginListItem => ({
+          ...plugin,
+          name: plugin.name ?? '',
+        }))
         .sort((a, b) => {
           if (props.inline && Boolean(a.reserved) !== Boolean(b.reserved)) {
             return a.reserved ? -1 : 1;
@@ -360,11 +368,11 @@ async function loadPlugins() {
   }
 }
 
-function inlinePluginEnabled(plugin) {
+function inlinePluginEnabled(plugin: PluginListItem) {
   return isAllPlugins.value || (props.modelValue || []).includes(plugin.name);
 }
 
-function toggleInlinePlugin(plugin) {
+function toggleInlinePlugin(plugin: PluginListItem) {
   const selected = new Set(
     isAllPlugins.value
       ? pluginList.value.map((item) => item.name)
@@ -398,7 +406,7 @@ onMounted(() => {
 });
 
 function confirmSelection() {
-  let newValue = [];
+  let newValue: string[] = [];
 
   switch (selectionMode.value) {
     case 'all':
@@ -435,6 +443,15 @@ function cancelSelection() {
 </script>
 
 <style scoped>
+.plugin-set-selector__status {
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.plugin-set-dialog__list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
 .v-list-item {
   transition: all 0.2s ease;
 }
