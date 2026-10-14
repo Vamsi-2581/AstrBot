@@ -5,6 +5,15 @@ import { ref, computed, type Ref } from 'vue';
 import type { CommandItem } from '@/domain/commands';
 import { normalizeTextInput } from '@/utils/inputValue';
 
+// Matches the default `Array.prototype.sort()` order (UTF-16 code units) so the
+// filter dropdowns keep the ordering they had before an explicit comparator was
+// required by `@typescript-eslint/require-array-sort-compare`.
+const compareCodeUnits = (a: string, b: string): number => {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+};
+
 export function useCommandFilters(commands: Ref<CommandItem[]>) {
   // 过滤状态
   const searchQuery = ref('');
@@ -40,7 +49,7 @@ export function useCommandFilters(commands: Ref<CommandItem[]>) {
         .filter((cmd) => effectiveShowSystemPlugins.value || !cmd.reserved)
         .map((cmd) => cmd.plugin),
     );
-    return Array.from(plugins).sort((a, b) => a.localeCompare(b));
+    return Array.from(plugins).sort(compareCodeUnits);
   });
 
   const availableActions = computed(() =>
@@ -50,7 +59,7 @@ export function useCommandFilters(commands: Ref<CommandItem[]>) {
           .map((cmd) => cmd.action)
           .filter((action): action is string => Boolean(action)),
       ),
-    ).sort((a, b) => a.localeCompare(b)),
+    ).sort(compareCodeUnits),
   );
 
   const matchesSearchQuery = (cmd: CommandItem, query: string): boolean => {
