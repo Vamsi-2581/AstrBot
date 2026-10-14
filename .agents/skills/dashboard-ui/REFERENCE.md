@@ -83,7 +83,7 @@ so on; do not declare those by hand. Colours are also reachable in CSS as
 
 ## Which table component
 
-```
+```text
 Static rows, no interaction        → v-table
 Local sort/filter/page             → v-data-table
 Server owns sort/page              → v-data-table-server (separate component)
