@@ -23,6 +23,7 @@ from astrbot.core.auth.models import (
 from astrbot.core.auth.service import AuthorizationService
 from astrbot.core.db.po import (
     AuthAuditLog,
+    AuthPlatformMembershipFact,
     AuthRoleBinding,
     AuthStepUpCredential,
     DashboardAccount,
@@ -115,7 +116,6 @@ async def test_platform_admin_is_session_scoped_and_expires(authorization):
         platform_instance="napcat",
         platform_role="admin",
         source="adapter",
-        ttl_seconds=1,
     )
     assert (
         await authorization.authorize(
@@ -131,6 +131,25 @@ async def test_platform_admin_is_session_scoped_and_expires(authorization):
             "session.manage",
             other,
             _session_context(subject, other),
+        )
+    ).allowed
+
+    async with authorization._db.get_db() as session:
+        async with session.begin():
+            fact = (
+                await session.execute(
+                    select(AuthPlatformMembershipFact).where(
+                        AuthPlatformMembershipFact.subject_id == subject.id
+                    )
+                )
+            ).scalar_one()
+            fact.expires_at = utc_now() - timedelta(seconds=1)
+    assert not (
+        await authorization.authorize(
+            subject,
+            "session.manage",
+            current,
+            _session_context(subject, current),
         )
     ).allowed
 
