@@ -6,7 +6,8 @@
       :placeholder="mergedLabels.searchPlaceholder"
       :aria-label="mergedLabels.searchPlaceholder"
       prepend-inner-icon="mdi-magnify"
-      variant="outlined"
+      variant="solo-filled"
+      flat
       density="compact"
       hide-details
       clearable
@@ -307,9 +308,14 @@ function deleteFolder() {
 
 <style scoped>
 .base-folder-tree {
-  height: 100%;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
+  min-height: 0;
+}
+
+.base-folder-tree > .v-input {
+  flex: 0 0 auto;
 }
 
 .tree-list {

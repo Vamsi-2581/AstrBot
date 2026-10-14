@@ -1,46 +1,35 @@
 <template>
   <div class="prompt-manager">
-    <!-- 移动端顶部导航 -->
-    <div class="mobile-nav d-md-none mb-4">
-      <FolderBreadcrumb />
-    </div>
-
-    <div class="manager-layout">
-      <!-- 左侧边栏 - 仅桌面端显示 -->
-      <div class="sidebar d-none d-md-block">
-        <div
-          class="sidebar-header d-flex justify-space-between align-center mb-3"
-        >
-          <h3 class="text-h6">{{ tm('folder.sidebarTitle') }}</h3>
+    <div class="prompt-workbench">
+      <!-- 文件夹侧栏 - 仅桌面端显示 -->
+      <aside class="prompt-workbench__sidebar">
+        <div class="prompt-panel__head">
+          <h2 class="prompt-panel__title">{{ tm('folder.sidebarTitle') }}</h2>
           <v-btn
             icon="mdi-folder-plus"
             variant="text"
             size="small"
             :title="tm('folder.createButton')"
+            :aria-label="tm('folder.createButton')"
             @click="showCreateFolderDialog = true"
           />
         </div>
         <FolderTree
+          class="prompt-panel__tree"
           @move-folder="openMoveFolderDialog"
           @success="showSuccess"
           @error="showError"
           @prompt-dropped="handlePromptDropped"
         />
-      </div>
+      </aside>
+
+      <div class="prompt-workbench__divider" aria-hidden="true"></div>
 
       <!-- 主内容区 -->
-      <div class="main-content">
-        <!-- 顶部工具栏 -->
-        <div
-          class="toolbar d-flex flex-wrap justify-space-between align-center mb-4 ga-2"
-        >
-          <!-- 面包屑 - 仅桌面端显示 -->
-          <div class="d-none d-md-block">
-            <FolderBreadcrumb />
-          </div>
-
-          <!-- 操作按钮组 -->
-          <div class="d-flex ga-2">
+      <main class="prompt-workbench__main">
+        <div class="prompt-main__head">
+          <FolderBreadcrumb class="prompt-main__breadcrumb" />
+          <div class="prompt-main__actions">
             <v-btn
               variant="outlined"
               prepend-icon="mdi-upload"
@@ -65,46 +54,33 @@
               hidden
               @change="handleImportFile"
             />
-            <v-btn
-              variant="outlined"
-              prepend-icon="mdi-folder-plus"
-              rounded="md"
-              @click="showCreateFolderDialog = true"
-            >
-              {{ tm('folder.createButton') }}
-            </v-btn>
           </div>
         </div>
 
-        <!-- 加载状态 - 只有加载超过阈值才显示骨架屏 -->
-        <v-fade-transition>
-          <div v-if="showSkeleton" class="loading-container">
-            <v-row>
-              <v-col v-for="n in 6" :key="n" cols="12" sm="6" lg="6" xl="4">
-                <v-skeleton-loader type="card" rounded="md" />
-              </v-col>
-            </v-row>
-          </div>
-        </v-fade-transition>
+        <div class="prompt-main__body">
+          <!-- 加载状态 - 只有加载超过阈值才显示骨架屏 -->
+          <v-fade-transition>
+            <div v-if="showSkeleton" class="prompt-skeleton">
+              <v-skeleton-loader
+                v-for="n in 6"
+                :key="n"
+                type="card"
+                rounded="md"
+              />
+            </div>
+          </v-fade-transition>
 
-        <!-- 内容区域 -->
-        <div v-if="!loading">
-          <!-- 子文件夹区域 -->
-          <div v-if="currentFolders.length > 0" class="folders-section mb-6">
-            <h3 class="text-subtitle-1 font-weight-medium mb-3">
-              <v-icon size="small" class="mr-1">mdi-folder</v-icon>
-              {{ tm('folder.foldersTitle') }} ({{ currentFolders.length }})
-            </h3>
-            <v-row>
-              <v-col
-                v-for="folder in currentFolders"
-                :key="folder.folder_id"
-                cols="12"
-                sm="6"
-                lg="6"
-                xl="4"
-              >
+          <template v-if="!loading">
+            <!-- 子文件夹区域 -->
+            <section v-if="currentFolders.length > 0" class="prompt-section">
+              <h3 class="prompt-section__title">
+                <v-icon size="small">mdi-folder</v-icon>
+                {{ tm('folder.foldersTitle') }} ({{ currentFolders.length }})
+              </h3>
+              <div class="prompt-grid">
                 <FolderCard
+                  v-for="folder in currentFolders"
+                  :key="folder.folder_id"
                   :folder="folder"
                   @click="promptStore.navigateToFolder(folder.folder_id)"
                   @open="promptStore.navigateToFolder(folder.folder_id)"
@@ -113,26 +89,19 @@
                   @delete="confirmDeleteFolder(folder)"
                   @prompt-dropped="handlePromptDropped"
                 />
-              </v-col>
-            </v-row>
-          </div>
+              </div>
+            </section>
 
-          <!-- Prompt 区域 -->
-          <div v-if="currentPrompts.length > 0" class="prompts-section">
-            <h3 class="text-subtitle-1 font-weight-medium mb-3">
-              <v-icon size="small" class="mr-1">mdi-account-heart</v-icon>
-              {{ tm('prompt.promptsTitle') }} ({{ currentPrompts.length }})
-            </h3>
-            <v-row>
-              <v-col
-                v-for="prompt in currentPrompts"
-                :key="prompt.prompt_id"
-                cols="12"
-                sm="6"
-                lg="6"
-                xl="4"
-              >
+            <!-- Prompt 区域 -->
+            <section v-if="currentPrompts.length > 0" class="prompt-section">
+              <h3 class="prompt-section__title">
+                <v-icon size="small">mdi-text-box-outline</v-icon>
+                {{ tm('prompt.promptsTitle') }} ({{ currentPrompts.length }})
+              </h3>
+              <div class="prompt-grid">
                 <PromptCard
+                  v-for="prompt in currentPrompts"
+                  :key="prompt.prompt_id"
                   :prompt="prompt"
                   @view="viewPrompt(prompt)"
                   @edit="editPrompt(prompt)"
@@ -140,24 +109,22 @@
                   @delete="confirmDeletePrompt(prompt)"
                   @export="handlePromptExport"
                 />
-              </v-col>
-            </v-row>
-          </div>
+              </div>
+            </section>
 
-          <!-- 空状态 -->
-          <div
-            v-if="currentFolders.length === 0 && currentPrompts.length === 0"
-            class="empty-state"
-          >
-            <v-card class="text-center pa-8" elevation="0">
-              <v-icon size="64" color="on-surface-variant" class="mb-4"
+            <!-- 空状态 -->
+            <div
+              v-if="currentFolders.length === 0 && currentPrompts.length === 0"
+              class="prompt-empty"
+            >
+              <v-icon size="56" color="on-surface-variant"
                 >mdi-folder-open-outline</v-icon
               >
-              <h3 class="text-h5 mb-2">{{ tm('empty.folderEmpty') }}</h3>
-              <p class="text-body-1 text-medium-emphasis mb-4">
+              <h3 class="prompt-empty__title">{{ tm('empty.folderEmpty') }}</h3>
+              <p class="prompt-empty__text">
                 {{ tm('empty.folderEmptyDescription') }}
               </p>
-              <div class="d-flex justify-center ga-2">
+              <div class="prompt-empty__actions">
                 <v-btn
                   color="primary"
                   variant="tonal"
@@ -174,10 +141,10 @@
                   {{ tm('folder.createButton') }}
                 </v-btn>
               </div>
-            </v-card>
-          </div>
+            </div>
+          </template>
         </div>
-      </div>
+      </main>
     </div>
 
     <!-- 创建/编辑 Prompt 对话框 -->
@@ -192,163 +159,11 @@
     />
 
     <!-- 查看 Prompt 详情对话框 -->
-    <v-dialog
+    <PromptPreviewDialog
       v-model="showViewDialog"
-      max-width="700px"
-      scrollable
-      :aria-label="
-        viewingPrompt ? promptDisplayName(viewingPrompt) : tm('buttons.close')
-      "
-    >
-      <v-card v-if="viewingPrompt" class="prompt-preview-dialog__card">
-        <v-card-title class="d-flex justify-space-between align-center">
-          <span class="text-h5">{{ promptDisplayName(viewingPrompt) }}</span>
-          <div class="d-flex align-center ga-1">
-            <v-btn
-              color="primary"
-              variant="tonal"
-              size="small"
-              prepend-icon="mdi-pencil"
-              @click="openEditFromViewDialog"
-            >
-              {{ tm('buttons.edit') }}
-            </v-btn>
-            <v-btn
-              icon="mdi-close"
-              variant="text"
-              :aria-label="tm('buttons.close')"
-              @click="showViewDialog = false"
-            />
-          </div>
-        </v-card-title>
-
-        <v-card-text class="prompt-preview-dialog__content">
-          <div class="mb-4">
-            <h4 class="text-h6 mb-2">{{ tm('form.systemPrompt') }}</h4>
-            <pre class="system-prompt-content">{{
-              viewingPrompt.system_prompt
-            }}</pre>
-          </div>
-
-          <div v-if="viewingPrompt.custom_error_message" class="mb-4">
-            <h4 class="text-h6 mb-2">{{ tm('form.customErrorMessage') }}</h4>
-            <pre class="system-prompt-content">{{
-              viewingPrompt.custom_error_message
-            }}</pre>
-          </div>
-
-          <div
-            v-if="
-              viewingPrompt.begin_dialogs &&
-              viewingPrompt.begin_dialogs.length > 0
-            "
-            class="mb-4"
-          >
-            <h4 class="text-h6 mb-2">{{ tm('form.presetDialogs') }}</h4>
-            <div
-              v-for="(dialog, index) in viewingPrompt.begin_dialogs"
-              :key="index"
-              class="mb-2"
-            >
-              <v-chip
-                :color="index % 2 === 0 ? 'primary' : 'secondary'"
-                variant="tonal"
-                size="small"
-                class="mb-1"
-              >
-                {{
-                  index % 2 === 0
-                    ? tm('form.userMessage')
-                    : tm('form.assistantMessage')
-                }}
-              </v-chip>
-              <div class="dialog-content ml-2">{{ dialog }}</div>
-            </div>
-          </div>
-
-          <div class="mb-4">
-            <h4 class="text-h6 mb-2">{{ tm('form.tools') }}</h4>
-            <div
-              v-if="viewingPrompt.tools === null"
-              class="text-body-2 text-medium-emphasis"
-            >
-              <v-chip
-                size="small"
-                color="success"
-                variant="tonal"
-                prepend-icon="mdi-check-all"
-              >
-                {{ tm('form.allToolsAvailable') }}
-              </v-chip>
-            </div>
-            <div
-              v-else-if="viewingPrompt.tools && viewingPrompt.tools.length > 0"
-              class="d-flex flex-wrap ga-1"
-            >
-              <v-chip
-                v-for="toolName in viewingPrompt.tools"
-                :key="toolName"
-                size="small"
-                color="primary"
-                variant="tonal"
-              >
-                {{ toolName }}
-              </v-chip>
-            </div>
-            <div v-else class="text-body-2 text-medium-emphasis">
-              {{ tm('form.noToolsSelected') }}
-            </div>
-          </div>
-
-          <div class="mb-4">
-            <h4 class="text-h6 mb-2">{{ tm('form.skills') }}</h4>
-            <div
-              v-if="viewingPrompt.skills === null"
-              class="text-body-2 text-medium-emphasis"
-            >
-              <v-chip
-                size="small"
-                color="success"
-                variant="tonal"
-                prepend-icon="mdi-check-all"
-              >
-                {{ tm('form.allSkillsAvailable') }}
-              </v-chip>
-            </div>
-            <div
-              v-else-if="
-                viewingPrompt.skills && viewingPrompt.skills.length > 0
-              "
-              class="d-flex flex-wrap ga-1"
-            >
-              <v-chip
-                v-for="skillName in viewingPrompt.skills"
-                :key="skillName"
-                size="small"
-                color="primary"
-                variant="tonal"
-              >
-                {{ skillName }}
-              </v-chip>
-            </div>
-            <div v-else class="text-body-2 text-medium-emphasis">
-              {{ tm('form.noSkillsSelected') }}
-            </div>
-          </div>
-
-          <div class="text-caption text-medium-emphasis">
-            <div>
-              {{ tm('labels.createdAt') }}:
-              {{ formatDate(viewingPrompt.created_at) }}
-            </div>
-            <div v-if="viewingPrompt.updated_at">
-              {{ tm('labels.updatedAt') }}:
-              {{ formatDate(viewingPrompt.updated_at) }}
-            </div>
-          </div>
-        </v-card-text>
-      </v-card>
-    </v-dialog>
+      :prompt="viewingPrompt"
+      @edit="openEditFromViewDialog"
+    />
 
     <!-- 创建文件夹对话框 -->
     <CreateFolderDialog
@@ -364,8 +179,10 @@
       max-width="400px"
       :aria-label="tm('folder.renameDialog.title')"
     >
-      <v-card>
-        <v-card-title>{{ tm('folder.renameDialog.title') }}</v-card-title>
+      <v-card class="app-dialog">
+        <v-card-title class="text-h6">
+          {{ tm('folder.renameDialog.title') }}
+        </v-card-title>
         <v-card-text>
           <v-text-field
             v-model="renameFolderData.name"
@@ -410,8 +227,8 @@
       max-width="450px"
       :aria-label="tm('folder.deleteDialog.title')"
     >
-      <v-card>
-        <v-card-title class="text-error">
+      <v-card class="app-dialog">
+        <v-card-title class="text-h6">
           <v-icon class="mr-2" color="error">mdi-alert</v-icon>
           {{ tm('folder.deleteDialog.title') }}
         </v-card-title>
@@ -470,6 +287,7 @@ import FolderTree from './FolderTree.vue';
 import FolderBreadcrumb from './FolderBreadcrumb.vue';
 import FolderCard from './FolderCard.vue';
 import PromptCard from './PromptCard.vue';
+import PromptPreviewDialog from './PromptPreviewDialog.vue';
 import PromptForm from '@/components/shared/PromptForm.vue';
 import CreateFolderDialog from './CreateFolderDialog.vue';
 import MoveToFolderDialog from './MoveToFolderDialog.vue';
@@ -477,7 +295,6 @@ import {
   askForConfirmation as askForConfirmationDialog,
   useConfirmDialog,
 } from '@/utils/confirmDialog';
-import { formatDate } from '@/utils/text';
 
 import type { Folder, FolderTreeNode } from '@/components/folder/types';
 import type { Prompt as StorePrompt } from '@/stores/promptStore';
@@ -486,7 +303,6 @@ type MoveDialogType = 'prompt' | 'folder';
 type SnackbarType = 'success' | 'error';
 
 const { tm } = useModuleI18n('features/prompt');
-const { tm: sharedTm } = useModuleI18n('core.shared');
 const confirmDialog = useConfirmDialog();
 const promptStore = usePromptStore();
 const { folderTree, currentFolderId, currentFolders, currentPrompts, loading } =
@@ -681,12 +497,6 @@ function viewPrompt(prompt: StorePrompt) {
   showViewDialog.value = true;
 }
 
-function promptDisplayName(prompt: StorePrompt): string {
-  return prompt.prompt_id === 'default'
-    ? sharedTm('promptSelector.defaultPrompt')
-    : prompt.prompt_id;
-}
-
 function openEditFromViewDialog() {
   if (!viewingPrompt.value) {
     return;
@@ -814,74 +624,165 @@ function showError(errorMessage: string) {
 
 <style scoped>
 .prompt-manager {
-  height: 100%;
-}
-
-.manager-layout {
+  --prompt-border: rgb(var(--v-theme-outline-variant));
+  --prompt-surface: rgb(var(--v-theme-surface));
   display: flex;
-  gap: 24px;
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
 }
 
-.sidebar {
-  width: 280px;
-  flex-shrink: 0;
-  padding-right: 16px;
-  max-height: calc(100vh - 200px);
+.prompt-workbench {
+  background: var(--prompt-surface);
+  border: 1px solid var(--prompt-border);
+  border-radius: 12px;
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(260px, 300px) 1px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
+  width: 100%;
+}
+
+.prompt-workbench__sidebar,
+.prompt-workbench__main {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.prompt-workbench__sidebar {
   display: flex;
   flex-direction: column;
 }
 
-.main-content {
-  flex: 1;
+.prompt-workbench__divider {
+  background: var(--prompt-border);
+}
+
+.prompt-workbench__main {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.prompt-panel__head {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 16px 12px 8px;
+}
+
+.prompt-panel__title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.prompt-panel__tree {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 12px 12px;
+}
+
+.prompt-main__head {
+  align-items: center;
+  border-bottom: 1px solid var(--prompt-border);
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px 20px;
+}
+
+.prompt-main__breadcrumb {
   min-width: 0;
 }
 
-.prompt-preview-dialog__card {
+.prompt-main__actions {
   display: flex;
-  flex-direction: column;
-  max-height: min(88dvh, 860px);
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.prompt-preview-dialog__content {
+.prompt-main__body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  padding: 20px;
 }
 
-.system-prompt-content {
-  max-height: 400px;
-  overflow: auto;
-  padding: 12px;
-  border-radius: 8px;
-  font-size: 14px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-  background: rgba(var(--v-theme-surface-variant), 0.3);
+.prompt-section + .prompt-section {
+  margin-top: 24px;
 }
 
-.dialog-content {
-  background-color: rgba(var(--v-theme-surface-variant), 0.3);
-  padding: 8px 12px;
-  border-radius: 8px;
+.prompt-section__title {
+  align-items: center;
+  color: rgb(var(--v-theme-on-surface-variant));
+  display: flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+  letter-spacing: 0.02em;
+  margin: 0 0 12px;
+}
+
+.prompt-grid,
+.prompt-skeleton {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.prompt-empty {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  min-height: 320px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.prompt-empty__title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.prompt-empty__text {
+  color: rgb(var(--v-theme-on-surface-variant));
   font-size: 14px;
-  line-height: 1.4;
-  margin-bottom: 8px;
-  white-space: pre-wrap;
-  word-break: break-word;
+  margin: 0 0 8px;
+}
+
+.prompt-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
 }
 
 @media (max-width: 960px) {
-  .manager-layout {
-    flex-direction: column;
+  .prompt-workbench {
+    grid-template-columns: 1fr;
   }
 
-  .sidebar {
+  .prompt-workbench__sidebar,
+  .prompt-workbench__divider {
     display: none;
+  }
+
+  .prompt-main__body {
+    padding: 16px;
   }
 }
 </style>

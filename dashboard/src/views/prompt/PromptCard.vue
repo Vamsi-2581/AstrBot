@@ -1,17 +1,20 @@
 <template>
   <v-card
     class="prompt-card"
-    :class="{ dragging: isDragging }"
+    :class="{
+      dragging: isDragging,
+      'prompt-card--draggable': isDraggable,
+    }"
     rounded="md"
     variant="outlined"
     elevation="0"
-    :draggable="prompt.prompt_id !== 'default'"
+    :draggable="isDraggable"
     @click="emit('view')"
     @dragstart="handleDragStart"
     @dragend="handleDragEnd"
   >
     <v-card-title class="d-flex justify-space-between align-center">
-      <div class="text-truncate ml-2">{{ promptDisplayName }}</div>
+      <div class="text-truncate">{{ promptDisplayName }}</div>
       <v-menu offset-y>
         <template #activator="{ props: activatorProps }">
           <v-btn
@@ -170,6 +173,7 @@ const { tm: sharedTm } = useModuleI18n('core.shared');
 const confirmDialog = useConfirmDialog();
 const dragPreview = ref<HTMLElement | null>(null);
 const isDragging = ref(false);
+const isDraggable = computed(() => props.prompt.prompt_id !== 'default');
 const promptDisplayName = computed(() =>
   props.prompt.prompt_id === 'default'
     ? sharedTm('promptSelector.defaultPrompt')
@@ -177,7 +181,7 @@ const promptDisplayName = computed(() =>
 );
 
 function handleDragStart(event: DragEvent) {
-  if (props.prompt.prompt_id === 'default') {
+  if (!isDraggable.value) {
     event.preventDefault();
     return;
   }
@@ -242,11 +246,18 @@ async function exportPrompt() {
 .prompt-card {
   background: rgb(var(--v-theme-surface));
   height: 100%;
-  cursor: grab;
   transition:
     background-color 0.16s ease,
     opacity 0.2s ease,
     transform 0.2s ease;
+}
+
+.prompt-card--draggable {
+  cursor: grab;
+}
+
+.prompt-card--draggable:active {
+  cursor: grabbing;
 }
 
 .prompt-card:hover,
@@ -254,13 +265,9 @@ async function exportPrompt() {
   background: rgba(var(--v-theme-on-surface), 0.04);
 }
 
-.prompt-card:active {
-  cursor: grabbing;
-}
-
 .prompt-card.dragging {
   opacity: 0.5;
-  transform: scale(0.95);
+  transform: scale(0.98);
 }
 
 .system-prompt-preview {
