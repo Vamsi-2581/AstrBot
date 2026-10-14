@@ -168,6 +168,37 @@ async def test_extract_quoted_message_text_from_reply_chain():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("with_chain", [True, False])
+async def test_extract_quoted_message_text_keeps_default_normalization(with_chain):
+    content = "    first()\n    second()\n"
+    reply = Reply(
+        id="1",
+        chain=[Plain(text=content)] if with_chain else [],
+        message_str="" if with_chain else content,
+    )
+    event = _make_event(reply)
+
+    text = await extract_quoted_message_text(event)
+
+    assert text == content.strip()
+
+
+@pytest.mark.asyncio
+async def test_extract_quoted_message_text_prefers_lark_post_whitespace():
+    content = "Report\n    first()\n\n    second()\n"
+    reply = Reply(id="parent-1", chain=[Plain(text="stripped")], message_str=content)
+    event = _make_event(reply)
+    event.platform_meta = SimpleNamespace(name="lark")
+    event.get_extra = lambda key, default=None: (
+        "parent-1" if key == "lark_quoted_post_id" else default
+    )
+
+    text = await extract_quoted_message_text(event)
+
+    assert text == content
+
+
+@pytest.mark.asyncio
 async def test_extract_quoted_message_text_renders_qq_face_semantics():
     reply = Reply(id="1", chain=[Face(id=111)], message_str="")
     event = _make_event(reply)

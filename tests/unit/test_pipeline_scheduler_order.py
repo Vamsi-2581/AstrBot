@@ -31,6 +31,9 @@ class PipelineEvent:
     def get_platform_id(self) -> str:
         return "webchat"
 
+    def get_platform_name(self) -> str:
+        return "webchat"
+
     def get_message_outline(self) -> str:
         return "hi"
 

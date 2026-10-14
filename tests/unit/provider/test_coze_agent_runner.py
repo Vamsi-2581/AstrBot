@@ -200,3 +200,31 @@ async def test_coze_reuses_conversation_and_closes_client_on_error_and_cancel():
     with pytest.raises(asyncio.CancelledError):
         _ = [response async for response in cancelling.step()]
     assert cancelling.api_client.closed == 1
+
+
+@pytest.mark.asyncio
+async def test_coze_reports_chat_failed_event_and_incomplete_stream():
+    request = ProviderRequest(prompt="hello", session_id="session")
+
+    failed = _runner(
+        request=request,
+        events=[
+            {
+                "event": "conversation.chat.failed",
+                "data": {"last_error": {"code": "ERR", "msg": "boom"}},
+            }
+        ],
+    )
+    failed_responses = [response async for response in failed.step()]
+
+    assert failed_responses[-1].type == "err"
+    assert failed._state is AgentState.ERROR
+
+    incomplete = _runner(
+        request=request,
+        events=[{"event": "conversation.message.delta", "data": {"content": "hi"}}],
+    )
+    incomplete_responses = [response async for response in incomplete.step()]
+
+    assert incomplete_responses[-1].type == "err"
+    assert incomplete._state is AgentState.ERROR

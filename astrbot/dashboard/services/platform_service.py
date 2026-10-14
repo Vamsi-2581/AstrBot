@@ -1,6 +1,7 @@
 from typing import Any, Protocol, cast
 
 from astrbot import logger
+from astrbot.core.log import log_context
 from astrbot.core.platform.catalog import PlatformCatalog
 from astrbot.core.platform.discovery import discover_platform_adapter
 from astrbot.core.platform.provisioning import PlatformProvisioningValidationError
@@ -55,16 +56,17 @@ class PlatformService:
 
         platform_adapter = cast(WebhookPlatformAdapter, platform_adapter)
 
-        try:
-            return await platform_adapter.webhook_callback(request_obj)
-        except NotImplementedError as exc:
-            logger.error(
-                f"平台 {platform_adapter.meta().name} 未实现 webhook_callback 方法"
-            )
-            raise PlatformServiceError("平台未支持统一 Webhook 模式", 500) from exc
-        except Exception as exc:
-            logger.error(f"处理 webhook 回调时发生错误: {exc}", exc_info=True)
-            raise PlatformServiceError("处理回调失败", 500) from exc
+        meta = platform_adapter.meta()
+        platform_id = meta.id or platform_adapter.config.get("id")
+        with log_context(platform_id, meta.name):
+            try:
+                return await platform_adapter.webhook_callback(request_obj)
+            except NotImplementedError as exc:
+                logger.error(f"平台 {meta.name} 未实现 webhook_callback 方法")
+                raise PlatformServiceError("平台未支持统一 Webhook 模式", 500) from exc
+            except Exception as exc:
+                logger.error(f"处理 webhook 回调时发生错误: {exc}", exc_info=True)
+                raise PlatformServiceError("处理回调失败", 500) from exc
 
     def find_platform_by_uuid(self, webhook_uuid: str) -> object | None:
         return self.platform_manager.find_inst_by_webhook_uuid(webhook_uuid)

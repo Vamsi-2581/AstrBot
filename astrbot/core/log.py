@@ -10,6 +10,10 @@ import tempfile
 import time
 import uuid
 from collections import deque
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -30,6 +34,53 @@ LOG_PRIVACY = frozenset({"public", "internal", "private"})
 _SANITIZED_ATTR = "astrbot_sanitized"
 _UNPRINTABLE_LOG_MESSAGE = "<unprintable log message>"
 _UNPRINTABLE_EXCEPTION = "<unprintable exception>"
+
+
+@dataclass
+class LogContext:
+    """Platform metadata attached to logs emitted inside an async operation.
+
+    Attributes:
+        platform_id: Unique configured platform instance ID.
+        platform_type: Platform adapter type, such as ``telegram``.
+        active: Whether copied async contexts may still use this metadata.
+    """
+
+    platform_id: str | None
+    platform_type: str | None
+    active: bool = True
+
+
+_log_context: ContextVar[LogContext | None] = ContextVar(
+    "astrbot_log_context",
+    default=None,
+)
+
+
+@contextmanager
+def log_context(
+    platform_id: str | None,
+    platform_type: str | None,
+) -> Iterator[None]:
+    """Bind platform metadata to logs in the current execution context.
+
+    Copied contexts share the same mutable object. Marking it inactive on exit
+    prevents detached tasks from retaining stale event platform metadata.
+
+    Args:
+        platform_id: Unique configured platform instance ID.
+        platform_type: Platform adapter type.
+
+    Yields:
+        Control while the platform metadata is active.
+    """
+    context = LogContext(platform_id=platform_id, platform_type=platform_type)
+    token = _log_context.set(context)
+    try:
+        yield
+    finally:
+        context.active = False
+        _log_context.reset(token)
 
 
 def _new_event_id() -> str:
@@ -127,11 +178,15 @@ class _RecordEnricherFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         if record.name.startswith(PLUGIN_LOGGER_PREFIX):
-            record.plugin_tag = f"[{record.name.removeprefix(PLUGIN_LOGGER_PREFIX)}]"
+            plugin_name = record.name.removeprefix(PLUGIN_LOGGER_PREFIX)
+            record.plugin_tag = f"[{plugin_name}]"
+            record.source = "plugin"
+            record.plugin_name = plugin_name
         else:
-            record.plugin_tag = (
-                "[Plug]" if _is_plugin_path(record.pathname) else "[Core]"
-            )
+            is_plugin = _is_plugin_path(record.pathname)
+            record.plugin_tag = "[Plug]" if is_plugin else "[Core]"
+            record.source = "plugin" if is_plugin else "core"
+            record.plugin_name = None
         record.short_levelname = _get_short_level_name(record.levelname)
         record.astrbot_version_tag = (
             f" [v{VERSION}]" if record.levelno >= logging.WARNING else ""
@@ -148,6 +203,17 @@ class _RecordEnricherFilter(logging.Filter):
         record.platform = getattr(record, "platform", None)
         record.conversation_id = getattr(record, "conversation_id", None)
         record.sender_id = getattr(record, "sender_id", None)
+        context = _log_context.get()
+        if context is not None and context.active:
+            context_platform_id = context.platform_id
+            context_platform_type = context.platform_type
+        else:
+            context_platform_id = None
+            context_platform_type = None
+        record.platform_id = getattr(record, "platform_id", None) or context_platform_id
+        record.platform_type = (
+            getattr(record, "platform_type", None) or context_platform_type
+        )
         record.summary = redact_sensitive_text(
             str(getattr(record, "summary", record.getMessage()))[:512]
         )
@@ -234,6 +300,10 @@ def _patch_record(record: Record) -> None:
     extra.setdefault("platform", None)
     extra.setdefault("conversation_id", None)
     extra.setdefault("sender_id", None)
+    extra.setdefault("source", "core")
+    extra.setdefault("plugin_name", None)
+    extra.setdefault("platform_id", None)
+    extra.setdefault("platform_type", None)
     _sanitize_loguru_record(record)
     extra.setdefault("summary", redact_sensitive_text(str(record["message"])[:512]))
 
@@ -312,6 +382,11 @@ class _LoguruInterceptHandler(logging.Handler):
             ),
             "source_line": getattr(record, "source_line", record.lineno),
             "is_trace": getattr(record, "is_trace", record.name == "astrbot.trace"),
+            "category": getattr(record, "category", None) or "system",
+            "source": getattr(record, "source", "core"),
+            "plugin_name": getattr(record, "plugin_name", None),
+            "platform_id": getattr(record, "platform_id", None),
+            "platform_type": getattr(record, "platform_type", None),
         }
 
         _loguru.bind(**payload).opt(exception=False).log(
@@ -376,6 +451,10 @@ class LogQueueHandler(logging.Handler):
                 "conversation_id": getattr(record, "conversation_id", None),
                 "sender_id": getattr(record, "sender_id", None),
                 "summary": summary,
+                "source": getattr(record, "source", "core"),
+                "plugin_name": getattr(record, "plugin_name", None),
+                "platform_id": getattr(record, "platform_id", None),
+                "platform_type": getattr(record, "platform_type", None),
             },
         )
 

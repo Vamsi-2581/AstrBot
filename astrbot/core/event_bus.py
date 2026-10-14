@@ -152,6 +152,8 @@ class EventBus:
                 "category": "user_chat",
                 "privacy": "private",
                 "platform": str(platform_id or platform_name),
+                "platform_id": platform_id,
+                "platform_type": platform_name,
                 "conversation_id": event.unified_msg_origin,
                 "sender_id": sender_id,
                 "summary": summary,

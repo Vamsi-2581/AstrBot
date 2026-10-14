@@ -36,7 +36,7 @@ fork behavior apart from upstream merges:
 
 ### v4.29.x
 
-- [v4.29.0](./changelogs/v4.29.0.md) — [WIP]
+- [v4.29.0](./changelogs/v4.29.0.md) — 2026-10-14
 - [v4.29.0-beta.2](./changelogs/v4.29.0-beta.2.md) — 2026-10-11
 
 ### v4.28.x

@@ -1,4 +1,4 @@
-/* Auto-generated MDI subset – 280 icons */
+/* Auto-generated MDI subset – 281 icons */
 /* Do not edit manually. Run: pnpm run subset-icons */
 
 @font-face {
@@ -490,6 +490,10 @@
 
 .mdi-file-word-box::before {
   content: "\F022D";
+}
+
+.mdi-filter-variant::before {
+  content: "\F0236";
 }
 
 .mdi-folder::before {
