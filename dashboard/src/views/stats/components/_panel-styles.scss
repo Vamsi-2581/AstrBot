@@ -1,0 +1,118 @@
+// Shared primitives for the statistics panels. Kept as mixins so each panel's
+// scoped styles stay in sync without duplicating the same rules.
+
+@mixin stat-card {
+  .stat-card {
+    border: 1px solid var(--stats-border);
+    border-radius: 16px;
+    background: var(--stats-surface);
+  }
+
+  .stats-page.is-dark .stat-card {
+    border-color: var(--stats-border-strong);
+    background: var(--stats-surface);
+  }
+}
+
+@mixin card-head {
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 18px;
+  }
+}
+
+@mixin card-head-compact {
+  .card-head.compact {
+    margin-bottom: 14px;
+  }
+}
+
+@mixin section-title {
+  .section-title {
+    font-size: 19px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+}
+
+@mixin section-subtitle {
+  .section-subtitle {
+    margin-top: 6px;
+    color: var(--stats-muted);
+    font-size: 13px;
+  }
+
+  .stats-page.is-dark .section-subtitle {
+    color: var(--stats-muted);
+  }
+}
+
+@mixin card-label {
+  .card-label {
+    margin-top: 8px;
+    color: var(--stats-muted);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .stats-page.is-dark .card-label {
+    color: var(--stats-muted);
+  }
+}
+
+@mixin card-note {
+  .card-note {
+    margin-top: 8px;
+    color: var(--stats-subtle);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .stats-page.is-dark .card-note {
+    color: var(--stats-muted);
+  }
+}
+
+@mixin provider-list {
+  .provider-list {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .provider-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--stats-border);
+    font-size: 14px;
+    width: 100%;
+  }
+
+  .provider-row > strong {
+    flex: 0 0 auto;
+  }
+
+  .provider-row:last-child {
+    border-bottom: 0;
+  }
+
+  .provider-name {
+    color: var(--stats-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stats-page.is-dark .provider-name {
+    color: var(--stats-muted);
+  }
+}

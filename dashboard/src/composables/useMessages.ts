@@ -52,7 +52,6 @@ import type {
 } from './messagesTypes';
 
 export type { HistoryPaginationState, TransportMode } from './messagesTypes';
-export { buildChatRequestFlags } from './chatRequestFlags';
 export {
   displayParts,
   extractReasoningText,
@@ -204,6 +203,56 @@ export function useMessages(options: UseMessagesOptions) {
     await Promise.all(tasks);
   }
 
+  function commitLoadedSession(
+    sessionId: string,
+    records: ChatRecord[],
+    payload: Record<string, unknown>,
+    preserveLoadedPages: boolean,
+  ) {
+    const previousPagination = paginationBySession.get(sessionId);
+    const existing = messagesBySession.get(sessionId) || [];
+    if (preserveLoadedPages && existing.length) {
+      const merged = mergeHistoryRecords(existing, records);
+      messagesBySession.set(sessionId, merged);
+      const total =
+        Number(payload.total) || previousPagination?.total || merged.length;
+      const pageSize =
+        Number(payload.page_size) || previousPagination?.page_size || 50;
+      paginationBySession.set(sessionId, {
+        page: Math.max(1, previousPagination?.page || 1),
+        page_size: pageSize,
+        total,
+        has_more: merged.length < total,
+        loading: false,
+        error: undefined,
+      });
+      return;
+    }
+    messagesBySession.set(sessionId, records);
+    paginationBySession.set(sessionId, {
+      page: Number(payload.page) || 1,
+      page_size: Number(payload.page_size) || 50,
+      total: Number(payload.total) || records.length,
+      has_more: Boolean(payload.has_more),
+      loading: false,
+    });
+  }
+
+  function recordSessionLoadError(sessionId: string, error: unknown) {
+    console.error('Failed to load session messages:', error);
+    const existing = messagesBySession.get(sessionId) || [];
+    messagesBySession.set(sessionId, existing);
+    const previousPagination = paginationBySession.get(sessionId);
+    paginationBySession.set(sessionId, {
+      page: previousPagination?.page || 1,
+      page_size: previousPagination?.page_size || 50,
+      total: previousPagination?.total || existing.length,
+      has_more: previousPagination?.has_more || false,
+      loading: false,
+      error: String((error as Error)?.message || error),
+    });
+  }
+
   async function loadSessionMessages(
     sessionId: string,
     resumeRuns = true,
@@ -236,33 +285,7 @@ export function useMessages(options: UseMessagesOptions) {
       attachThreads(records, payload.threads || []);
       await resolveRecordMedia(records);
       if (sessionLoadEpochs.get(sessionId) !== epoch) return;
-      const previousPagination = paginationBySession.get(sessionId);
-      const existing = messagesBySession.get(sessionId) || [];
-      if (preserveLoadedPages && existing.length) {
-        const merged = mergeHistoryRecords(existing, records);
-        messagesBySession.set(sessionId, merged);
-        const total =
-          Number(payload.total) || previousPagination?.total || merged.length;
-        const pageSize =
-          Number(payload.page_size) || previousPagination?.page_size || 50;
-        paginationBySession.set(sessionId, {
-          page: Math.max(1, previousPagination?.page || 1),
-          page_size: pageSize,
-          total,
-          has_more: merged.length < total,
-          loading: false,
-          error: undefined,
-        });
-      } else {
-        messagesBySession.set(sessionId, records);
-        paginationBySession.set(sessionId, {
-          page: Number(payload.page) || 1,
-          page_size: Number(payload.page_size) || 50,
-          total: Number(payload.total) || records.length,
-          has_more: Boolean(payload.has_more),
-          loading: false,
-        });
-      }
+      commitLoadedSession(sessionId, records, payload, preserveLoadedPages);
       sessionProjects.set(sessionId, normalizeSessionProject(payload.project));
       const sessionMeta = payload.session;
       if (sessionMeta?.session_id === sessionId) {
@@ -274,18 +297,7 @@ export function useMessages(options: UseMessagesOptions) {
       }
     } catch (error) {
       if (sessionLoadEpochs.get(sessionId) !== epoch) return;
-      console.error('Failed to load session messages:', error);
-      const existing = messagesBySession.get(sessionId) || [];
-      messagesBySession.set(sessionId, existing);
-      const previousPagination = paginationBySession.get(sessionId);
-      paginationBySession.set(sessionId, {
-        page: previousPagination?.page || 1,
-        page_size: previousPagination?.page_size || 50,
-        total: previousPagination?.total || existing.length,
-        has_more: previousPagination?.has_more || false,
-        loading: false,
-        error: String((error as Error)?.message || error),
-      });
+      recordSessionLoadError(sessionId, error);
     } finally {
       if (
         showLoading &&
@@ -816,6 +828,34 @@ export function useMessages(options: UseMessagesOptions) {
       });
   }
 
+  function delayWithAbort(ms: number, signal: AbortSignal): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const timeout = window.setTimeout(resolve, ms);
+      signal.addEventListener(
+        'abort',
+        () => {
+          window.clearTimeout(timeout);
+          resolve();
+        },
+        { once: true },
+      );
+    });
+  }
+
+  async function finalizeResumeConnection(
+    runId: string,
+    abort: AbortController,
+    sessionId: string,
+  ) {
+    const ownsConnection = activeConnections[runId]?.abort === abort;
+    if (ownsConnection) delete activeConnections[runId];
+    if (abort.signal.aborted || !ownsConnection) return;
+    if (!isSessionRunning(sessionId)) {
+      await loadSessionMessages(sessionId, true, false, true);
+    }
+    await options.onSessionsChanged?.();
+  }
+
   function startResumeStream(
     sessionId: string,
     runId: string,
@@ -875,31 +915,14 @@ export function useMessages(options: UseMessagesOptions) {
         }
 
         if (!retryable || attempt === 4 || abort.signal.aborted) break;
-        await new Promise<void>((resolve) => {
-          const timeout = window.setTimeout(resolve, 250 * 2 ** attempt);
-          abort.signal.addEventListener(
-            'abort',
-            () => {
-              window.clearTimeout(timeout);
-              resolve();
-            },
-            { once: true },
-          );
-        });
+        await delayWithAbort(250 * 2 ** attempt, abort.signal);
       }
 
       if (!receivedEnd && lastError && !abort.signal.aborted) {
         console.error('Resume chat stream failed:', lastError);
       }
 
-      const ownsConnection = activeConnections[runId]?.abort === abort;
-      if (ownsConnection) delete activeConnections[runId];
-      if (!abort.signal.aborted && ownsConnection) {
-        if (!isSessionRunning(sessionId)) {
-          await loadSessionMessages(sessionId, true, false, true);
-        }
-        await options.onSessionsChanged?.();
-      }
+      await finalizeResumeConnection(runId, abort, sessionId);
     })();
   }
 
@@ -1111,6 +1134,27 @@ export function useMessages(options: UseMessagesOptions) {
     }
   }
 
+  function resolveInsertionAnchor(
+    connection: ActiveConnection,
+    records: ChatRecord[],
+  ) {
+    let insertionAnchor = connection.deferredBeforeBot;
+    if (!insertionAnchor) return insertionAnchor;
+    for (const candidate of Object.values(activeConnections)) {
+      if (candidate.messageId === connection.messageId) break;
+      if (
+        candidate.sessionId === connection.sessionId &&
+        candidate.deferredBeforeBot === connection.deferredBeforeBot &&
+        candidate.botVisible &&
+        candidate.botRecord &&
+        records.includes(candidate.botRecord)
+      ) {
+        insertionAnchor = candidate.botRecord;
+      }
+    }
+    return insertionAnchor;
+  }
+
   function ensureBotRecordVisible(connection: ActiveConnection) {
     const { botRecord, userRecord } = connection;
     if (!botRecord) return;
@@ -1122,21 +1166,7 @@ export function useMessages(options: UseMessagesOptions) {
     if (!userRecord) return;
 
     const userIndex = records.indexOf(userRecord);
-    let insertionAnchor = connection.deferredBeforeBot;
-    if (insertionAnchor) {
-      for (const candidate of Object.values(activeConnections)) {
-        if (candidate.messageId === connection.messageId) break;
-        if (
-          candidate.sessionId === connection.sessionId &&
-          candidate.deferredBeforeBot === connection.deferredBeforeBot &&
-          candidate.botVisible &&
-          candidate.botRecord &&
-          records.includes(candidate.botRecord)
-        ) {
-          insertionAnchor = candidate.botRecord;
-        }
-      }
-    }
+    const insertionAnchor = resolveInsertionAnchor(connection, records);
     const anchorIndex = insertionAnchor ? records.indexOf(insertionAnchor) : -1;
     if (anchorIndex >= 0) {
       records.splice(anchorIndex + 1, 0, botRecord);
@@ -1146,6 +1176,215 @@ export function useMessages(options: UseMessagesOptions) {
       records.push(botRecord);
     }
     connection.botVisible = true;
+  }
+
+  const MEDIA_STREAM_TYPES = new Set(['image', 'record', 'file', 'video']);
+
+  function applyFollowUpCaptured(connection: ActiveConnection, data: unknown) {
+    const followUpData = isRecord(data) ? data : {};
+    connection.followUpCaptured = true;
+    connection.followUpTargetRunId = String(followUpData.target_run_id || '');
+    const target = Object.values(activeConnections).find(
+      (candidate) =>
+        candidate.runId === connection.followUpTargetRunId &&
+        candidate.botRecord,
+    );
+    const records = messagesBySession.get(connection.sessionId) || [];
+    if (!target?.botRecord || !connection.userRecord) return;
+    const userIndex = records.indexOf(connection.userRecord);
+    const targetIndex = records.indexOf(target.botRecord);
+    if (targetIndex >= 0) {
+      if (userIndex > targetIndex) {
+        records.splice(userIndex, 1);
+        const updatedTargetIndex = records.indexOf(target.botRecord);
+        records.splice(updatedTargetIndex, 0, connection.userRecord);
+      } else if (userIndex < 0) {
+        records.splice(targetIndex, 0, connection.userRecord);
+      }
+      connection.deferredBeforeBot = target.botRecord;
+    } else if (userIndex < 0) {
+      records.push(connection.userRecord);
+    }
+  }
+
+  function applyRunStarted(connection: ActiveConnection, data: unknown) {
+    clearWebChatStepUpTokens();
+    const runData = isRecord(data) ? data : {};
+    connection.runId = String(runData.run_id || connection.messageId);
+    ensureBotRecordVisible(connection);
+  }
+
+  function applyRunSnapshot(botRecord: ChatRecord, data: unknown) {
+    const snapshot = isRecord(data) ? data : {};
+    const snapshotContent = isRecord(snapshot.content)
+      ? snapshot.content
+      : { type: 'bot', message: [] };
+    const snapshotRecord = normalizeHistoryRecord({
+      id: `active-run-${String(snapshot.run_id || 'unknown')}`,
+      content: {
+        type:
+          typeof snapshotContent.type === 'string'
+            ? snapshotContent.type
+            : 'bot',
+        message: snapshotContent.message,
+        reasoning:
+          typeof snapshotContent.reasoning === 'string'
+            ? snapshotContent.reasoning
+            : undefined,
+        agentStats: isRecord(snapshotContent.agentStats)
+          ? snapshotContent.agentStats
+          : null,
+        agent_stats: isRecord(snapshotContent.agent_stats)
+          ? snapshotContent.agent_stats
+          : null,
+        refs: isRecord(snapshotContent.refs) ? snapshotContent.refs : null,
+      },
+      llm_checkpoint_id:
+        typeof snapshot.llm_checkpoint_id === 'string'
+          ? snapshot.llm_checkpoint_id
+          : null,
+    });
+    snapshotRecord.content.isLoading =
+      snapshot.status === 'running' &&
+      snapshotRecord.content.message.length === 0;
+    botRecord.content = snapshotRecord.content;
+    botRecord.llm_checkpoint_id = snapshotRecord.llm_checkpoint_id;
+    void resolveRecordMedia([botRecord]);
+  }
+
+  function applySavedRecordFields(
+    record: ChatRecord,
+    savedMessage: Record<string, unknown> | null,
+  ) {
+    if (
+      typeof savedMessage?.id === 'string' ||
+      typeof savedMessage?.id === 'number'
+    ) {
+      record.id = savedMessage.id;
+    }
+    if (typeof savedMessage?.created_at === 'string') {
+      record.created_at = savedMessage.created_at;
+    }
+    record.llm_checkpoint_id =
+      typeof savedMessage?.llm_checkpoint_id === 'string'
+        ? savedMessage.llm_checkpoint_id
+        : record.llm_checkpoint_id;
+  }
+
+  function applyUserMessageSaved(
+    userRecord: ChatRecord | undefined,
+    data: unknown,
+  ) {
+    if (!userRecord) return;
+    applySavedRecordFields(userRecord, isRecord(data) ? data : null);
+  }
+
+  function applyMessageSaved(botRecord: ChatRecord, data: unknown) {
+    const savedMessage = isRecord(data) ? data : null;
+    markMessageStarted(botRecord);
+    applySavedRecordFields(botRecord, savedMessage);
+    if (isRecord(savedMessage?.refs)) {
+      messageContent(botRecord).refs = savedMessage.refs;
+    }
+  }
+
+  function applyPlainStreamPart(
+    botRecord: ChatRecord,
+    data: unknown,
+    chainType: string | undefined,
+    streaming: boolean | undefined,
+  ) {
+    markMessageStarted(botRecord);
+    if (chainType === 'reasoning') {
+      appendReasoningPart(botRecord, payloadText(data));
+      return;
+    }
+    if (chainType === 'tool_call') {
+      upsertToolCall(botRecord, parseJsonSafe(data));
+      return;
+    }
+    if (chainType === 'tool_call_result') {
+      finishToolCall(botRecord, parseJsonSafe(data));
+      return;
+    }
+    appendPlain(botRecord, payloadText(data), streaming !== false);
+  }
+
+  function applyMediaStreamPart(
+    botRecord: ChatRecord,
+    msgType: string,
+    data: unknown,
+  ) {
+    markMessageStarted(botRecord);
+    const rawFilename = String(data)
+      .replace('[IMAGE]', '')
+      .replace('[RECORD]', '')
+      .replace('[FILE]', '')
+      .replace('[VIDEO]', '');
+    const separatorIndex = rawFilename.indexOf('|');
+    const storedFilename =
+      separatorIndex >= 0 ? rawFilename.slice(0, separatorIndex) : rawFilename;
+    const displayFilename =
+      separatorIndex >= 0
+        ? rawFilename.slice(separatorIndex + 1)
+        : storedFilename;
+    const filename = displayFilename || storedFilename;
+    const mediaPart: MessagePart = { type: msgType, filename };
+    if (storedFilename && storedFilename !== filename) {
+      mediaPart.stored_filename = storedFilename;
+    }
+    if (msgType === 'file') {
+      messageContent(botRecord).message.push(mediaPart);
+      return;
+    }
+    void resolvePartMedia(mediaPart)
+      .then(() => {
+        messageContent(botRecord).message.push(mediaPart);
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to resolve streamed media:', error);
+      });
+  }
+
+  function applyContentStreamPart(
+    botRecord: ChatRecord,
+    msgType: string | undefined,
+    chainType: string | undefined,
+    data: unknown,
+    streaming: boolean | undefined,
+  ): boolean {
+    if (msgType === 'agent_stats' || chainType === 'agent_stats') {
+      markMessageStarted(botRecord);
+      messageContent(botRecord).agentStats = isRecord(data) ? data : null;
+      return true;
+    }
+    if (msgType === 'error') {
+      markMessageStarted(botRecord);
+      appendPlain(botRecord, `\n\n${String(data)}`);
+      return true;
+    }
+    if (msgType === 'complete' || msgType === 'break') {
+      markMessageStarted(botRecord);
+      appendCompletePlainSuffix(
+        botRecord,
+        payloadText(data),
+        msgType === 'complete',
+      );
+      return true;
+    }
+    if (msgType === 'end') {
+      markMessageStarted(botRecord);
+      return true;
+    }
+    if (msgType === 'plain') {
+      applyPlainStreamPart(botRecord, data, chainType, streaming);
+      return true;
+    }
+    if (msgType && MEDIA_STREAM_TYPES.has(msgType)) {
+      applyMediaStreamPart(botRecord, msgType, data);
+      return true;
+    }
+    return false;
   }
 
   function processStreamPayload(
@@ -1163,44 +1402,11 @@ export function useMessages(options: UseMessagesOptions) {
     const data = normalized?.data ?? '';
 
     if (msgType === 'follow_up_captured') {
-      if (connection) {
-        const followUpData = isRecord(data) ? data : {};
-        connection.followUpCaptured = true;
-        connection.followUpTargetRunId = String(
-          followUpData.target_run_id || '',
-        );
-        const target = Object.values(activeConnections).find(
-          (candidate) =>
-            candidate.runId === connection.followUpTargetRunId &&
-            candidate.botRecord,
-        );
-        const records = messagesBySession.get(connection.sessionId) || [];
-        if (target?.botRecord && connection.userRecord) {
-          const userIndex = records.indexOf(connection.userRecord);
-          const targetIndex = records.indexOf(target.botRecord);
-          if (targetIndex >= 0) {
-            if (userIndex > targetIndex) {
-              records.splice(userIndex, 1);
-              const updatedTargetIndex = records.indexOf(target.botRecord);
-              records.splice(updatedTargetIndex, 0, connection.userRecord);
-            } else if (userIndex < 0) {
-              records.splice(targetIndex, 0, connection.userRecord);
-            }
-            connection.deferredBeforeBot = target.botRecord;
-          } else if (userIndex < 0) {
-            records.push(connection.userRecord);
-          }
-        }
-      }
+      if (connection) applyFollowUpCaptured(connection, data);
       return;
     }
     if (msgType === 'run_started') {
-      if (connection) {
-        clearWebChatStepUpTokens();
-        const runData = isRecord(data) ? data : {};
-        connection.runId = String(runData.run_id || connection.messageId);
-        ensureBotRecordVisible(connection);
-      }
+      if (connection) applyRunStarted(connection, data);
       return;
     }
     if (msgType === 'session_id' || msgType === 'session_bound') return;
@@ -1208,163 +1414,24 @@ export function useMessages(options: UseMessagesOptions) {
       ensureBotRecordVisible(connection);
     }
     if (msgType === 'run_snapshot') {
-      const snapshot = isRecord(data) ? data : {};
-      const snapshotContent = isRecord(snapshot.content)
-        ? snapshot.content
-        : { type: 'bot', message: [] };
-      const snapshotRecord = normalizeHistoryRecord({
-        id: `active-run-${String(snapshot.run_id || 'unknown')}`,
-        content: {
-          type:
-            typeof snapshotContent.type === 'string'
-              ? snapshotContent.type
-              : 'bot',
-          message: snapshotContent.message,
-          reasoning:
-            typeof snapshotContent.reasoning === 'string'
-              ? snapshotContent.reasoning
-              : undefined,
-          agentStats: isRecord(snapshotContent.agentStats)
-            ? snapshotContent.agentStats
-            : null,
-          agent_stats: isRecord(snapshotContent.agent_stats)
-            ? snapshotContent.agent_stats
-            : null,
-          refs: isRecord(snapshotContent.refs) ? snapshotContent.refs : null,
-        },
-        llm_checkpoint_id:
-          typeof snapshot.llm_checkpoint_id === 'string'
-            ? snapshot.llm_checkpoint_id
-            : null,
-      });
-      snapshotRecord.content.isLoading =
-        snapshot.status === 'running' &&
-        snapshotRecord.content.message.length === 0;
-      botRecord.content = snapshotRecord.content;
-      botRecord.llm_checkpoint_id = snapshotRecord.llm_checkpoint_id;
-      void resolveRecordMedia([botRecord]);
+      applyRunSnapshot(botRecord, data);
       return;
     }
     if (msgType === 'user_message_saved') {
-      const savedMessage = isRecord(data) ? data : null;
-      if (userRecord) {
-        if (
-          typeof savedMessage?.id === 'string' ||
-          typeof savedMessage?.id === 'number'
-        ) {
-          userRecord.id = savedMessage.id;
-        }
-        if (typeof savedMessage?.created_at === 'string') {
-          userRecord.created_at = savedMessage.created_at;
-        }
-        userRecord.llm_checkpoint_id =
-          typeof savedMessage?.llm_checkpoint_id === 'string'
-            ? savedMessage.llm_checkpoint_id
-            : userRecord.llm_checkpoint_id;
-      }
+      applyUserMessageSaved(userRecord, data);
       return;
     }
     if (msgType === 'message_saved') {
-      const savedMessage = isRecord(data) ? data : null;
-      markMessageStarted(botRecord);
-      if (
-        typeof savedMessage?.id === 'string' ||
-        typeof savedMessage?.id === 'number'
-      ) {
-        botRecord.id = savedMessage.id;
-      }
-      if (typeof savedMessage?.created_at === 'string') {
-        botRecord.created_at = savedMessage.created_at;
-      }
-      botRecord.llm_checkpoint_id =
-        typeof savedMessage?.llm_checkpoint_id === 'string'
-          ? savedMessage.llm_checkpoint_id
-          : botRecord.llm_checkpoint_id;
-      if (isRecord(savedMessage?.refs)) {
-        messageContent(botRecord).refs = savedMessage.refs;
-      }
+      applyMessageSaved(botRecord, data);
       return;
     }
-    if (msgType === 'agent_stats' || chainType === 'agent_stats') {
-      markMessageStarted(botRecord);
-      messageContent(botRecord).agentStats = isRecord(data) ? data : null;
-      return;
-    }
-    if (msgType === 'error') {
-      markMessageStarted(botRecord);
-      appendPlain(botRecord, `\n\n${String(data)}`);
-      return;
-    }
-    if (msgType === 'complete' || msgType === 'break') {
-      markMessageStarted(botRecord);
-      appendCompletePlainSuffix(
-        botRecord,
-        payloadText(data),
-        msgType === 'complete',
-      );
-      return;
-    }
-    if (msgType === 'end') {
-      markMessageStarted(botRecord);
-      return;
-    }
-
-    if (msgType === 'plain') {
-      markMessageStarted(botRecord);
-      if (chainType === 'reasoning') {
-        appendReasoningPart(botRecord, payloadText(data));
-        return;
-      }
-      if (chainType === 'tool_call') {
-        upsertToolCall(botRecord, parseJsonSafe(data));
-        return;
-      }
-      if (chainType === 'tool_call_result') {
-        finishToolCall(botRecord, parseJsonSafe(data));
-        return;
-      }
-      appendPlain(botRecord, payloadText(data), normalized.streaming !== false);
-      return;
-    }
-
-    if (
-      msgType === 'image' ||
-      msgType === 'record' ||
-      msgType === 'file' ||
-      msgType === 'video'
-    ) {
-      markMessageStarted(botRecord);
-      const rawFilename = String(data)
-        .replace('[IMAGE]', '')
-        .replace('[RECORD]', '')
-        .replace('[FILE]', '')
-        .replace('[VIDEO]', '');
-      const separatorIndex = rawFilename.indexOf('|');
-      const storedFilename =
-        separatorIndex >= 0
-          ? rawFilename.slice(0, separatorIndex)
-          : rawFilename;
-      const displayFilename =
-        separatorIndex >= 0
-          ? rawFilename.slice(separatorIndex + 1)
-          : storedFilename;
-      const filename = displayFilename || storedFilename;
-      const mediaPart: MessagePart = { type: msgType, filename };
-      if (storedFilename && storedFilename !== filename) {
-        mediaPart.stored_filename = storedFilename;
-      }
-      if (msgType !== 'file') {
-        void resolvePartMedia(mediaPart)
-          .then(() => {
-            messageContent(botRecord).message.push(mediaPart);
-          })
-          .catch((error: unknown) => {
-            console.error('Failed to resolve streamed media:', error);
-          });
-      } else {
-        messageContent(botRecord).message.push(mediaPart);
-      }
-    }
+    applyContentStreamPart(
+      botRecord,
+      msgType,
+      chainType,
+      data,
+      normalized.streaming,
+    );
   }
 
   return {

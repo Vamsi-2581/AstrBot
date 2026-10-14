@@ -334,5 +334,3 @@ export function collectFolderAndChildrenIds(
   collectChildIds(folderTree);
   return ids;
 }
-
-export default useFolderManager;

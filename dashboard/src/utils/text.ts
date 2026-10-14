@@ -19,3 +19,12 @@ export function formatDate(value: string | null | undefined): string {
   }
   return new Date(value).toLocaleString();
 }
+
+/** Remove every trailing slash from a path or URL. */
+export function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === '/') {
+    end -= 1;
+  }
+  return value.slice(0, end);
+}

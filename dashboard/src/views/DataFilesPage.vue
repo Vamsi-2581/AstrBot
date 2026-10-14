@@ -596,6 +596,41 @@ function keepLocal() {
   pendingEntry.value = null;
   pendingRoute.value = null;
 }
+function applySaveSuccess(nextEtag: string) {
+  etag.value = nextEtag;
+  dirty.value = false;
+  toastMessage.value = tm('saved');
+  toastColor.value = 'success';
+  toastOpen.value = true;
+}
+function markSaveConflict() {
+  pendingEntry.value = selectedEntry.value;
+  conflictOpen.value = true;
+  unsavedDialog.value = true;
+}
+async function retrySaveWithStepUp() {
+  const entry = selectedEntry.value;
+  const text = content.value;
+  if (!entry || text === null) return;
+  const token = await requestStepUp({
+    action: 'filesystem.manage',
+    resourceType: 'filesystem',
+    resourceId: entry.path,
+  });
+  if (!token) return;
+  try {
+    const response = await dataFilesApi.save(entry.path, text, etag.value, {
+      headers: stepUpHeaders(token),
+    });
+    applySaveSuccess(response.data.data.etag);
+  } catch (retryError: unknown) {
+    if (errorStatus(retryError) === 409) {
+      markSaveConflict();
+    } else {
+      editorError.value = tm('error');
+    }
+  }
+}
 async function save() {
   if (!selectedEntry.value || content.value === null || !etag.value) return;
   saving.value = true;
@@ -606,46 +641,15 @@ async function save() {
       content.value,
       etag.value,
     );
-    etag.value = response.data.data.etag;
-    dirty.value = false;
-    toastMessage.value = tm('saved');
-    toastColor.value = 'success';
-    toastOpen.value = true;
+    applySaveSuccess(response.data.data.etag);
   } catch (error: unknown) {
     if (errorStatus(error) === 409) {
-      pendingEntry.value = selectedEntry.value;
-      conflictOpen.value = true;
-      unsavedDialog.value = true;
+      markSaveConflict();
     } else if (requiresStepUp(error)) {
-      const token = await requestStepUp({
-        action: 'filesystem.manage',
-        resourceType: 'filesystem',
-        resourceId: selectedEntry.value.path,
-      });
-      if (token) {
-        try {
-          const response = await dataFilesApi.save(
-            selectedEntry.value.path,
-            content.value,
-            etag.value,
-            { headers: stepUpHeaders(token) },
-          );
-          etag.value = response.data.data.etag;
-          dirty.value = false;
-          toastMessage.value = tm('saved');
-          toastColor.value = 'success';
-          toastOpen.value = true;
-        } catch (retryError: unknown) {
-          if (errorStatus(retryError) === 409) {
-            pendingEntry.value = selectedEntry.value;
-            conflictOpen.value = true;
-            unsavedDialog.value = true;
-          } else {
-            editorError.value = tm('error');
-          }
-        }
-      }
-    } else editorError.value = tm('error');
+      await retrySaveWithStepUp();
+    } else {
+      editorError.value = tm('error');
+    }
   } finally {
     saving.value = false;
   }
@@ -717,7 +721,6 @@ async function uploadFile(event: Event) {
 function onBeforeUnload(event: BeforeUnloadEvent) {
   if (!dirty.value) return;
   event.preventDefault();
-  event.returnValue = '';
 }
 
 onBeforeRouteLeave((to) => {

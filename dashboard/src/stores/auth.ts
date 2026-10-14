@@ -1,5 +1,4 @@
 import { defineStore } from 'pinia';
-import { router } from '@/router';
 import {
   authApi,
   providerApi,
@@ -9,6 +8,13 @@ import {
   UPGRADE_RECOVERY_TOKEN_KEY,
 } from '@/api/v1';
 import { resolveErrorMessage } from '@/utils/errorUtils';
+
+// Imported lazily so the router module (which reads this store in its guards)
+// does not form a static import cycle with the store.
+async function navigateTo(path: string): Promise<void> {
+  const { router } = await import('@/router');
+  await router.push(path);
+}
 
 interface AuthSessionData {
   username: string;
@@ -53,13 +59,13 @@ export const useAuthStore = defineStore('auth', {
       const onboardingCompleted = await this.checkOnboardingCompleted();
       this.returnUrl = null;
       if (passwordWarning) {
-        void router.push('/auth/setup');
+        void navigateTo('/auth/setup');
         return;
       }
       if (onboardingCompleted) {
-        void router.push('/dashboard');
+        void navigateTo('/dashboard');
       } else {
-        void router.push('/welcome');
+        void navigateTo('/welcome');
       }
     },
     async login(
@@ -191,7 +197,7 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('change_pwd_hint');
       localStorage.removeItem('password_upgrade_required');
       void authApi.logout().catch(() => undefined);
-      void router.push('/auth/login');
+      void navigateTo('/auth/login');
     },
     has_token(): boolean {
       return Boolean(localStorage.getItem('token'));

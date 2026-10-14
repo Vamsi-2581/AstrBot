@@ -30,7 +30,7 @@
       transition="none"
       open-on-hover
       :close-on-content-click="true"
-      @update:model-value="handleModelMenuToggle"
+      @update:model-value="handleMenuToggle"
     >
       <template #activator="{ props: modelMenuProps }">
         <v-list-item
@@ -199,12 +199,6 @@ async function loadProviderConfigs(force = false) {
 }
 
 function handleMenuToggle(isOpen: boolean) {
-  if (isOpen) {
-    void loadProviderConfigs();
-  }
-}
-
-function handleModelMenuToggle(isOpen: boolean) {
   if (isOpen) {
     void loadProviderConfigs();
   }

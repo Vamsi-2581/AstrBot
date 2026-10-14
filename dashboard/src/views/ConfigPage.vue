@@ -1193,24 +1193,34 @@ async function updateConfigInfo(configName: string) {
   }
 }
 
+async function resolveUnsavedChangesBeforeToggle() {
+  if (!hasUnsavedChanges.value) {
+    return true;
+  }
+
+  const saveAndSwitch = await openUnsavedChangesDialog(
+    tm('unsavedChangesWarning.leavePage'),
+  );
+  if (saveAndSwitch === 'close') {
+    const originalHash = isSystemConfig.value ? '#system' : '#normal';
+    await router.replace(`/config${originalHash}`);
+    configType.value = isSystemConfig.value ? 'system' : 'normal';
+    return false;
+  }
+  if (saveAndSwitch) {
+    await updateConfig();
+    if (isSystemConfig.value) {
+      await router.replace('/settings#system-config');
+      return false;
+    }
+  }
+
+  return true;
+}
+
 async function onConfigTypeToggle() {
-  if (hasUnsavedChanges.value) {
-    const saveAndSwitch = await openUnsavedChangesDialog(
-      tm('unsavedChangesWarning.leavePage'),
-    );
-    if (saveAndSwitch === 'close') {
-      const originalHash = isSystemConfig.value ? '#system' : '#normal';
-      await router.replace(`/config${originalHash}`);
-      configType.value = isSystemConfig.value ? 'system' : 'normal';
-      return;
-    }
-    if (saveAndSwitch) {
-      await updateConfig();
-      if (isSystemConfig.value) {
-        await router.replace('/settings#system-config');
-        return;
-      }
-    }
+  if (!(await resolveUnsavedChangesBeforeToggle())) {
+    return;
   }
 
   isSystemConfig.value = configType.value === 'system';

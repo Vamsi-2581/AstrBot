@@ -1,6 +1,3 @@
-// 导出核心组件
-export { I18nValidator } from '../validator';
-export { I18nLoader } from '../loader';
 export type * from '../types';
 
 type TranslationTree = Record<string, unknown>;

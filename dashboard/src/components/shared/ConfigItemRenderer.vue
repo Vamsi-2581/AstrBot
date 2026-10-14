@@ -541,7 +541,6 @@ function getTranslatedLabels(itemMeta?: ConfigItemMeta): string[] | null {
       props.pluginI18n,
       props.configKey,
       'labels',
-      undefined,
     );
     if (Array.isArray(translatedLabels)) {
       return translatedLabels;

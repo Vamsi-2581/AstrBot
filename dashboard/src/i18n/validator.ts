@@ -122,34 +122,44 @@ export class I18nValidator {
       if (typeof value === 'object' && value !== null) {
         this.validateNestedValues(value as LocaleTree, locale, fullKey, errors);
       } else if (typeof value === 'string') {
-        // 检查空值
-        if (!value.trim()) {
-          errors.push({
-            type: 'empty_value',
-            key: `${locale}.${fullKey}`,
-            message: `空翻译值: ${locale}.${fullKey}`,
-            severity: 'warning',
-          });
-        }
-
-        // 检查插值占位符
-        const placeholders = value.match(/\{[^}]+\}/g) || [];
-        for (const placeholder of placeholders) {
-          if (!/^{[a-zA-Z_][a-zA-Z0-9_]*}$/.test(placeholder)) {
-            errors.push({
-              type: 'type_mismatch',
-              key: `${locale}.${fullKey}`,
-              message: `无效的插值占位符: ${placeholder} in ${locale}.${fullKey}`,
-              severity: 'warning',
-            });
-          }
-        }
+        this.validateStringValue(value, locale, fullKey, errors);
       } else {
         errors.push({
           type: 'type_mismatch',
           key: `${locale}.${fullKey}`,
           message: `翻译值应为字符串，实际为: ${typeof value}`,
           severity: 'error',
+        });
+      }
+    }
+  }
+
+  /**
+   * 校验字符串翻译值的空值与插值占位符
+   */
+  private validateStringValue(
+    value: string,
+    locale: string,
+    fullKey: string,
+    errors: ValidationError[],
+  ): void {
+    if (!value.trim()) {
+      errors.push({
+        type: 'empty_value',
+        key: `${locale}.${fullKey}`,
+        message: `空翻译值: ${locale}.${fullKey}`,
+        severity: 'warning',
+      });
+    }
+
+    const placeholders = value.match(/\{[^{}]+\}/g) || [];
+    for (const placeholder of placeholders) {
+      if (!/^{[a-zA-Z_]\w*}$/.test(placeholder)) {
+        errors.push({
+          type: 'type_mismatch',
+          key: `${locale}.${fullKey}`,
+          message: `无效的插值占位符: ${placeholder} in ${locale}.${fullKey}`,
+          severity: 'warning',
         });
       }
     }
@@ -295,36 +305,52 @@ export class I18nValidator {
       const baseValue = this.getValueByKey(baseData, key);
       if (typeof baseValue !== 'string') continue;
 
-      const basePlaceholders = (baseValue.match(/\{[^}]+\}/g) || []).sort();
+      const basePlaceholders = (baseValue.match(/\{[^{}]+\}/g) || []).sort();
 
-      for (const locale of this.supportedLocales) {
-        if (locale === this.baseLocale) continue;
-
-        const targetData = localeData[locale];
-        if (!targetData) continue;
-
-        const targetValue = this.getValueByKey(targetData, key);
-        if (typeof targetValue !== 'string') continue;
-
-        const targetPlaceholders = (
-          targetValue.match(/\{[^}]+\}/g) || []
-        ).sort();
-
-        if (
-          JSON.stringify(basePlaceholders) !==
-          JSON.stringify(targetPlaceholders)
-        ) {
-          errors.push({
-            type: 'type_mismatch',
-            key: `${locale}.${key}`,
-            message: `插值占位符不匹配: ${locale}.${key}，期望 ${basePlaceholders.join(', ')}，实际 ${targetPlaceholders.join(', ')}`,
-            severity: 'error',
-          });
-        }
-      }
+      this.collectInterpolationMismatches(
+        localeData,
+        key,
+        basePlaceholders,
+        errors,
+      );
     }
 
     return errors;
+  }
+
+  /**
+   * 收集单个键在各语言中的插值占位符差异
+   */
+  private collectInterpolationMismatches(
+    localeData: Record<string, LocaleTree>,
+    key: string,
+    basePlaceholders: string[],
+    errors: ValidationError[],
+  ): void {
+    for (const locale of this.supportedLocales) {
+      if (locale === this.baseLocale) continue;
+
+      const targetData = localeData[locale];
+      if (!targetData) continue;
+
+      const targetValue = this.getValueByKey(targetData, key);
+      if (typeof targetValue !== 'string') continue;
+
+      const targetPlaceholders = (
+        targetValue.match(/\{[^{}]+\}/g) || []
+      ).sort();
+
+      if (
+        JSON.stringify(basePlaceholders) !== JSON.stringify(targetPlaceholders)
+      ) {
+        errors.push({
+          type: 'type_mismatch',
+          key: `${locale}.${key}`,
+          message: `插值占位符不匹配: ${locale}.${key}，期望 ${basePlaceholders.join(', ')}，实际 ${targetPlaceholders.join(', ')}`,
+          severity: 'error',
+        });
+      }
+    }
   }
 
   /**

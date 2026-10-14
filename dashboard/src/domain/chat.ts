@@ -15,7 +15,7 @@ export interface MessagePart {
 }
 
 export interface ToolCall {
-  id?: string;
+  id?: string | null;
   name?: string;
   arguments?: unknown;
   result?: unknown;
@@ -111,7 +111,7 @@ export interface BranchGroup {
 }
 
 export interface ChatRecord {
-  id?: string | number;
+  id?: string | number | null;
   content: ChatContent;
   created_at?: string;
   sender_id?: string;

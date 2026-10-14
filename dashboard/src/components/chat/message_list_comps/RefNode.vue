@@ -67,7 +67,8 @@ const domain = computed(() => {
   try {
     const urlObj = new URL(url.value);
     return urlObj.hostname.replace(/^www\./, '');
-  } catch (_error) {
+  } catch {
+    // Malformed URL: there is no domain to display.
     return '';
   }
 });

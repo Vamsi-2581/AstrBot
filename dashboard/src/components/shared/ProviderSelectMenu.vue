@@ -464,7 +464,6 @@ import { providerApi } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
 import { useToast } from '@/utils/toast';
 import { resolveErrorMessage } from '@/utils/errorUtils';
-import AstrBotConfig from '@/components/shared/AstrBotConfig.vue';
 import { useProviderModelConfigDialog } from '@/composables/useProviderModelConfigDialog';
 import {
   formatContextLimit,
@@ -478,6 +477,9 @@ const ProviderChatCompletionPanel = defineAsyncComponent(
 );
 const ProviderPage = defineAsyncComponent(
   () => import('@/views/ProviderPage.vue'),
+);
+const AstrBotConfig = defineAsyncComponent(
+  () => import('@/components/shared/AstrBotConfig.vue'),
 );
 
 interface ProviderConfig extends ProviderMetadataSource {

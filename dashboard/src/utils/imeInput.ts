@@ -5,8 +5,6 @@ export function isComposingEnter(
   compositionActive: boolean,
   lastCompositionEndAt: number | null = null,
 ): boolean {
-  const hasCompositionKeyCodeFallback =
-    typeof event.keyCode === 'number' && event.keyCode === 229;
   const isAfterRecentCompositionEnd =
     typeof event.timeStamp === 'number' &&
     typeof lastCompositionEndAt === 'number' &&
@@ -16,9 +14,6 @@ export function isComposingEnter(
 
   return (
     event.key === 'Enter' &&
-    (compositionActive ||
-      event.isComposing ||
-      hasCompositionKeyCodeFallback ||
-      isAfterRecentCompositionEnd)
+    (compositionActive || event.isComposing || isAfterRecentCompositionEnd)
   );
 }

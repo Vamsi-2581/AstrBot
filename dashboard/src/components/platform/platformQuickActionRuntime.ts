@@ -43,6 +43,59 @@ export function createInitialQuickActionForm(
   );
 }
 
+type QuickActionField = QuickActionDefinition['fields'][number];
+
+interface ResolvedField {
+  skip: boolean;
+  value?: unknown;
+}
+
+function resolveNumberField(
+  field: QuickActionField,
+  rawValue: unknown,
+  tm: Translate,
+): ResolvedField {
+  const stringValue = String(rawValue ?? '').trim();
+  if (!stringValue) {
+    return { skip: true };
+  }
+  const parsed = Number(stringValue);
+  if (Number.isNaN(parsed)) {
+    throw new Error(`${field.label}: ${tm('quickActions.validation.number')}`);
+  }
+  return { skip: false, value: parsed };
+}
+
+function resolveStringListField(rawValue: unknown): ResolvedField {
+  const items = String(rawValue ?? '')
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return items.length > 0 ? { skip: false, value: items } : { skip: true };
+}
+
+function resolveTextField(rawValue: unknown): ResolvedField {
+  const textValue = String(rawValue ?? '').trim();
+  return { skip: !textValue, value: textValue };
+}
+
+function resolveQuickActionField(
+  field: QuickActionField,
+  rawValue: unknown,
+  tm: Translate,
+): ResolvedField {
+  if (field.kind === 'boolean') {
+    return { skip: false, value: Boolean(rawValue) };
+  }
+  if (field.kind === 'number') {
+    return resolveNumberField(field, rawValue, tm);
+  }
+  if (field.kind === 'string-list') {
+    return resolveStringListField(rawValue);
+  }
+  return resolveTextField(rawValue);
+}
+
 export function buildQuickActionPayload(
   actionName: QuickActionName,
   form: Record<string, string | number | boolean>,
@@ -52,42 +105,11 @@ export function buildQuickActionPayload(
   const definition = definitions[actionName];
   const payload: Record<string, unknown> = {};
   for (const field of definition.fields) {
-    const rawValue = form[field.key];
-    if (field.kind === 'boolean') {
-      payload[field.key] = Boolean(rawValue);
+    const resolved = resolveQuickActionField(field, form[field.key], tm);
+    if (resolved.skip) {
       continue;
     }
-
-    if (field.kind === 'number') {
-      const stringValue = String(rawValue ?? '').trim();
-      if (!stringValue) {
-        continue;
-      }
-      const parsed = Number(stringValue);
-      if (Number.isNaN(parsed)) {
-        throw new Error(
-          `${field.label}: ${tm('quickActions.validation.number')}`,
-        );
-      }
-      payload[field.key] = parsed;
-      continue;
-    }
-
-    if (field.kind === 'string-list') {
-      const items = String(rawValue ?? '')
-        .split(/[\n,]/)
-        .map((item) => item.trim())
-        .filter(Boolean);
-      if (items.length > 0) {
-        payload[field.key] = items;
-      }
-      continue;
-    }
-
-    const textValue = String(rawValue ?? '').trim();
-    if (textValue) {
-      payload[field.key] = textValue;
-    }
+    payload[field.key] = resolved.value;
   }
   return payload;
 }

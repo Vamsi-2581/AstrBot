@@ -306,6 +306,7 @@ export const logApi = {
       params.append('privacy', privacy);
     }
     const query = params.toString();
-    return `/api/v1/logs/live${query ? `?${query}` : ''}`;
+    const suffix = query ? `?${query}` : '';
+    return `/api/v1/logs/live${suffix}`;
   },
 };

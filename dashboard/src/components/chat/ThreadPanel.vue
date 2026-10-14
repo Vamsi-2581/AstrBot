@@ -269,82 +269,161 @@ async function readSseStream(
   }
 }
 
+function normalizeStreamPayload(payload: StreamPayload) {
+  const normalized =
+    payload?.ct === 'chat'
+      ? { ...payload, type: payload.type || payload.t }
+      : payload;
+  return {
+    type: normalized?.type || normalized?.t,
+    chainType: normalized?.chain_type,
+    data: normalized?.data ?? '',
+    streaming: normalized?.streaming !== false,
+  };
+}
+
+function asMessageData(data: unknown): Record<string, unknown> | null {
+  return data && typeof data === 'object'
+    ? (data as Record<string, unknown>)
+    : null;
+}
+
+function applyUserMessageSaved(userRecord: ChatRecord, data: unknown) {
+  const messageData = asMessageData(data);
+  userRecord.id =
+    (messageData?.id as string | number | undefined) || userRecord.id;
+  userRecord.created_at =
+    (typeof messageData?.created_at === 'string'
+      ? messageData.created_at
+      : userRecord.created_at) || userRecord.created_at;
+  userRecord.llm_checkpoint_id =
+    (typeof messageData?.llm_checkpoint_id === 'string'
+      ? messageData.llm_checkpoint_id
+      : userRecord.llm_checkpoint_id) || userRecord.llm_checkpoint_id;
+}
+
+function applyMessageSaved(botRecord: ChatRecord, data: unknown) {
+  markMessageStarted(botRecord);
+  const messageData = asMessageData(data);
+  botRecord.id =
+    (messageData?.id as string | number | undefined) || botRecord.id;
+  botRecord.created_at =
+    (typeof messageData?.created_at === 'string'
+      ? messageData.created_at
+      : botRecord.created_at) || botRecord.created_at;
+  botRecord.llm_checkpoint_id =
+    (typeof messageData?.llm_checkpoint_id === 'string'
+      ? messageData.llm_checkpoint_id
+      : botRecord.llm_checkpoint_id) || botRecord.llm_checkpoint_id;
+  if (messageData?.refs && typeof messageData.refs === 'object') {
+    botRecord.content.refs = messageData.refs as ChatRecord['content']['refs'];
+  }
+}
+
+function applyAgentStats(botRecord: ChatRecord, data: unknown) {
+  markMessageStarted(botRecord);
+  botRecord.content.agentStats =
+    data && typeof data === 'object' ? { ...data } : { value: data };
+}
+
+function applyErrorMessage(botRecord: ChatRecord, data: unknown) {
+  markMessageStarted(botRecord);
+  appendPlain(botRecord, `\n\n${String(data)}`);
+}
+
+function applyCompleteMessage(
+  botRecord: ChatRecord,
+  data: unknown,
+  isComplete: boolean,
+) {
+  markMessageStarted(botRecord);
+  appendCompletePlainSuffix(botRecord, payloadText(data), isComplete);
+}
+
+function applyPlainPayload(
+  botRecord: ChatRecord,
+  chainType: string | undefined,
+  data: unknown,
+  streaming: boolean,
+) {
+  markMessageStarted(botRecord);
+  if (chainType === 'reasoning') {
+    appendReasoningPart(botRecord, payloadText(data));
+    return;
+  }
+  if (chainType === 'tool_call') {
+    upsertToolCall(botRecord, parseJsonSafe(data));
+    return;
+  }
+  if (chainType === 'tool_call_result') {
+    finishToolCall(botRecord, parseJsonSafe(data));
+    return;
+  }
+  appendPlain(botRecord, payloadText(data), streaming);
+}
+
+const MEDIA_TYPES = ['image', 'record', 'file', 'video'];
+
+function isMediaType(type: unknown): type is string {
+  return typeof type === 'string' && MEDIA_TYPES.includes(type);
+}
+
+function applyMediaPayload(botRecord: ChatRecord, type: string, data: unknown) {
+  markMessageStarted(botRecord);
+  const rawFilename = String(data)
+    .replace('[IMAGE]', '')
+    .replace('[RECORD]', '')
+    .replace('[FILE]', '')
+    .replace('[VIDEO]', '');
+  const separatorIndex = rawFilename.indexOf('|');
+  const storedFilename =
+    separatorIndex >= 0 ? rawFilename.slice(0, separatorIndex) : rawFilename;
+  const displayFilename =
+    separatorIndex >= 0
+      ? rawFilename.slice(separatorIndex + 1)
+      : storedFilename;
+  const filename = displayFilename || storedFilename;
+  const mediaPart: MessagePart = { type, filename };
+  if (storedFilename && storedFilename !== filename) {
+    mediaPart.stored_filename = storedFilename;
+  }
+  const content = botRecord.content.message;
+  if (filename) {
+    content.push(mediaPart);
+  }
+}
+
 function processPayload(
   botRecord: ChatRecord,
   userRecord: ChatRecord,
   payload: StreamPayload,
 ) {
-  const normalized =
-    payload?.ct === 'chat'
-      ? { ...payload, type: payload.type || payload.t }
-      : payload;
-  const type = normalized?.type || normalized?.t;
-  const chainType = normalized?.chain_type;
-  const data = normalized?.data ?? '';
+  const { type, chainType, data, streaming } = normalizeStreamPayload(payload);
 
   if (type === 'session_id' || type === 'session_bound') return;
 
   if (type === 'user_message_saved') {
-    const messageData =
-      data && typeof data === 'object'
-        ? (data as Record<string, unknown>)
-        : null;
-    userRecord.id =
-      (messageData?.id as string | number | undefined) || userRecord.id;
-    userRecord.created_at =
-      (typeof messageData?.created_at === 'string'
-        ? messageData.created_at
-        : userRecord.created_at) || userRecord.created_at;
-    userRecord.llm_checkpoint_id =
-      (typeof messageData?.llm_checkpoint_id === 'string'
-        ? messageData.llm_checkpoint_id
-        : userRecord.llm_checkpoint_id) || userRecord.llm_checkpoint_id;
+    applyUserMessageSaved(userRecord, data);
     return;
   }
 
   if (type === 'message_saved') {
-    markMessageStarted(botRecord);
-    const messageData =
-      data && typeof data === 'object'
-        ? (data as Record<string, unknown>)
-        : null;
-    botRecord.id =
-      (messageData?.id as string | number | undefined) || botRecord.id;
-    botRecord.created_at =
-      (typeof messageData?.created_at === 'string'
-        ? messageData.created_at
-        : botRecord.created_at) || botRecord.created_at;
-    botRecord.llm_checkpoint_id =
-      (typeof messageData?.llm_checkpoint_id === 'string'
-        ? messageData.llm_checkpoint_id
-        : botRecord.llm_checkpoint_id) || botRecord.llm_checkpoint_id;
-    if (messageData?.refs && typeof messageData.refs === 'object') {
-      botRecord.content.refs =
-        messageData.refs as ChatRecord['content']['refs'];
-    }
+    applyMessageSaved(botRecord, data);
     return;
   }
 
   if (type === 'agent_stats' || chainType === 'agent_stats') {
-    markMessageStarted(botRecord);
-    botRecord.content.agentStats =
-      data && typeof data === 'object' ? { ...data } : { value: data };
+    applyAgentStats(botRecord, data);
     return;
   }
 
   if (type === 'error') {
-    markMessageStarted(botRecord);
-    appendPlain(botRecord, `\n\n${String(data)}`);
+    applyErrorMessage(botRecord, data);
     return;
   }
 
   if (type === 'complete' || type === 'break') {
-    markMessageStarted(botRecord);
-    appendCompletePlainSuffix(
-      botRecord,
-      payloadText(data),
-      type === 'complete',
-    );
+    applyCompleteMessage(botRecord, data, type === 'complete');
     return;
   }
 
@@ -354,49 +433,12 @@ function processPayload(
   }
 
   if (type === 'plain') {
-    markMessageStarted(botRecord);
-    if (chainType === 'reasoning') {
-      appendReasoningPart(botRecord, payloadText(data));
-      return;
-    }
-    if (chainType === 'tool_call') {
-      upsertToolCall(botRecord, parseJsonSafe(data));
-      return;
-    }
-    if (chainType === 'tool_call_result') {
-      finishToolCall(botRecord, parseJsonSafe(data));
-      return;
-    }
-    appendPlain(botRecord, payloadText(data), normalized.streaming !== false);
+    applyPlainPayload(botRecord, chainType, data, streaming);
     return;
   }
 
-  if (
-    typeof type === 'string' &&
-    ['image', 'record', 'file', 'video'].includes(type)
-  ) {
-    markMessageStarted(botRecord);
-    const rawFilename = String(data)
-      .replace('[IMAGE]', '')
-      .replace('[RECORD]', '')
-      .replace('[FILE]', '')
-      .replace('[VIDEO]', '');
-    const separatorIndex = rawFilename.indexOf('|');
-    const storedFilename =
-      separatorIndex >= 0 ? rawFilename.slice(0, separatorIndex) : rawFilename;
-    const displayFilename =
-      separatorIndex >= 0
-        ? rawFilename.slice(separatorIndex + 1)
-        : storedFilename;
-    const filename = displayFilename || storedFilename;
-    const mediaPart: MessagePart = { type, filename };
-    if (storedFilename && storedFilename !== filename) {
-      mediaPart.stored_filename = storedFilename;
-    }
-    const content = botRecord.content.message;
-    if (filename) {
-      content.push(mediaPart);
-    }
+  if (isMediaType(type)) {
+    applyMediaPayload(botRecord, type, data);
   }
 }
 

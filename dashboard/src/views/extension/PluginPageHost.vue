@@ -361,6 +361,9 @@ function handleWindowMessage(event: MessageEvent<unknown>): void {
     failProtocol,
   );
   try {
+    // The sandboxed frame has an opaque origin, so a specific target origin
+    // cannot be used. The handshake nonce and MessageChannel port keep the
+    // one-time connect message scoped to this session.
     frameWindow.postMessage(
       createPluginPageConnectMessage(
         currentSession.instance_id,
@@ -486,6 +489,8 @@ async function initialize(): Promise<void> {
       instance: session.value.instance_id,
       channel: session.value.handshake_nonce,
     }).toString();
+    // handleWindowMessage rejects messages unless event.source is the exact
+    // sandboxed frame window, which is stricter than an origin string check.
     window.addEventListener('message', handleWindowMessage);
     window.addEventListener(
       PLUGIN_DASHBOARD_LIFECYCLE_EVENT,

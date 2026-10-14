@@ -287,6 +287,29 @@ const handleDrop = (event: DragEvent) => {
   }
 };
 
+const warnOversizedFiles = (files: File[]) => {
+  files
+    .filter((file) => file.size > MAX_FILE_BYTES)
+    .forEach((file) => {
+      toast.warning(
+        tm('fileUpload.fileTooLarge', { name: file.name, max: MAX_FILE_MB }),
+      );
+    });
+};
+
+const applyUploadedPaths = (uploaded: string[]) => {
+  const merged = [...fileList.value];
+  for (const path of uploaded) {
+    if (!merged.includes(path)) {
+      merged.push(path);
+    }
+  }
+  fileList.value = merged;
+  const updatedDirectory = new Set(directoryFiles.value);
+  uploaded.forEach((path) => updatedDirectory.add(path));
+  directoryFiles.value = Array.from(updatedDirectory);
+};
+
 const uploadFiles = async (files: File[]) => {
   if (!props.pluginName || !props.configKey) {
     toast.warning('Missing plugin config info');
@@ -296,14 +319,7 @@ const uploadFiles = async (files: File[]) => {
     return;
   }
 
-  const oversized = files.filter((file) => file.size > MAX_FILE_BYTES);
-  if (oversized.length > 0) {
-    oversized.forEach((file) => {
-      toast.warning(
-        tm('fileUpload.fileTooLarge', { name: file.name, max: MAX_FILE_MB }),
-      );
-    });
-  }
+  warnOversizedFiles(files);
   const validFiles = files.filter((file) => file.size <= MAX_FILE_BYTES);
   if (validFiles.length === 0) {
     return;
@@ -327,16 +343,7 @@ const uploadFiles = async (files: File[]) => {
       const errors = response.data.data?.errors || [];
 
       if (uploaded.length > 0) {
-        const merged = [...fileList.value];
-        for (const path of uploaded) {
-          if (!merged.includes(path)) {
-            merged.push(path);
-          }
-        }
-        fileList.value = merged;
-        const updatedDirectory = new Set(directoryFiles.value);
-        uploaded.forEach((path) => updatedDirectory.add(path));
-        directoryFiles.value = Array.from(updatedDirectory);
+        applyUploadedPaths(uploaded);
         toast.success(
           tm('fileUpload.uploadSuccess', { count: uploaded.length }),
         );

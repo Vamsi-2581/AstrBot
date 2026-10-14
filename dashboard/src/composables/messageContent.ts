@@ -90,6 +90,16 @@ export function displayParts(content: ChatContent): MessagePart[] {
     .flatMap((block) => block.parts);
 }
 
+function pushBlock(
+  blocks: MessageDisplayBlock[],
+  kind: MessageDisplayBlock['kind'] | null,
+  parts: MessagePart[],
+) {
+  if (kind && parts.length) {
+    blocks.push({ kind, parts });
+  }
+}
+
 export function messageBlocks(content: ChatContent): MessageDisplayBlock[] {
   const parts = Array.isArray(content.message)
     ? content.message
@@ -107,9 +117,7 @@ export function messageBlocks(content: ChatContent): MessageDisplayBlock[] {
       : 'content';
 
     if (currentKind !== nextKind) {
-      if (currentKind && currentParts.length) {
-        blocks.push({ kind: currentKind, parts: currentParts });
-      }
+      pushBlock(blocks, currentKind, currentParts);
       currentKind = nextKind;
       currentParts = [{ ...part }];
       continue;
@@ -118,9 +126,7 @@ export function messageBlocks(content: ChatContent): MessageDisplayBlock[] {
     currentParts.push({ ...part });
   }
 
-  if (currentKind && currentParts.length) {
-    blocks.push({ kind: currentKind, parts: currentParts });
-  }
+  pushBlock(blocks, currentKind, currentParts);
 
   if (!blocks.length && content.reasoning) {
     return [

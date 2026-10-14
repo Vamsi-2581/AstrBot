@@ -16,7 +16,7 @@ function getFromLocalStorage(key: string, fallback: string): string {
       return fallback;
     }
     const value = localStorage.getItem(key);
-    return value === null || value === undefined ? fallback : value;
+    return value === null ? fallback : value;
   } catch {
     return fallback;
   }
@@ -78,6 +78,30 @@ function splitUmo(umo: string): [string, string, string] | null {
   ];
 }
 
+function parseCharClass(
+  pattern: string,
+  index: number,
+): { source: string; nextIndex: number } {
+  let cursor = index;
+  let negate = false;
+  if (pattern[cursor] === '!') {
+    negate = true;
+    cursor += 1;
+  }
+  const bodyStart = cursor;
+  if (pattern[cursor] === ']') {
+    cursor += 1;
+  }
+  while (cursor < pattern.length && pattern[cursor] !== ']') {
+    cursor += 1;
+  }
+  if (cursor >= pattern.length) {
+    return { source: '\\[', nextIndex: index };
+  }
+  const body = pattern.slice(bodyStart, cursor).replace(/([\\^\]])/g, '\\$1');
+  return { source: `[${negate ? '^' : ''}${body}]`, nextIndex: cursor + 1 };
+}
+
 function globToRegExp(pattern: string): RegExp {
   let source = '^';
   let index = 0;
@@ -92,28 +116,9 @@ function globToRegExp(pattern: string): RegExp {
     } else if (char === '?') {
       source += '.';
     } else if (char === '[') {
-      let cursor = index;
-      let negate = false;
-      if (pattern[cursor] === '!') {
-        negate = true;
-        cursor += 1;
-      }
-      const bodyStart = cursor;
-      if (pattern[cursor] === ']') {
-        cursor += 1;
-      }
-      while (cursor < pattern.length && pattern[cursor] !== ']') {
-        cursor += 1;
-      }
-      if (cursor >= pattern.length) {
-        source += '\\[';
-      } else {
-        const body = pattern
-          .slice(bodyStart, cursor)
-          .replace(/([\\^\]])/g, '\\$1');
-        source += `[${negate ? '^' : ''}${body}]`;
-        index = cursor + 1;
-      }
+      const parsed = parseCharClass(pattern, index);
+      source += parsed.source;
+      index = parsed.nextIndex;
     } else {
       source += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }

@@ -580,13 +580,10 @@ export function useProviderSources(options: UseProviderSourcesOptions) {
 
   function removeProviderSourceFromLocalState(sourceId: string) {
     providers.value = providers.value.filter(
-      (provider) =>
-        provider.provider_source_id === null ||
-        String(provider.provider_source_id) !== sourceId,
+      (provider) => String(provider.provider_source_id) !== sourceId,
     );
     providerSources.value = providerSources.value.filter(
-      (providerSource) =>
-        providerSource.id === null || String(providerSource.id) !== sourceId,
+      (providerSource) => String(providerSource.id) !== sourceId,
     );
 
     if (String(selectedProviderSource.value?.id || '') === sourceId) {

@@ -928,57 +928,74 @@ function rewritePatternPlatform(
   return `${targetPlatformId}:${parsed.messageType}:${parsed.sessionId}`;
 }
 
+function addUniqueRoute(
+  entries: [string, string][],
+  seen: Set<string>,
+  pattern: string,
+  configId: string,
+): void {
+  if (seen.has(pattern)) {
+    throw new Error(tm('workspace.routes.duplicatePattern'));
+  }
+  seen.add(pattern);
+  entries.push([pattern, configId]);
+}
+
+function buildNextRoutingTable(
+  oldPlatformId: string,
+  newPlatformId: string,
+): Record<string, string> | null {
+  if (!routesReady.value) return null;
+
+  const retainedEntries = Object.entries(fullRoutingTable.value).filter(
+    ([pattern]) => {
+      const parsed = parseUmo(pattern);
+      return (
+        !parsed || ![oldPlatformId, newPlatformId].includes(parsed.platform)
+      );
+    },
+  );
+  const botEntries: [string, string][] = [];
+  const routePatterns = new Set<string>();
+
+  for (const binding of simpleBindings.value) {
+    if (!binding.configId) continue;
+    const pattern = rewritePatternPlatform(binding.umo, newPlatformId);
+    addUniqueRoute(botEntries, routePatterns, pattern, binding.configId);
+  }
+
+  for (const route of advancedRoutes.value) {
+    const pattern = rewritePatternPlatform(route.pattern, newPlatformId);
+    addUniqueRoute(
+      botEntries,
+      routePatterns,
+      pattern,
+      route.configId as string,
+    );
+  }
+
+  if (fallbackConfigId.value !== SYSTEM_DEFAULT_CONFIG) {
+    addUniqueRoute(
+      botEntries,
+      routePatterns,
+      `${newPlatformId}:*:*`,
+      fallbackConfigId.value,
+    );
+  }
+
+  return Object.fromEntries([...botEntries, ...retainedEntries]);
+}
+
 async function save(): Promise<void> {
   if (!canSave.value) return;
   saving.value = true;
   try {
     const oldPlatformId = originalPlatformId.value;
     const newPlatformId = draft.value.id || oldPlatformId;
-    let nextRoutingTable: Record<string, string> | null = null;
-    if (routesReady.value) {
-      const retainedEntries = Object.entries(fullRoutingTable.value).filter(
-        ([pattern]) => {
-          const parsed = parseUmo(pattern);
-          return (
-            !parsed || ![oldPlatformId, newPlatformId].includes(parsed.platform)
-          );
-        },
-      );
-      const botEntries: [string, string][] = [];
-      const routePatterns = new Set<string>();
-
-      for (const binding of simpleBindings.value) {
-        if (!binding.configId) continue;
-        const pattern = rewritePatternPlatform(binding.umo, newPlatformId);
-        if (routePatterns.has(pattern)) {
-          throw new Error(tm('workspace.routes.duplicatePattern'));
-        }
-        routePatterns.add(pattern);
-        botEntries.push([pattern, binding.configId]);
-      }
-
-      for (const route of advancedRoutes.value) {
-        const pattern = rewritePatternPlatform(route.pattern, newPlatformId);
-        if (routePatterns.has(pattern)) {
-          throw new Error(tm('workspace.routes.duplicatePattern'));
-        }
-        routePatterns.add(pattern);
-        botEntries.push([pattern, route.configId as string]);
-      }
-
-      if (fallbackConfigId.value !== SYSTEM_DEFAULT_CONFIG) {
-        const pattern = `${newPlatformId}:*:*`;
-        if (routePatterns.has(pattern)) {
-          throw new Error(tm('workspace.routes.duplicatePattern'));
-        }
-        botEntries.push([pattern, fallbackConfigId.value]);
-      }
-
-      nextRoutingTable = Object.fromEntries([
-        ...botEntries,
-        ...retainedEntries,
-      ]);
-    }
+    const nextRoutingTable = buildNextRoutingTable(
+      oldPlatformId,
+      newPlatformId,
+    );
 
     const response = await runBotMutationWithStepUp(
       (stepUp) =>

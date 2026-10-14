@@ -17,16 +17,6 @@ export interface ToolSummary {
   inactive: number;
 }
 
-/** 过滤器状态 */
-export interface FilterState {
-  searchQuery: string;
-  pluginFilter: string;
-  actionFilter: string;
-  statusFilter: string;
-  typeFilter: string;
-  showSystemPlugins: boolean;
-}
-
 /** 重命名对话框状态 */
 export interface RenameDialogState {
   show: boolean;

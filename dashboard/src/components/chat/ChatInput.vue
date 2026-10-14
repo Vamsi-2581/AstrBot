@@ -775,51 +775,56 @@ watch(
   },
 );
 
-function handleKeyDown(e: KeyboardEvent) {
-  // 命令提示激活时，拦截方向键和 Enter/Esc
-  if (showCommandSuggestion.value && filteredCommands.value.length > 0) {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      selectedCommandIndex.value =
-        (selectedCommandIndex.value + 1) % filteredCommands.value.length;
-      return;
-    }
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      selectedCommandIndex.value =
-        (selectedCommandIndex.value - 1 + filteredCommands.value.length) %
-        filteredCommands.value.length;
-      return;
-    }
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const cmd = filteredCommands.value[selectedCommandIndex.value];
-      if (cmd) {
-        handleCommandSelect(cmd);
-      }
-      return;
-    }
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      showCommandSuggestion.value = false;
-      return;
-    }
+function handleCommandSuggestionKey(e: KeyboardEvent): boolean {
+  if (!showCommandSuggestion.value || filteredCommands.value.length === 0) {
+    return false;
   }
+  const length = filteredCommands.value.length;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    selectedCommandIndex.value = (selectedCommandIndex.value + 1) % length;
+    return true;
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    selectedCommandIndex.value =
+      (selectedCommandIndex.value - 1 + length) % length;
+    return true;
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const cmd = filteredCommands.value[selectedCommandIndex.value];
+    if (cmd) {
+      handleCommandSelect(cmd);
+    }
+    return true;
+  }
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    showCommandSuggestion.value = false;
+    return true;
+  }
+  return false;
+}
+
+function handleRecordingShortcut(e: KeyboardEvent) {
+  if (!e.ctrlKey || e.key.toLowerCase() !== 'b') return;
+  e.preventDefault();
+  if (ctrlKeyDown.value) return;
+  ctrlKeyDown.value = true;
+  ctrlKeyTimer.value = window.setTimeout(() => {
+    if (ctrlKeyDown.value && !props.isRecording) {
+      emit('startRecording');
+    }
+  }, ctrlKeyLongPressThreshold);
+}
+
+function handleKeyDown(e: KeyboardEvent) {
+  if (handleCommandSuggestionKey(e)) return;
 
   const isEnter = e.key === 'Enter';
   if (!isEnter) {
-    // Ctrl+B 录音
-    if (e.ctrlKey && e.keyCode === 66) {
-      e.preventDefault();
-      if (ctrlKeyDown.value) return;
-
-      ctrlKeyDown.value = true;
-      ctrlKeyTimer.value = window.setTimeout(() => {
-        if (ctrlKeyDown.value && !props.isRecording) {
-          emit('startRecording');
-        }
-      }, ctrlKeyLongPressThreshold);
-    }
+    handleRecordingShortcut(e);
     return;
   }
 
@@ -939,7 +944,7 @@ function clearCompositionState({ keepLastEndAt = false } = {}) {
 }
 
 function handleKeyUp(e: KeyboardEvent) {
-  if (e.keyCode === 66) {
+  if (e.key.toLowerCase() === 'b') {
     ctrlKeyDown.value = false;
 
     if (ctrlKeyTimer.value) {

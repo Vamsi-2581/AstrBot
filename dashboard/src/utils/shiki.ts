@@ -1,5 +1,3 @@
-import type MarkdownIt from 'markdown-it';
-
 import {
   createHighlighter,
   normalizeLimitedShikiLanguage,
@@ -12,7 +10,6 @@ export const SHIKI_THEMES = {
 
 type ShikiHighlighter = Awaited<ReturnType<typeof createHighlighter>>;
 type ColorMode = 'auto' | 'dark' | 'light';
-type MarkdownItInstance = ReturnType<typeof MarkdownIt>;
 
 let highlighterPromise: Promise<ShikiHighlighter> | undefined;
 
@@ -90,18 +87,6 @@ export function renderShikiCode(
 
     return highlighter.codeToHtml(code, fallbackOptions);
   }
-}
-
-export function collectMarkdownFenceLanguages(
-  markdownIt: MarkdownItInstance,
-  markdown: string,
-): string[] {
-  if (!markdown) return [];
-
-  return markdownIt
-    .parse(markdown, {})
-    .filter((token) => token.type === 'fence')
-    .map((token) => normalizeLanguage(token.info));
 }
 
 export function normalizeShikiLanguage(language: unknown): string {

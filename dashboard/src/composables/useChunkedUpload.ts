@@ -152,6 +152,27 @@ export function useChunkedUpload(api: ChunkedUploadApi) {
     throw toError(lastError);
   }
 
+  function scheduleChunks(
+    pending: number[],
+    active: Promise<void>[],
+    sessionId: string,
+    generation: number,
+  ): void {
+    while (pending.length > 0 && active.length < CONCURRENT_UPLOADS) {
+      const chunkIndex = pending.shift();
+      if (chunkIndex === undefined) break;
+      const promise = uploadOneChunk(chunkIndex, sessionId, generation).finally(
+        () => {
+          const idx = active.indexOf(promise);
+          if (idx > -1) {
+            void active.splice(idx, 1);
+          }
+        },
+      );
+      active.push(promise);
+    }
+  }
+
   async function runPool(
     indexes: number[],
     sessionId: string,
@@ -165,21 +186,7 @@ export function useChunkedUpload(api: ChunkedUploadApi) {
       !cancelled &&
       (pending.length > 0 || active.length > 0)
     ) {
-      while (pending.length > 0 && active.length < CONCURRENT_UPLOADS) {
-        const chunkIndex = pending.shift();
-        if (chunkIndex === undefined) break;
-        const promise = uploadOneChunk(
-          chunkIndex,
-          sessionId,
-          generation,
-        ).finally(() => {
-          const idx = active.indexOf(promise);
-          if (idx > -1) {
-            void active.splice(idx, 1);
-          }
-        });
-        active.push(promise);
-      }
+      scheduleChunks(pending, active, sessionId, generation);
       if (active.length > 0) {
         try {
           await Promise.race(active);

@@ -224,9 +224,9 @@ function appendHighlightedText(element: HTMLElement, text: string): void {
 }
 
 function appendLogContent(element: HTMLPreElement, log: string): void {
-  const levelMatch = log.match(
-    /\[(DEBG|INFO|WARN|ERRO|CRIT|DEBUG|WARNING|ERROR|CRITICAL)\]/,
-  );
+  const levelPattern =
+    /\[(DEBG|INFO|WARN|ERRO|CRIT|DEBUG|WARNING|ERROR|CRITICAL)\]/;
+  const levelMatch = levelPattern.exec(log);
   if (levelMatch?.index === undefined) {
     appendHighlightedText(element, log);
     return;

@@ -689,7 +689,6 @@ function isMessageStreaming(message: ChatRecord, messageIndex: number) {
 function isEditingMessage(message: ChatRecord) {
   return (
     props.editingMessageId !== null &&
-    props.editingMessageId !== undefined &&
     message.id !== null &&
     message.id !== undefined &&
     String(props.editingMessageId) === String(message.id)
@@ -756,9 +755,7 @@ function hasFollowingContentBlock(message: ChatRecord, blockIndex: number) {
 function isSidebarReasoningBlock(message: ChatRecord, blockIndex: number) {
   if (
     props.sidebarReasoningMessageId === null ||
-    props.sidebarReasoningMessageId === undefined ||
-    props.sidebarReasoningBlockIndex === null ||
-    props.sidebarReasoningBlockIndex === undefined
+    props.sidebarReasoningBlockIndex === null
   ) {
     return false;
   }

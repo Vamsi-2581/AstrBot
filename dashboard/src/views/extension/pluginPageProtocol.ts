@@ -127,8 +127,8 @@ function hasExactKeys(
   value: Record<string, unknown>,
   expectedKeys: readonly string[],
 ): boolean {
-  const actual = Object.keys(value).sort();
-  const expected = [...expectedKeys].sort();
+  const actual = Object.keys(value).sort((a, b) => a.localeCompare(b));
+  const expected = [...expectedKeys].sort((a, b) => a.localeCompare(b));
   return (
     actual.length === expected.length &&
     actual.every((key, index) => key === expected[index])
@@ -204,7 +204,7 @@ export function validatePluginPageContext(
   expectedInstanceId: string,
   expectedGeneration: string,
 ): value is PluginPageContext {
-  if (
+  const isInvalid =
     !isRecord(value) ||
     !hasExactKeys(value, [
       'protocol_version',
@@ -239,11 +239,89 @@ export function validatePluginPageContext(
       (item) => typeof item === 'string' && actionIdPattern.test(item),
     ) ||
     typeof value.capabilities.upload !== 'boolean' ||
-    typeof value.capabilities.file !== 'boolean'
+    typeof value.capabilities.file !== 'boolean';
+  return !isInvalid;
+}
+
+function parsePluginPageRequest(
+  value: Record<string, unknown>,
+  common: string[],
+): PluginPageRequest {
+  if (
+    !requireString(value.request_id) ||
+    !uuidPattern.test(value.request_id) ||
+    !requireString(value.action_id) ||
+    !actionIdPattern.test(value.action_id)
   ) {
-    return false;
+    throw new PluginPageProtocolError();
   }
-  return true;
+  if (
+    value.action_kind === 'json' &&
+    hasExactKeys(value, [
+      ...common,
+      'request_id',
+      'action_id',
+      'action_kind',
+      'payload',
+    ])
+  ) {
+    return value as unknown as PluginPageRequest;
+  }
+  if (
+    value.action_kind === 'upload' &&
+    hasExactKeys(value, [
+      ...common,
+      'request_id',
+      'action_id',
+      'action_kind',
+      'file',
+      'fields',
+    ]) &&
+    typeof File !== 'undefined' &&
+    value.file instanceof File
+  ) {
+    return value as unknown as PluginPageRequest;
+  }
+  if (
+    value.action_kind === 'file' &&
+    hasExactKeys(value, [
+      ...common,
+      'request_id',
+      'action_id',
+      'action_kind',
+      'file_operation',
+      'payload',
+    ]) &&
+    ['read', 'download'].includes(String(value.file_operation))
+  ) {
+    return value as unknown as PluginPageRequest;
+  }
+  throw new PluginPageProtocolError();
+}
+
+function parsePluginPageControlMessage(
+  value: Record<string, unknown>,
+  common: string[],
+): PluginPageToHostMessage {
+  if (
+    value.kind === 'cancel' &&
+    hasExactKeys(value, [...common, 'request_id']) &&
+    requireString(value.request_id) &&
+    uuidPattern.test(value.request_id)
+  ) {
+    return value as unknown as PluginPageToHostMessage;
+  }
+  if (
+    value.kind === 'dispose' &&
+    value.reason === 'page_requested' &&
+    hasExactKeys(value, [...common, 'reason'])
+  ) {
+    return value as unknown as PluginPageToHostMessage;
+  }
+  if (value.kind === 'disposed' && hasExactKeys(value, common)) {
+    return value as unknown as PluginPageToHostMessage;
+  }
+  throw new PluginPageProtocolError();
 }
 
 export function parsePluginPageToHostMessage(
@@ -268,76 +346,9 @@ export function parsePluginPageToHostMessage(
     'kind',
   ];
   if (value.kind === 'request') {
-    if (
-      !requireString(value.request_id) ||
-      !uuidPattern.test(value.request_id) ||
-      !requireString(value.action_id) ||
-      !actionIdPattern.test(value.action_id)
-    ) {
-      throw new PluginPageProtocolError();
-    }
-    if (
-      value.action_kind === 'json' &&
-      hasExactKeys(value, [
-        ...common,
-        'request_id',
-        'action_id',
-        'action_kind',
-        'payload',
-      ])
-    ) {
-      return value as unknown as PluginPageRequest;
-    }
-    if (
-      value.action_kind === 'upload' &&
-      hasExactKeys(value, [
-        ...common,
-        'request_id',
-        'action_id',
-        'action_kind',
-        'file',
-        'fields',
-      ]) &&
-      typeof File !== 'undefined' &&
-      value.file instanceof File
-    ) {
-      return value as unknown as PluginPageRequest;
-    }
-    if (
-      value.action_kind === 'file' &&
-      hasExactKeys(value, [
-        ...common,
-        'request_id',
-        'action_id',
-        'action_kind',
-        'file_operation',
-        'payload',
-      ]) &&
-      ['read', 'download'].includes(String(value.file_operation))
-    ) {
-      return value as unknown as PluginPageRequest;
-    }
-    throw new PluginPageProtocolError();
+    return parsePluginPageRequest(value, common);
   }
-  if (
-    value.kind === 'cancel' &&
-    hasExactKeys(value, [...common, 'request_id']) &&
-    requireString(value.request_id) &&
-    uuidPattern.test(value.request_id)
-  ) {
-    return value as unknown as PluginPageToHostMessage;
-  }
-  if (
-    value.kind === 'dispose' &&
-    value.reason === 'page_requested' &&
-    hasExactKeys(value, [...common, 'reason'])
-  ) {
-    return value as unknown as PluginPageToHostMessage;
-  }
-  if (value.kind === 'disposed' && hasExactKeys(value, common)) {
-    return value as unknown as PluginPageToHostMessage;
-  }
-  throw new PluginPageProtocolError();
+  return parsePluginPageControlMessage(value, common);
 }
 
 function normalizePublicError(

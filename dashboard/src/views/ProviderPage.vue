@@ -607,6 +607,38 @@ function addLegacyProvider(name: string) {
   selectLegacyProvider(draft);
 }
 
+function cloneConfigValue(value: unknown) {
+  if (typeof value !== 'object' || value === null) {
+    return value;
+  }
+  return Array.isArray(value) ? [...value] : { ...(value as ConfigRecord) };
+}
+
+function mergeReferenceValue(
+  target: ConfigRecord,
+  source: ConfigRecord | null | undefined,
+  key: string,
+  referenceValue: unknown,
+) {
+  if (typeof referenceValue === 'object' && referenceValue !== null) {
+    if (!(key in target)) {
+      target[key] = Array.isArray(referenceValue) ? [...referenceValue] : {};
+    }
+    if (!Array.isArray(referenceValue)) {
+      const sourceValue = source?.[key];
+      mergeConfigWithOrder(
+        target[key] as ConfigRecord,
+        sourceValue ? (sourceValue as ConfigRecord) : {},
+        referenceValue as ConfigRecord,
+      );
+    }
+    return;
+  }
+  if (!(key in target)) {
+    target[key] = referenceValue;
+  }
+}
+
 function mergeConfigWithOrder(
   target: ConfigRecord,
   source: ConfigRecord | null | undefined,
@@ -615,39 +647,13 @@ function mergeConfigWithOrder(
   if (source && typeof source === 'object' && !Array.isArray(source)) {
     for (const key in source) {
       if (Object.hasOwn(source, key)) {
-        const sourceValue = source[key];
-        if (typeof sourceValue === 'object' && sourceValue !== null) {
-          target[key] = Array.isArray(sourceValue)
-            ? [...sourceValue]
-            : { ...(sourceValue as ConfigRecord) };
-        } else {
-          target[key] = sourceValue;
-        }
+        target[key] = cloneConfigValue(source[key]);
       }
     }
   }
 
   for (const key in reference) {
-    const referenceValue = reference[key];
-    if (typeof referenceValue === 'object' && referenceValue !== null) {
-      if (!(key in target)) {
-        if (Array.isArray(referenceValue)) {
-          target[key] = [...referenceValue];
-        } else {
-          target[key] = {};
-        }
-      }
-      if (!Array.isArray(referenceValue)) {
-        const sourceValue = source?.[key];
-        mergeConfigWithOrder(
-          target[key] as ConfigRecord,
-          sourceValue ? (sourceValue as ConfigRecord) : {},
-          referenceValue as ConfigRecord,
-        );
-      }
-    } else if (!(key in target)) {
-      target[key] = referenceValue;
-    }
+    mergeReferenceValue(target, source, key, reference[key]);
   }
 }
 

@@ -184,5 +184,3 @@ export const translations = {
     },
   },
 };
-
-export type TranslationData = typeof translations;

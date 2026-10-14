@@ -456,6 +456,19 @@ const platformMetadata = computed<RecordValue>(
   () => metadata.value.platform_group?.metadata ?? {},
 );
 
+function isCreationModeReady(
+  mode: CreationMode,
+  requiredFields: unknown[],
+): boolean {
+  if (!mode) {
+    return false;
+  }
+  if (mode !== 'scan') {
+    return true;
+  }
+  return requiredFields.every(Boolean);
+}
+
 const canSave = computed(() => {
   if (
     !state.selectedPlatformType ||
@@ -464,43 +477,34 @@ const canSave = computed(() => {
     return false;
   }
 
-  if (isLarkPlatform.value) {
-    if (!state.larkCreationMode) {
-      return false;
-    }
-    if (
-      state.larkCreationMode === 'scan' &&
-      (!state.selectedPlatformConfig?.app_id ||
-        !state.selectedPlatformConfig?.app_secret)
-    ) {
-      return false;
-    }
+  if (
+    isLarkPlatform.value &&
+    !isCreationModeReady(state.larkCreationMode, [
+      state.selectedPlatformConfig?.app_id,
+      state.selectedPlatformConfig?.app_secret,
+    ])
+  ) {
+    return false;
   }
 
-  if (isDingtalkPlatform.value) {
-    if (!state.dingtalkCreationMode) {
-      return false;
-    }
-    if (
-      state.dingtalkCreationMode === 'scan' &&
-      (!state.selectedPlatformConfig?.client_id ||
-        !state.selectedPlatformConfig?.client_secret)
-    ) {
-      return false;
-    }
+  if (
+    isDingtalkPlatform.value &&
+    !isCreationModeReady(state.dingtalkCreationMode, [
+      state.selectedPlatformConfig?.client_id,
+      state.selectedPlatformConfig?.client_secret,
+    ])
+  ) {
+    return false;
   }
 
-  if (isQqOfficialPlatform.value) {
-    if (!state.qqOfficialCreationMode) {
-      return false;
-    }
-    if (
-      state.qqOfficialCreationMode === 'scan' &&
-      (!state.selectedPlatformConfig?.appid ||
-        !state.selectedPlatformConfig?.secret)
-    ) {
-      return false;
-    }
+  if (
+    isQqOfficialPlatform.value &&
+    !isCreationModeReady(state.qqOfficialCreationMode, [
+      state.selectedPlatformConfig?.appid,
+      state.selectedPlatformConfig?.secret,
+    ])
+  ) {
+    return false;
   }
 
   if (

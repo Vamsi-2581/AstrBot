@@ -56,9 +56,40 @@ export function useSessions(chatboxMode: boolean = false) {
 
   const SESSIONS_PAGE_SIZE = 30;
 
+  async function fetchSessionsPage(
+    page: number,
+    query: string,
+  ): Promise<{ sessions: Session[]; hasMore: boolean }> {
+    const params: { page: number; page_size: number; search?: string } = {
+      page,
+      page_size: SESSIONS_PAGE_SIZE,
+    };
+    if (query) {
+      params.search = query;
+    }
+    const response = await chatApi.listSessions(params);
+    if (response.data.status !== 'ok') {
+      throw new Error(response.data.message || 'Failed to load sessions');
+    }
+    const payload = response.data.data;
+    if (Array.isArray(payload)) {
+      throw new Error('Unexpected session list response');
+    }
+    return {
+      sessions: payload.sessions,
+      hasMore: page * payload.page_size < payload.total,
+    };
+  }
+
+  function shouldSkipSessionsLoad(append: boolean): boolean {
+    return (
+      append && (sessionsPagination.loading || !sessionsPagination.hasMore)
+    );
+  }
+
   /** Load the initial session range or append the next page. */
   async function getSessions(append = false) {
-    if (append && (sessionsPagination.loading || !sessionsPagination.hasMore)) {
+    if (shouldSkipSessionsLoad(append)) {
       return;
     }
     const requestId = ++sessionsRequestId;
@@ -72,25 +103,12 @@ export function useSessions(chatboxMode: boolean = false) {
     sessionsPagination.append = append;
     try {
       for (let page = append ? lastPage : 1; page <= lastPage; page += 1) {
-        const params: { page: number; page_size: number; search?: string } = {
+        const { sessions: pageSessions, hasMore } = await fetchSessionsPage(
           page,
-          page_size: SESSIONS_PAGE_SIZE,
-        };
-        const query = sessionSearch.value.trim();
-        if (query) {
-          params.search = query;
-        }
-        const response = await chatApi.listSessions(params);
+          sessionSearch.value.trim(),
+        );
         if (requestId !== sessionsRequestId) return;
-        if (response.data.status !== 'ok') {
-          throw new Error(response.data.message || 'Failed to load sessions');
-        }
-        const payload = response.data.data;
-        if (Array.isArray(payload)) {
-          throw new Error('Unexpected session list response');
-        }
-        loaded.push(...payload.sessions);
-        const hasMore = page * payload.page_size < payload.total;
+        loaded.push(...pageSessions);
         if (page === lastPage || !hasMore) {
           sessions.value = [
             ...new Map(

@@ -97,7 +97,9 @@ function formatNumber(value: number): string {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@use './panel-styles' as panel;
+
 .panel-grid {
   display: grid;
   grid-template-columns: 1.6fr 0.9fr;
@@ -111,33 +113,15 @@ function formatNumber(value: number): string {
   width: 100%;
 }
 
-.stat-card {
-  border: 1px solid var(--stats-border);
-  border-radius: 16px;
-  background: var(--stats-surface);
-}
-
-.stats-page.is-dark .stat-card {
-  border-color: var(--stats-border-strong);
-  background: var(--stats-surface);
-}
+@include panel.stat-card;
 
 .chart-card,
 .provider-list-card {
   padding: 22px;
 }
 
-.card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
-  margin-bottom: 18px;
-}
-
-.card-head.compact {
-  margin-bottom: 14px;
-}
+@include panel.card-head;
+@include panel.card-head-compact;
 
 .card-head-actions {
   display: flex;
@@ -147,23 +131,8 @@ function formatNumber(value: number): string {
   flex-wrap: wrap;
 }
 
-.section-title {
-  font-size: 19px;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-
-.section-subtitle {
-  margin-top: 6px;
-  color: var(--stats-muted);
-  font-size: 13px;
-}
-
-.stats-page.is-dark .section-subtitle {
-  color: var(--stats-muted);
-}
+@include panel.section-title;
+@include panel.section-subtitle;
 
 .section-metric {
   display: flex;
@@ -186,42 +155,7 @@ function formatNumber(value: number): string {
   font-weight: 650;
 }
 
-.provider-list {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-
-.provider-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--stats-border);
-  font-size: 14px;
-  width: 100%;
-}
-
-.provider-row > strong {
-  flex: 0 0 auto;
-}
-
-.provider-row:last-child {
-  border-bottom: 0;
-}
-
-.provider-name {
-  color: var(--stats-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.stats-page.is-dark .provider-name {
-  color: var(--stats-muted);
-}
+@include panel.provider-list;
 
 .provider-identity {
   align-items: center;

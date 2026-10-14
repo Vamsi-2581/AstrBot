@@ -4,6 +4,8 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios';
 
+import { stripTrailingSlashes } from '@/utils/text';
+
 const AUTH_HEADER = 'Authorization';
 const LOCALE_HEADER = 'Accept-Language';
 
@@ -65,47 +67,55 @@ function attachAxiosHeaders(config: InternalAxiosRequestConfig) {
   return config;
 }
 
+const AUTH_CHALLENGE_PATHS = [
+  '/api/v1/auth/login',
+  '/api/v1/auth/setup',
+  '/api/v1/auth/setup-status',
+];
+
+function resolveRequestPath(error: AxiosError): string {
+  try {
+    const url = error.config?.url || '';
+    const baseURL = error.config?.baseURL;
+    const resolvedUrl =
+      url && baseURL && !/^([a-z][a-z\d+\-.]*:)?\/\//i.test(url)
+        ? `${stripTrailingSlashes(baseURL)}/${url.replace(/^\/+/, '')}`
+        : url;
+    const requestUrl = new URL(resolvedUrl || '/', window.location.origin);
+    return requestUrl.origin === window.location.origin
+      ? requestUrl.pathname
+      : '';
+  } catch {
+    return '';
+  }
+}
+
+function isAuthChallenge(error: AxiosError, requestPath: string): boolean {
+  const totpRequired = (
+    error.response?.data as { data?: { totp_required?: boolean } } | undefined
+  )?.data?.totp_required;
+  return AUTH_CHALLENGE_PATHS.includes(requestPath) || Boolean(totpRequired);
+}
+
+function clearSessionOnUnauthorized() {
+  ['user', 'token', 'change_pwd_hint', 'password_upgrade_required'].forEach(
+    (key) => {
+      localStorage.removeItem(key);
+    },
+  );
+  if (!window.location.hash.startsWith('#/auth/login')) {
+    window.location.hash = '/auth/login';
+  }
+}
+
 function normalizeAxiosError(error: AxiosError) {
   if (error.response?.status === 401) {
-    let requestPath = '';
-    try {
-      const url = error.config?.url || '';
-      const baseURL = error.config?.baseURL;
-      const resolvedUrl =
-        url && baseURL && !/^([a-z][a-z\d+\-.]*:)?\/\//i.test(url)
-          ? `${baseURL.replace(/\/+$/, '')}/${url.replace(/^\/+/, '')}`
-          : url;
-      const requestUrl = new URL(resolvedUrl || '/', window.location.origin);
-      if (requestUrl.origin === window.location.origin) {
-        requestPath = requestUrl.pathname;
-      }
-    } catch {
-      requestPath = '';
-    }
-
-    const isAuthChallenge =
-      [
-        '/api/v1/auth/login',
-        '/api/v1/auth/setup',
-        '/api/v1/auth/setup-status',
-      ].includes(requestPath) ||
-      Boolean(
-        (
-          error.response.data as
-            { data?: { totp_required?: boolean } } | undefined
-        )?.data?.totp_required,
-      );
-
-    if (requestPath.startsWith('/api/') && !isAuthChallenge) {
-      ['user', 'token', 'change_pwd_hint', 'password_upgrade_required'].forEach(
-        (key) => {
-          localStorage.removeItem(key);
-        },
-      );
-
-      if (!window.location.hash.startsWith('#/auth/login')) {
-        window.location.hash = '/auth/login';
-      }
+    const requestPath = resolveRequestPath(error);
+    if (
+      requestPath.startsWith('/api/') &&
+      !isAuthChallenge(error, requestPath)
+    ) {
+      clearSessionOnUnauthorized();
     }
   }
 
