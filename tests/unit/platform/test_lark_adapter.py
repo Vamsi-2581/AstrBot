@@ -42,9 +42,63 @@ def test_lark_parse_post_content_flattens_nested_and_mixed_components():
 
     assert result == [
         {"tag": "text", "text": "hello"},
+        {"tag": "text", "text": "\n"},
         {"tag": "img", "image_key": "img-1"},
+        {"tag": "text", "text": "\n"},
+        {"tag": "text", "text": "\n"},
         {"tag": "a", "text": "Doc", "href": "https://example.com"},
     ]
+
+
+def test_lark_post_preserves_title_paragraphs_and_indentation():
+    adapter = _adapter()
+
+    result = adapter._parse_post_content(
+        {
+            "title": "Report",
+            "content": [
+                [{"tag": "text", "text": "    ABC"}, {"tag": "text", "text": "123"}],
+                [],
+                [{"tag": "text", "text": "    "}, {"tag": "text", "text": "1.item  "}],
+            ],
+        }
+    )
+    components = [Comp.Plain(item["text"]) for item in result]
+
+    assert (
+        adapter._build_message_str_from_components(components, preserve_whitespace=True)
+        == "Report\n    ABC123\n\n    1.item  "
+    )
+
+
+def test_lark_post_title_only_has_no_trailing_break():
+    adapter = _adapter()
+
+    result = adapter._parse_post_content({"title": "Title only", "content": []})
+    components = [Comp.Plain(item["text"]) for item in result]
+
+    assert (
+        adapter._build_message_str_from_components(components, preserve_whitespace=True)
+        == "Title only"
+    )
+
+
+def test_lark_build_message_str_skips_leading_self_mention_after_whitespace():
+    adapter = _adapter()
+    components = [
+        Comp.Plain("   "),
+        Comp.Mention(target="bot-open", name="astrbot"),
+        Comp.Plain("hi"),
+    ]
+
+    assert (
+        adapter._build_message_str_from_components(
+            components,
+            bot_self_id="bot-open",
+            preserve_whitespace=True,
+        )
+        == "   hi"
+    )
 
 
 @pytest.mark.asyncio
@@ -241,7 +295,7 @@ async def test_lark_parse_message_components_post_parses_mentions_links_and_imag
     ]
     assert components[0].target == "ou_1"
     assert components[0].name == "Alice"
-    assert components[1].text == "hello"
+    assert components[1].text == " hello "
     assert components[2].text == "Doc(https://example.com/docs)"
     assert components[3].file == ""
     await components[3]._resolve_deferred_source()
@@ -483,9 +537,10 @@ async def test_lark_build_reply_from_parent_id_builds_reply_chain_from_message()
         )
     )
 
-    reply = await adapter._build_reply_from_parent_id("parent-1")
+    reply, quoted_type = await adapter._build_reply_from_parent_id("parent-1")
 
     assert reply is not None
+    assert quoted_type == "text"
     assert reply.id == "parent-1"
     assert reply.sender_id == "open-parent-123456"
     assert reply.sender_nickname == "open-par"
@@ -500,9 +555,10 @@ async def test_lark_build_reply_from_parent_id_falls_back_to_lightweight_reply_o
     adapter = _adapter()
     adapter.lark_api.im.v1.message.aget = AsyncMock(side_effect=TimeoutError)
 
-    reply = await adapter._build_reply_from_parent_id("parent-timeout")
+    reply, quoted_type = await adapter._build_reply_from_parent_id("parent-timeout")
 
     assert reply is not None
+    assert quoted_type == ""
     assert reply.id == "parent-timeout"
     assert not reply.chain
     assert reply.message_str == ""
@@ -512,14 +568,17 @@ async def test_lark_build_reply_from_parent_id_falls_back_to_lightweight_reply_o
 async def test_lark_convert_msg_builds_group_message_with_reply_and_self_mention():
     adapter = _adapter()
     adapter._build_reply_from_parent_id = AsyncMock(
-        return_value=Comp.Reply(
-            id="parent-1",
-            chain=[Comp.Plain("quoted")],
-            sender_id="open-parent",
-            sender_nickname="open-par",
-            time=1,
-            message_str="quoted",
-            text="quoted",
+        return_value=(
+            Comp.Reply(
+                id="parent-1",
+                chain=[Comp.Plain("quoted")],
+                sender_id="open-parent",
+                sender_nickname="open-par",
+                time=1,
+                message_str="quoted",
+                text="quoted",
+            ),
+            "text",
         )
     )
     adapter.handle_msg = AsyncMock()
