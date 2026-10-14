@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch, computed, onUnmounted } from 'vue';
 import { useTheme } from 'vuetify';
 import MarkdownIt from 'markdown-it';
@@ -41,7 +41,8 @@ const props = defineProps({
   mode: {
     type: String,
     default: 'readme',
-    validator: (value) =>
+    validator: (value: unknown) =>
+      typeof value === 'string' &&
       ['readme', 'changelog', 'first-notice'].includes(value),
   },
 });
@@ -50,14 +51,14 @@ const emit = defineEmits(['update:show']);
 const { t, locale } = useI18n();
 const theme = useTheme();
 
-const content = ref(null);
-const error = ref(null);
+const content = ref<string | null>(null);
+const error = ref<string | null>(null);
 const loading = ref(false);
 const isEmpty = ref(false);
-const copyFeedbackTimer = ref(null);
+const copyFeedbackTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 const lastRequestId = ref(0);
 const lastRenderId = ref(0);
-const scrollContainer = ref(null);
+const scrollContainer = ref<HTMLElement | null>(null);
 const renderedHtml = ref('');
 const isDark = computed(() => theme.global.current.value.dark);
 
@@ -164,7 +165,10 @@ const CODE_BLOCK_SANITIZE_OPTIONS = {
   ],
 };
 
-function slugifyHeading(text, slugCounts) {
+function slugifyHeading(
+  text: string | null | undefined,
+  slugCounts: Map<string, number>,
+) {
   const base = (text || '')
     .trim()
     .toLowerCase()
@@ -185,7 +189,7 @@ onUnmounted(() => {
   if (copyFeedbackTimer.value) clearTimeout(copyFeedbackTimer.value);
 });
 
-function sanitizeHighlightedBlock(html) {
+function sanitizeHighlightedBlock(html: string) {
   return DOMPurify.sanitize(html, CODE_BLOCK_SANITIZE_OPTIONS);
 }
 
@@ -216,7 +220,7 @@ async function updateRenderedHtml() {
 
   if (renderId !== lastRenderId.value) return;
 
-  const highlightedBlocks = [];
+  const highlightedBlocks: string[] = [];
 
   md.renderer.rules.fence = (tokens, idx) => {
     const token = tokens[idx];
@@ -250,7 +254,7 @@ async function updateRenderedHtml() {
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = cleanHtml;
 
-  const slugCounts = new Map();
+  const slugCounts = new Map<string, number>();
   tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((heading) => {
     if (heading.id) {
       slugCounts.set(heading.id, (slugCounts.get(heading.id) || 0) + 1);
@@ -336,16 +340,23 @@ async function fetchContent() {
     } else if (props.mode === 'first-notice') {
       res = await statsApi.firstNotice(locale.value);
     }
-    if (requestId !== lastRequestId.value) return;
+    if (!res || requestId !== lastRequestId.value) return;
 
     if (res.data.status === 'ok') {
-      if (res.data.data.content) content.value = res.data.data.content;
-      else isEmpty.value = true;
+      const payload = res.data.data as Record<string, unknown>;
+      const contentValue = payload.content;
+      if (typeof contentValue === 'string' && contentValue) {
+        content.value = contentValue;
+      } else {
+        isEmpty.value = true;
+      }
     } else {
-      error.value = res.data.message;
+      error.value = res.data.message ?? null;
     }
   } catch (err) {
-    if (requestId === lastRequestId.value) error.value = err.message;
+    if (requestId === lastRequestId.value) {
+      error.value = err instanceof Error ? err.message : String(err);
+    }
   } finally {
     if (requestId === lastRequestId.value) loading.value = false;
   }
@@ -369,8 +380,9 @@ watch(
   { immediate: true },
 );
 
-async function handleContainerClick(event) {
-  const btn = event.target.closest('.copy-code-btn');
+async function handleContainerClick(event: MouseEvent) {
+  const eventTarget = event.target as HTMLElement;
+  const btn = eventTarget.closest<HTMLElement>('.copy-code-btn');
   if (btn) {
     const code = btn.closest('.code-block-wrapper')?.querySelector('code');
     if (code) {
@@ -380,7 +392,7 @@ async function handleContainerClick(event) {
     return;
   }
 
-  const anchor = event.target.closest('a[href^="#"]');
+  const anchor = eventTarget.closest('a[href^="#"]');
   if (!anchor) return;
 
   const rawHref = anchor.getAttribute('href');
@@ -396,7 +408,7 @@ async function handleContainerClick(event) {
   target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function showCopyFeedback(btn, success) {
+function showCopyFeedback(btn: HTMLElement, success: boolean) {
   if (copyFeedbackTimer.value) clearTimeout(copyFeedbackTimer.value);
   btn.setAttribute('title', t(`core.common.${success ? 'copied' : 'error'}`));
   btn.innerHTML = success ? ICONS.SUCCESS : ICONS.ERROR;
@@ -420,7 +432,7 @@ const _show = computed({
 });
 
 // 安全打开外部链接
-function openExternalLink(url) {
+function openExternalLink(url: string | null | undefined) {
   if (!url) return;
   window.open(url, '_blank', 'noopener,noreferrer');
 }

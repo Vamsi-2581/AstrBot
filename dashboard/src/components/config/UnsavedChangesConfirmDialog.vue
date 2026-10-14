@@ -33,11 +33,21 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { useI18n } from '@/i18n/composables';
 
 const { t } = useI18n();
+
+interface UnsavedChangesDialogOptions {
+  title?: string;
+  message?: string;
+  confirmHint?: string;
+  cancelHint?: string;
+  closeHint?: string;
+}
+
+type UnsavedChangesDialogResult = boolean | 'close';
 
 const isOpen = ref(false);
 const title = ref('');
@@ -45,9 +55,11 @@ const message = ref('');
 const confirmHint = ref('');
 const cancelHint = ref('');
 const closeHint = ref('');
-let resolvePromise = null;
+let resolvePromise: ((value: UnsavedChangesDialogResult) => void) | null = null;
 
-const open = (options) => {
+const open = (
+  options: UnsavedChangesDialogOptions,
+): Promise<UnsavedChangesDialogResult> => {
   title.value = options.title || t('core.common.dialog.confirmTitle');
   message.value = options.message || t('core.common.dialog.confirmMessage');
   confirmHint.value = options.confirmHint || '';
@@ -55,7 +67,7 @@ const open = (options) => {
   closeHint.value = options.closeHint || '';
   isOpen.value = true;
 
-  return new Promise((resolve) => {
+  return new Promise<UnsavedChangesDialogResult>((resolve) => {
     resolvePromise = resolve;
   });
 };

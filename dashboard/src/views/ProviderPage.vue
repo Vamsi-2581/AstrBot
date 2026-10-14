@@ -36,9 +36,9 @@
                   : displayedLegacyProviders
               "
               :selected-provider-source="
-                selectedProviderType === 'chat_completion'
+                (selectedProviderType === 'chat_completion'
                   ? selectedProviderSource
-                  : selectedLegacyProvider
+                  : selectedLegacyProvider) ?? undefined
               "
               :available-source-types="availableSourceTypes"
               :title="
@@ -60,7 +60,7 @@
                   : tm('providers.deleteProvider')
               "
               :loading="loadingSources"
-              :tm="tm"
+              :tm="providerTm"
               :resolve-source-icon="resolveSourceIcon"
               :is-monochrome-source-icon="isMonochromeSourceIcon"
               :get-source-display-name="getSourceDisplayName"
@@ -208,7 +208,9 @@
                       v-if="updatingMode"
                       color="primary"
                       prepend-icon="mdi-connection"
-                      :loading="isProviderTesting(selectedLegacyProvider.id)"
+                      :loading="
+                        isProviderTesting(selectedLegacyProvider.id ?? '')
+                      "
                       :disabled="selectedLegacyProvider.enable === false"
                       variant="text"
                       rounded="md"
@@ -318,14 +320,14 @@
           <v-spacer></v-spacer>
           <v-btn
             variant="text"
-            :disabled="savingProviders.includes(providerEditData?.id)"
+            :disabled="savingProviders.includes(providerEditData?.id ?? '')"
             @click="showProviderEditDialog = false"
           >
             {{ tm('dialogs.config.cancel') }}
           </v-btn>
           <v-btn
             color="primary"
-            :loading="savingProviders.includes(providerEditData?.id)"
+            :loading="savingProviders.includes(providerEditData?.id ?? '')"
             @click="saveEditedProvider"
           >
             {{ tm('dialogs.config.save') }}
@@ -353,7 +355,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, nextTick, ref, unref, watch } from 'vue';
 import { providerApi } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
@@ -376,7 +378,33 @@ const props = defineProps({
   },
 });
 
+type ConfigRecord = Record<string, unknown>;
+
+interface LegacyProvider {
+  id?: string;
+  type?: string;
+  provider_type?: string;
+  enable?: boolean;
+  [key: string]: unknown;
+  [key: symbol]: unknown;
+}
+
+interface LegacyProviderConfig {
+  id?: string;
+  api_base?: string;
+  embedding_api_base?: string;
+  rerank_api_base?: string;
+  type?: string;
+  [key: string]: unknown;
+}
+
+type ProviderDialogOptions = Parameters<typeof useProviderModelConfigDialog>[0];
+
 const { tm } = useModuleI18n('features/provider');
+const providerTm = tm as (
+  key: string,
+  params?: Record<string, unknown>,
+) => string;
 const {
   dialogOpen: stepUpDialogOpen,
   loading: stepUpLoading,
@@ -392,7 +420,7 @@ const snackbar = ref({
   color: 'success',
 });
 
-function showMessage(message, color = 'success') {
+function showMessage(message: string, color = 'success') {
   snackbar.value = { show: true, message, color };
 }
 
@@ -440,15 +468,15 @@ const {
   loadConfig,
 } = useProviderSources({
   defaultTab: props.defaultTab,
-  tm,
+  tm: providerTm,
   showMessage,
   requestStepUp,
 });
 
 const unsavedLegacyProviderMarker = Symbol('unsavedLegacyProvider');
-const legacyProviderDrafts = ref([]);
-const selectedLegacyProvider = ref(null);
-const newSelectedProviderConfig = ref({});
+const legacyProviderDrafts = ref<LegacyProvider[]>([]);
+const selectedLegacyProvider = ref<LegacyProvider | null>(null);
+const newSelectedProviderConfig = ref<LegacyProviderConfig>({});
 const newProviderOriginalId = ref('');
 const updatingMode = ref(false);
 const loading = ref(false);
@@ -474,7 +502,7 @@ const {
   saveEditedProvider,
 } = useProviderModelConfigDialog({
   selectedProviderSource,
-  configSchema,
+  configSchema: configSchema as ProviderDialogOptions['configSchema'],
   buildModelProviderConfig,
   modelAlreadyConfigured,
   loadConfig,
@@ -554,14 +582,14 @@ function getEmptyText() {
   });
 }
 
-function addLegacyProvider(name) {
+function addLegacyProvider(name: string) {
   const template = configSchema.value.provider?.config_template?.[name];
   if (!template) {
     showMessage(tm('dialogs.addProvider.noTemplates'), 'error');
     return;
   }
 
-  const draft = JSON.parse(JSON.stringify(template));
+  const draft = JSON.parse(JSON.stringify(template)) as LegacyProvider;
   const existingIds = new Set([
     ...providers.value.map((provider) => provider.id),
     ...legacyProviderDrafts.value.map((provider) => provider.id),
@@ -579,53 +607,60 @@ function addLegacyProvider(name) {
   selectLegacyProvider(draft);
 }
 
-function mergeConfigWithOrder(target, source, reference) {
+function mergeConfigWithOrder(
+  target: ConfigRecord,
+  source: ConfigRecord | null | undefined,
+  reference: ConfigRecord,
+) {
   if (source && typeof source === 'object' && !Array.isArray(source)) {
     for (const key in source) {
       if (Object.hasOwn(source, key)) {
-        if (typeof source[key] === 'object' && source[key] !== null) {
-          target[key] = Array.isArray(source[key])
-            ? [...source[key]]
-            : { ...source[key] };
+        const sourceValue = source[key];
+        if (typeof sourceValue === 'object' && sourceValue !== null) {
+          target[key] = Array.isArray(sourceValue)
+            ? [...sourceValue]
+            : { ...(sourceValue as ConfigRecord) };
         } else {
-          target[key] = source[key];
+          target[key] = sourceValue;
         }
       }
     }
   }
 
   for (const key in reference) {
-    if (typeof reference[key] === 'object' && reference[key] !== null) {
+    const referenceValue = reference[key];
+    if (typeof referenceValue === 'object' && referenceValue !== null) {
       if (!(key in target)) {
-        if (Array.isArray(reference[key])) {
-          target[key] = [...reference[key]];
+        if (Array.isArray(referenceValue)) {
+          target[key] = [...referenceValue];
         } else {
           target[key] = {};
         }
       }
-      if (!Array.isArray(reference[key])) {
+      if (!Array.isArray(referenceValue)) {
+        const sourceValue = source?.[key];
         mergeConfigWithOrder(
-          target[key],
-          source?.[key] ? source[key] : {},
-          reference[key],
+          target[key] as ConfigRecord,
+          sourceValue ? (sourceValue as ConfigRecord) : {},
+          referenceValue as ConfigRecord,
         );
       }
     } else if (!(key in target)) {
-      target[key] = reference[key];
+      target[key] = referenceValue;
     }
   }
 }
 
-function selectLegacyProvider(provider) {
+function selectLegacyProvider(provider: LegacyProvider) {
   selectedLegacyProvider.value = provider;
   newProviderOriginalId.value = provider[unsavedLegacyProviderMarker]
     ? ''
-    : provider.id;
+    : (provider.id ?? '');
   suppressLegacyProviderWatch = true;
   newSelectedProviderConfig.value = {};
 
   const templates = configSchema.value.provider?.config_template || {};
-  let defaultConfig = {};
+  let defaultConfig: ConfigRecord = {};
   for (const key in templates) {
     if (templates[key]?.type === provider.type) {
       defaultConfig = templates[key];
@@ -665,9 +700,11 @@ async function saveLegacyProvider() {
   const wasUpdating = updatingMode.value;
   const selectedDraft = selectedLegacyProvider.value;
   const savedId = newSelectedProviderConfig.value.id;
-  const providerId = wasUpdating
-    ? newProviderOriginalId.value || savedId
-    : String(savedId || 'new');
+  const providerId = (
+    wasUpdating
+      ? newProviderOriginalId.value || savedId
+      : String(savedId || 'new')
+  ) as string;
   try {
     if (wasUpdating) {
       const res = await runProviderMutationWithStepUp(
@@ -719,7 +756,7 @@ async function saveLegacyProvider() {
   }
 }
 
-async function deleteLegacyProvider(provider) {
+async function deleteLegacyProvider(provider: LegacyProvider) {
   if (provider[unsavedLegacyProviderMarker]) {
     legacyProviderDrafts.value = legacyProviderDrafts.value.filter(
       (draft) => draft !== provider,
@@ -744,12 +781,12 @@ async function deleteLegacyProvider(provider) {
   }
 }
 
-function isProviderTesting(providerId) {
+function isProviderTesting(providerId: string) {
   return testingProviders.value.includes(providerId);
 }
 
-async function testSingleProvider(provider) {
-  if (isProviderTesting(provider.id)) return;
+async function testSingleProvider(provider: LegacyProvider) {
+  if (isProviderTesting(provider.id ?? '')) return;
   if (provider.enable === false) {
     showMessage(tm('providerSources.disabled'), 'error');
     return;

@@ -555,7 +555,7 @@
   />
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { apiKeyApi, systemConfigApi } from '@/api/v1';
 import ConfigDocsLink from '@/components/shared/ConfigDocsLink.vue';
@@ -576,8 +576,124 @@ import { useModuleI18n } from '@/i18n/composables';
 import { docsHref } from '@/utils/docsHref';
 import { useTheme } from 'vuetify';
 import { applyUserThemeColors, defaultThemeColors } from '@/design/theme';
-import { useToastStore } from '@/stores/toast';
+import { useToastStore, type ToastColor } from '@/stores/toast';
 import { askForConfirmation, useConfirmDialog } from '@/utils/confirmDialog';
+
+type ApiKeyScope =
+  | 'bot'
+  | 'provider'
+  | 'prompt'
+  | 'im'
+  | 'config'
+  | 'chat'
+  | 'kb'
+  | 'memory'
+  | 'data'
+  | 'file'
+  | 'plugin'
+  | 'mcp'
+  | 'skill';
+
+type ApiKeyExpiry = number | 'permanent';
+
+interface ApiKey {
+  key_id: string;
+  name?: string;
+  key_prefix?: string;
+  scopes?: string[];
+  is_revoked?: boolean;
+  is_expired?: boolean;
+  last_used_at?: string | null;
+  created_at?: string | null;
+  [key: string]: unknown;
+}
+
+interface BackupDialogRef {
+  open: () => void;
+}
+
+interface SystemConfigTemplateItemMeta {
+  type?: string;
+  default?: unknown;
+  invisible?: boolean;
+  description?: string;
+  hint?: string;
+  condition?: Record<string, unknown>;
+  items: Record<string, SystemConfigTemplateItemMeta>;
+  [key: string]: unknown;
+}
+
+interface SystemConfigTemplateMeta {
+  name?: string;
+  hint?: string;
+  description?: string;
+  hide_hint_in_list?: boolean;
+  display_item?: string;
+  items: Record<string, SystemConfigTemplateItemMeta>;
+  [key: string]: unknown;
+}
+
+interface SystemConfigItemMeta {
+  type?: string;
+  description?: string;
+  hint?: string;
+  docs?: unknown;
+  obvious_hint?: boolean;
+  collapsed?: boolean;
+  invisible?: boolean;
+  full_width?: boolean;
+  condition?: Record<string, unknown>;
+  templates?: Record<string, SystemConfigTemplateMeta>;
+  _special?: string;
+  editor_mode?: boolean;
+  editor_theme?: string;
+  editor_language?: string;
+  [key: string]: unknown;
+}
+
+interface SystemConfigGroupMeta {
+  type?: string;
+  description?: string;
+  hint?: string;
+  docs?: unknown;
+  obvious_hint?: boolean;
+  condition?: Record<string, unknown>;
+  items?: Record<string, SystemConfigItemMeta>;
+  [key: string]: unknown;
+}
+
+interface SystemConfigGroup {
+  key: string;
+  title: string;
+  metadata: Record<string, SystemConfigGroupMeta>;
+}
+
+interface SystemConfigMetadata {
+  system_group?: {
+    metadata?: {
+      system?: {
+        items?: Record<string, SystemConfigItemMeta>;
+      };
+      [key: string]: unknown;
+    };
+  };
+  [key: string]: unknown;
+}
+
+interface SystemConfigResponseData {
+  config?: Record<string, unknown>;
+  metadata?: SystemConfigMetadata;
+  server_utc_time?: string;
+  server_utc_offset_minutes?: number;
+  server_timezone?: string;
+  [key: string]: unknown;
+}
+
+interface ApiKeyCreatePayload {
+  name: string;
+  scopes: ApiKeyScope[];
+  expires_in_days?: number;
+}
 
 const { tm } = useModuleI18n('features/settings');
 const { tm: tmMeta } = useModuleI18n('features/config-metadata');
@@ -593,7 +709,7 @@ const {
   cancelStepUp,
 } = useDashboardStepUp();
 
-const getStoredColor = (key, fallback) => {
+const getStoredColor = (key: string, fallback: string): string => {
   const stored =
     typeof window !== 'undefined' ? localStorage.getItem(key) : null;
   return stored || fallback;
@@ -606,9 +722,9 @@ const secondaryColor = ref(
   getStoredColor('themeSecondary', defaultThemeColors.secondary),
 );
 
-const resolveThemes = () => theme.themes.value ?? null;
+const resolveThemes = () => theme.themes.value ?? undefined;
 
-const applyThemeColors = (primary, secondary) =>
+const applyThemeColors = (primary: string | null, secondary: string | null) =>
   void applyUserThemeColors(resolveThemes(), primary, secondary);
 
 applyThemeColors(primaryColor.value, secondaryColor.value);
@@ -626,12 +742,12 @@ watch(secondaryColor, (value) => {
 });
 
 const wfr = ref(null);
-const backupDialog = ref(null);
-const apiKeys = ref([]);
+const backupDialog = ref<BackupDialogRef | null>(null);
+const apiKeys = ref<ApiKey[]>([]);
 const apiKeyCreating = ref(false);
 const newApiKeyName = ref('');
-const newApiKeyExpiresInDays = ref(30);
-const newApiKeyScopes = ref([
+const newApiKeyExpiresInDays = ref<ApiKeyExpiry>(30);
+const newApiKeyScopes = ref<ApiKeyScope[]>([
   'bot',
   'provider',
   'im',
@@ -640,8 +756,8 @@ const newApiKeyScopes = ref([
   'file',
 ]);
 const createdApiKeyPlaintext = ref('');
-const systemConfigData = ref({});
-const systemConfigMetadata = ref({});
+const systemConfigData = ref<Record<string, unknown>>({});
+const systemConfigMetadata = ref<SystemConfigMetadata>({});
 const systemConfigLoading = ref(false);
 const systemConfigSaving = ref(false);
 const systemConfigLastSavedSnapshot = ref('{}');
@@ -650,15 +766,15 @@ const configSave2faDialogVisible = ref(false);
 const configSave2faError = ref('');
 const configSave2faSaving = ref(false);
 const configSave2faRotationHint = ref('');
-const configSavePendingData = ref(null);
-const configSavePendingHeaders = ref({});
-const systemConfigAutoSaveTimer = ref(null);
-const serverUtcEpochMs = ref(null);
-const serverUtcOffsetMinutes = ref(null);
-const serverTimezone = ref(null);
-const serverClockAnchorMs = ref(null);
-const serverClockTickMs = ref(null);
-const serverClockTimer = ref(null);
+const configSavePendingData = ref<Record<string, unknown> | null>(null);
+const configSavePendingHeaders = ref<Record<string, string>>({});
+const systemConfigAutoSaveTimer = ref<number | null>(null);
+const serverUtcEpochMs = ref<number | null>(null);
+const serverUtcOffsetMinutes = ref<number | null>(null);
+const serverTimezone = ref<string | null>(null);
+const serverClockAnchorMs = ref<number | null>(null);
+const serverClockTickMs = ref<number | null>(null);
+const serverClockTimer = ref<number | null>(null);
 const activeSettingsSection = ref('general');
 
 const apiKeyExpiryOptions = computed(() => [
@@ -669,7 +785,7 @@ const apiKeyExpiryOptions = computed(() => [
   { title: tm('apiKey.expiryOptions.permanent'), value: 'permanent' },
 ]);
 
-const availableScopes = [
+const availableScopes: { value: ApiKeyScope; label: string }[] = [
   { value: 'bot', label: 'bot' },
   { value: 'provider', label: 'provider' },
   { value: 'prompt', label: 'prompt' },
@@ -714,8 +830,8 @@ const settingsNavItems = computed(() => [
   { id: 'openapi', label: tm('sections.openapi.title'), icon: 'mdi mdi-api' },
 ]);
 
-const configIncludedScopes = ['bot', 'provider'];
-const previousApiKeyScopes = ref([...newApiKeyScopes.value]);
+const configIncludedScopes: ApiKeyScope[] = ['bot', 'provider'];
+const previousApiKeyScopes = ref<ApiKeyScope[]>([...newApiKeyScopes.value]);
 
 const systemConfigHasChanges = computed(
   () =>
@@ -738,7 +854,7 @@ const timezoneTimePreview = computed(() => {
     serverClockTickMs.value - serverClockAnchorMs.value,
   );
   const instant = new Date(serverUtcEpochMs.value + elapsedMs);
-  let localTime;
+  let localTime: string | null = null;
   try {
     if (serverTimezone.value) {
       const parts = new Intl.DateTimeFormat('en', {
@@ -751,7 +867,7 @@ const timezoneTimePreview = computed(() => {
         hour12: false,
       })
         .formatToParts(instant)
-        .reduce((result, part) => {
+        .reduce<Record<string, string>>((result, part) => {
           result[part.type] = part.value;
           return result;
         }, {});
@@ -780,12 +896,12 @@ const timezoneTimePreview = computed(() => {
   return { localTime, offsetLabel };
 });
 
-const systemConfigGroups = computed(() => {
+const systemConfigGroups = computed<SystemConfigGroup[]>(() => {
   const systemSection =
     systemConfigMetadata.value?.system_group?.metadata?.system || {};
   const systemItems = systemSection.items || {};
-  const createGroup = (key, itemKeys) => {
-    const items = {};
+  const createGroup = (key: string, itemKeys: string[]): SystemConfigGroup => {
+    const items: Record<string, SystemConfigItemMeta> = {};
     itemKeys.forEach((itemKey) => {
       if (systemItems[itemKey]) {
         items[itemKey] = systemItems[itemKey];
@@ -839,7 +955,9 @@ const systemConfigGroups = computed(() => {
       't2i.use_file_service',
       't2i.active_template',
     ]),
-  ].filter((group) => Object.keys(group.metadata[group.key].items).length > 0);
+  ].filter(
+    (group) => Object.keys(group.metadata[group.key].items ?? {}).length > 0,
+  );
 });
 
 const generalSystemConfigGroups = computed(() =>
@@ -863,8 +981,8 @@ const securitySystemConfigGroups = computed(() =>
 watch(
   newApiKeyScopes,
   (scopes) => {
-    const selectedScopes = new Set(scopes);
-    const previousScopes = new Set(previousApiKeyScopes.value);
+    const selectedScopes = new Set<ApiKeyScope>(scopes);
+    const previousScopes = new Set<ApiKeyScope>(previousApiKeyScopes.value);
 
     if (selectedScopes.has('config')) {
       const includedScopeRemoved = configIncludedScopes.some(
@@ -894,7 +1012,7 @@ watch(
   { deep: true, immediate: true },
 );
 
-const showToast = (message, color = 'success') => {
+const showToast = (message: string, color: ToastColor = 'success') => {
   toastStore.add({
     message,
     color,
@@ -902,15 +1020,28 @@ const showToast = (message, color = 'success') => {
   });
 };
 
-const formatDate = (value) => {
+const formatDate = (value: string | number | null | undefined): string => {
   if (!value) return '-';
   const dt = new Date(value);
   if (Number.isNaN(dt.getTime())) return '-';
   return dt.toLocaleString();
 };
 
-const updateServerClock = (data) => {
-  const parsedServerTime = Date.parse(data?.server_utc_time || '');
+const getResponseErrorMessage = (error: unknown, fallback: string): string => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } })
+      .response;
+    const message = response?.data?.message;
+    if (typeof message === 'string' && message) return message;
+  }
+  return fallback;
+};
+
+const updateServerClock = (data: Record<string, unknown>): void => {
+  const serverUtcTime = data?.server_utc_time;
+  const parsedServerTime = Date.parse(
+    typeof serverUtcTime === 'string' ? serverUtcTime : '',
+  );
   const parsedUtcOffset = Number(data?.server_utc_offset_minutes);
   serverUtcEpochMs.value = Number.isNaN(parsedServerTime)
     ? null
@@ -949,16 +1080,17 @@ const loadSystemConfig = async () => {
       );
       return;
     }
-    systemConfigData.value = res.data.data?.config || {};
-    systemConfigMetadata.value = res.data.data?.metadata || {};
-    updateServerClock(res.data.data);
+    const data = (res.data.data ?? {}) as SystemConfigResponseData;
+    systemConfigData.value = data.config || {};
+    systemConfigMetadata.value = data.metadata || {};
+    updateServerClock(data);
     systemConfigLastSavedSnapshot.value = JSON.stringify(
       systemConfigData.value || {},
     );
     systemConfigRestartRequired.value = false;
   } catch (error) {
     showToast(
-      error?.response?.data?.message || tm('systemConfig.messages.loadFailed'),
+      getResponseErrorMessage(error, tm('systemConfig.messages.loadFailed')),
       'error',
     );
   } finally {
@@ -967,19 +1099,19 @@ const loadSystemConfig = async () => {
 };
 
 const saveSystemConfig = async (
-  configOverride = null,
-  headers = {},
+  configOverride: Record<string, unknown> | null = null,
+  headers: Record<string, string> = {},
   allow2faPrompt = true,
-) => {
+): Promise<{ success: boolean; requires2fa?: boolean }> => {
   if (systemConfigSaving.value || systemConfigLoading.value)
     return { success: false };
 
   systemConfigSaving.value = true;
-  const configPayload = JSON.parse(
+  const configPayload: Record<string, unknown> = JSON.parse(
     JSON.stringify(configOverride || systemConfigData.value || {}),
   );
   try {
-    const requestHeaders = { ...headers };
+    const requestHeaders: Record<string, string> = { ...headers };
     const res = await runConfigMutationWithStepUp(
       (stepUp) => {
         if (stepUp) {
@@ -1036,7 +1168,7 @@ const saveSystemConfig = async (
     return { success: true };
   } catch (error) {
     showToast(
-      error?.response?.data?.message || tm('systemConfig.messages.saveFailed'),
+      getResponseErrorMessage(error, tm('systemConfig.messages.saveFailed')),
       'error',
     );
     return { success: false };
@@ -1045,7 +1177,9 @@ const saveSystemConfig = async (
   }
 };
 
-const scheduleSystemConfigAutoSave = (delay = 250) => {
+const scheduleSystemConfigAutoSave = (
+  delay: number | FocusEvent = 250,
+): void => {
   if (systemConfigLoading.value) return;
   if (systemConfigAutoSaveTimer.value) {
     clearTimeout(systemConfigAutoSaveTimer.value);
@@ -1059,7 +1193,7 @@ const scheduleSystemConfigAutoSave = (delay = 250) => {
       return;
     }
     await saveSystemConfig();
-  }, delay);
+  }, delay as number);
 };
 
 watch(
@@ -1071,19 +1205,29 @@ watch(
   { deep: true },
 );
 
-const getConfigSaveRotationHint = (configPayload) => {
-  const postedSecret = configPayload?.dashboard?.totp?.secret;
+const getConfigSaveRotationHint = (
+  configPayload: Record<string, unknown>,
+): string => {
+  const dashboard = configPayload.dashboard;
+  const totp =
+    dashboard && typeof dashboard === 'object'
+      ? (dashboard as { totp?: unknown }).totp
+      : undefined;
+  const postedSecret =
+    totp && typeof totp === 'object'
+      ? (totp as { secret?: unknown }).secret
+      : undefined;
   if (postedSecret && typeof postedSecret === 'string' && postedSecret.trim()) {
     return tmMeta('system_group.system.dashboard.totp.configSaveRotationHint');
   }
   return '';
 };
 
-const handleConfigSave2faConfirm = async (payload) => {
+const handleConfigSave2faConfirm = async (payload: string) => {
   if (!configSavePendingData.value || configSave2faSaving.value) return;
   configSave2faSaving.value = true;
   configSave2faError.value = '';
-  const headers = {
+  const headers: Record<string, string> = {
     ...configSavePendingHeaders.value,
     'X-2FA-Code': payload,
   };
@@ -1119,10 +1263,10 @@ const loadApiKeys = async () => {
       showToast(res.data.message || tm('apiKey.messages.loadFailed'), 'error');
       return;
     }
-    apiKeys.value = res.data.data || [];
+    apiKeys.value = (res.data.data || []) as ApiKey[];
   } catch (e) {
     showToast(
-      e?.response?.data?.message || tm('apiKey.messages.loadFailed'),
+      getResponseErrorMessage(e, tm('apiKey.messages.loadFailed')),
       'error',
     );
   }
@@ -1146,7 +1290,7 @@ const copyCreatedApiKey = async () => {
 };
 
 const createApiKey = async () => {
-  const selectedScopeSet = new Set(newApiKeyScopes.value);
+  const selectedScopeSet = new Set<ApiKeyScope>(newApiKeyScopes.value);
   if (selectedScopeSet.has('config')) {
     for (const scope of configIncludedScopes) {
       selectedScopeSet.add(scope);
@@ -1164,7 +1308,7 @@ const createApiKey = async () => {
   try {
     const stepUp = await requestApiKeyStepUp();
     if (!stepUp) return;
-    const payload = {
+    const payload: ApiKeyCreatePayload = {
       name: newApiKeyName.value,
       scopes: selectedScopes,
     };
@@ -1188,7 +1332,7 @@ const createApiKey = async () => {
     await loadApiKeys();
   } catch (e) {
     showToast(
-      e?.response?.data?.message || tm('apiKey.messages.createFailed'),
+      getResponseErrorMessage(e, tm('apiKey.messages.createFailed')),
       'error',
     );
   } finally {
@@ -1196,7 +1340,7 @@ const createApiKey = async () => {
   }
 };
 
-const revokeApiKey = async (keyId) => {
+const revokeApiKey = async (keyId: string) => {
   try {
     const stepUp = await requestApiKeyStepUp();
     if (!stepUp) return;
@@ -1214,13 +1358,13 @@ const revokeApiKey = async (keyId) => {
     await loadApiKeys();
   } catch (e) {
     showToast(
-      e?.response?.data?.message || tm('apiKey.messages.revokeFailed'),
+      getResponseErrorMessage(e, tm('apiKey.messages.revokeFailed')),
       'error',
     );
   }
 };
 
-const deleteApiKey = async (keyId) => {
+const deleteApiKey = async (keyId: string) => {
   try {
     const stepUp = await requestApiKeyStepUp();
     if (!stepUp) return;
@@ -1238,7 +1382,7 @@ const deleteApiKey = async (keyId) => {
     await loadApiKeys();
   } catch (e) {
     showToast(
-      e?.response?.data?.message || tm('apiKey.messages.deleteFailed'),
+      getResponseErrorMessage(e, tm('apiKey.messages.deleteFailed')),
       'error',
     );
   }

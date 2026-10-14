@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import AstrBotConfig from '@/components/shared/AstrBotConfig.vue';
 import ConsoleDisplayer from '@/components/shared/ConsoleDisplayer.vue';
 import ReadmeDialog from '@/components/shared/ReadmeDialog.vue';
@@ -177,7 +177,9 @@ const installDialogPluginDesc = computed(() =>
 const installDialogPluginAuthor = computed(() => {
   const author = selectedInstallPlugin.value?.author;
   if (Array.isArray(author)) return author.join(', ');
-  if (author && typeof author === 'object') return author.name || '';
+  if (author && typeof author === 'object') {
+    return (author as { name?: string }).name || '';
+  }
   return typeof author === 'string' ? author.trim() : '';
 });
 
@@ -214,7 +216,7 @@ const updateDialogPluginLogo = computed(() => {
   <PluginDetailPage
     v-if="selectedPluginId && selectedDetailPlugin"
     :plugin="selectedDetailPlugin"
-    :market-plugin="selectedMarketPlugin"
+    :market-plugin="selectedMarketPlugin ?? undefined"
     :source-tab="selectedDetailTab"
     :state="pageState"
   />
@@ -472,14 +474,14 @@ const updateDialogPluginLogo = computed(() => {
   <ReadmeDialog
     v-model:show="readmeDialog.show"
     :plugin-name="readmeDialog.pluginName"
-    :repo-url="readmeDialog.repoUrl"
+    :repo-url="readmeDialog.repoUrl ?? undefined"
   />
 
   <!-- 插件更新日志对话框（复用 ReadmeDialog） -->
   <ReadmeDialog
     v-model:show="changelogDialog.show"
     :plugin-name="changelogDialog.pluginName"
-    :repo-url="changelogDialog.repoUrl"
+    :repo-url="changelogDialog.repoUrl ?? undefined"
     mode="changelog"
   />
 
@@ -767,7 +769,7 @@ const updateDialogPluginLogo = computed(() => {
                   size="large"
                   prepend-icon="mdi-upload"
                   elevation="2"
-                  @click="$refs.fileInput.click()"
+                  @click="fileInput?.click()"
                 >
                   {{ tm('buttons.selectFile') }}
                 </v-btn>

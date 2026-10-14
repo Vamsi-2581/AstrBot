@@ -121,19 +121,30 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import type { PropType } from 'vue';
 import { pluginApi } from '@/api/v1';
 import { useToast } from '@/utils/toast';
 import { useModuleI18n } from '@/i18n/composables';
 
+interface FileConfigItemMeta {
+  file_types?: string[];
+  [key: string]: unknown;
+}
+
+interface MergedFileItem {
+  path: string;
+  status: 'ok' | 'missing' | 'unconfigured';
+}
+
 const props = defineProps({
   modelValue: {
-    type: Array,
+    type: Array as PropType<string[]>,
     default: () => [],
   },
   itemMeta: {
-    type: Object,
+    type: Object as PropType<FileConfigItemMeta | null>,
     default: null,
   },
   pluginName: {
@@ -152,24 +163,24 @@ const toast = useToast();
 
 const dialog = ref(false);
 const isDragging = ref(false);
-const fileInput = ref(null);
+const fileInput = ref<HTMLInputElement | null>(null);
 const uploading = ref(false);
 const loadingFiles = ref(false);
 const MAX_FILE_BYTES = 500 * 1024 * 1024;
 const MAX_FILE_MB = 500;
-const directoryFiles = ref([]);
+const directoryFiles = ref<string[]>([]);
 
-const fileList = computed({
+const fileList = computed<string[]>({
   get: () => (Array.isArray(props.modelValue) ? props.modelValue : []),
   set: (val) => {
     emit('update:modelValue', val);
   },
 });
 
-const mergedFileItems = computed(() => {
+const mergedFileItems = computed<MergedFileItem[]>(() => {
   const configured = new Set(fileList.value);
   const existing = new Set(directoryFiles.value);
-  const items = [];
+  const items: MergedFileItem[] = [];
 
   for (const path of fileList.value) {
     items.push({
@@ -210,7 +221,7 @@ const fileCountText = computed(() => {
   return tm('fileUpload.fileCount', { count: fileList.value.length });
 });
 
-const getStatusText = (status) => {
+const getStatusText = (status: MergedFileItem['status']) => {
   if (status === 'missing') {
     return tm('fileUpload.statusMissing');
   }
@@ -220,7 +231,7 @@ const getStatusText = (status) => {
   return '';
 };
 
-const getStatusColor = (status) => {
+const getStatusColor = (status: MergedFileItem['status']) => {
   if (status === 'missing') {
     return 'error';
   }
@@ -259,8 +270,8 @@ const loadDirectoryFiles = async () => {
   }
 };
 
-const handleFileSelect = (event) => {
-  const target = event.target;
+const handleFileSelect = (event: Event) => {
+  const target = event.target as HTMLInputElement;
   if (target?.files && target.files.length > 0) {
     void uploadFiles(Array.from(target.files));
   }
@@ -269,14 +280,14 @@ const handleFileSelect = (event) => {
   }
 };
 
-const handleDrop = (event) => {
+const handleDrop = (event: DragEvent) => {
   isDragging.value = false;
   if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
     void uploadFiles(Array.from(event.dataTransfer.files));
   }
 };
 
-const uploadFiles = async (files) => {
+const uploadFiles = async (files: File[]) => {
   if (!props.pluginName || !props.configKey) {
     toast.warning('Missing plugin config info');
     return;
@@ -345,14 +356,14 @@ const uploadFiles = async (files) => {
   }
 };
 
-const addToConfig = (filePath) => {
+const addToConfig = (filePath: string) => {
   if (!fileList.value.includes(filePath)) {
     fileList.value = [...fileList.value, filePath];
     toast.success(tm('fileUpload.addToConfig'));
   }
 };
 
-const deleteFile = (filePath) => {
+const deleteFile = (filePath: string) => {
   fileList.value = fileList.value.filter((item) => item !== filePath);
   directoryFiles.value = directoryFiles.value.filter(
     (item) => item !== filePath,
@@ -370,7 +381,7 @@ const deleteFile = (filePath) => {
   toast.success(tm('fileUpload.deleteSuccess'));
 };
 
-const deletePhysicalFile = (filePath) => {
+const deletePhysicalFile = (filePath: string) => {
   directoryFiles.value = directoryFiles.value.filter(
     (item) => item !== filePath,
   );
@@ -387,7 +398,7 @@ const deletePhysicalFile = (filePath) => {
   toast.success(tm('fileUpload.deleteSuccess'));
 };
 
-const getDisplayName = (path) => {
+const getDisplayName = (path: string) => {
   if (!path) return '';
   const parts = String(path).split('/');
   return parts[parts.length - 1] || path;

@@ -1,9 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import ConfigDocsLink from '@/components/shared/ConfigDocsLink.vue';
 import ExtensionCard from '@/components/shared/ExtensionCard.vue';
 import FloatingActionStack from '@/components/ui/FloatingActionStack.vue';
 import { normalizeTextInput } from '@/utils/inputValue';
 import { toRoutePluginIdParam } from '@/utils/marketPluginKey';
+import type { InstalledPlugin } from '@/types/extensions';
 import {
   readPinnedExtensions,
   writePinnedExtensions,
@@ -40,7 +41,7 @@ const {
   openInstallDialog,
 } = props.state;
 
-const openPluginDetail = (extension) => {
+const openPluginDetail = (extension: InstalledPlugin) => {
   if (!extension?.name) return;
   router.push({
     name: 'ExtensionDetails',
@@ -84,12 +85,12 @@ watch(
   { deep: true },
 );
 
-const isPinnedExtension = (extension) => {
+const isPinnedExtension = (extension: InstalledPlugin) => {
   const name = extension?.name;
   return Boolean(name) && pinnedExtensionOrder.value.has(name);
 };
 
-const togglePinnedExtension = (extension) => {
+const togglePinnedExtension = (extension: InstalledPlugin) => {
   const name = extension?.name;
   if (!name) return;
 

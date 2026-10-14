@@ -61,7 +61,7 @@
   />
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref } from 'vue';
 import DashboardTotpSetupDialog from './DashboardTotpSetupDialog.vue';
 import DashboardTotpRecoveryDialog from './DashboardTotpRecoveryDialog.vue';
@@ -79,6 +79,12 @@ const props = defineProps({
     default: null,
   },
 });
+
+interface TotpSetupPayload {
+  secret: string;
+  recoveryCode: string;
+  recoveryCodeHash: string;
+}
 
 const emit = defineEmits(['update:modelValue']);
 const { tm } = useModuleI18n('features/config-metadata');
@@ -101,7 +107,7 @@ const isTotpInitialSetup = computed(
     (!totpSecret.value || !totpRecoveryCodeHash.value),
 );
 
-function emitUpdate(val) {
+function emitUpdate(val: boolean | null) {
   emit('update:modelValue', val);
 }
 
@@ -111,7 +117,7 @@ function clearTotpConfig() {
   }
 }
 
-function writeTotpSecretToConfig(secret, recoveryCodeHash = '') {
+function writeTotpSecretToConfig(secret: string, recoveryCodeHash = '') {
   if (!props.configRoot?.dashboard) return;
   if (!props.configRoot.dashboard.totp) {
     props.configRoot.dashboard.totp = {};
@@ -121,7 +127,7 @@ function writeTotpSecretToConfig(secret, recoveryCodeHash = '') {
   props.configRoot.dashboard.totp.recovery_code_hash = recoveryCodeHash;
 }
 
-function onTotpToggle(val) {
+function onTotpToggle(val: boolean | null) {
   if (!val) {
     clearTotpConfig();
     emitUpdate(val);
@@ -143,7 +149,11 @@ function openTotpDialog() {
   manageDialogVisible.value = true;
 }
 
-function onSetupComplete({ secret, recoveryCode, recoveryCodeHash }) {
+function onSetupComplete({
+  secret,
+  recoveryCode,
+  recoveryCodeHash,
+}: TotpSetupPayload) {
   writeTotpSecretToConfig(secret, recoveryCodeHash);
   pendingRecoveryCode.value = recoveryCode;
   recoveryDialogVisible.value = true;

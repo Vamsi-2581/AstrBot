@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import {
   computed,
   nextTick,
@@ -15,6 +15,50 @@ import { pluginApi } from '@/api/v1';
 import { useI18n } from '@/i18n/composables';
 import { usePluginI18n } from '@/utils/pluginI18n';
 import PluginPlatformChip from '@/components/shared/PluginPlatformChip.vue';
+
+interface PluginRecord {
+  name?: string;
+  [key: string]: unknown;
+}
+
+interface PluginHandler {
+  type?: string;
+  component_type?: string;
+  event_type?: string;
+  event_type_h?: string;
+  name?: string;
+  cmd?: string;
+  handler_name?: string;
+  handler_full_name?: string;
+  path?: string;
+  title?: string;
+  description?: string;
+  desc?: string;
+  subcommands?: PluginHandler[];
+  extension_id?: string;
+  page_id?: string;
+  display_type?: string;
+  [key: string]: unknown;
+}
+
+interface CommandRow {
+  kind: 'handler' | 'group' | 'subCommand';
+  key: string;
+  component: PluginHandler;
+  displayCommand: string;
+  children: PluginHandler[];
+  depth: number;
+}
+
+interface InfoRow {
+  label: string;
+  value: string | string[];
+  optional?: boolean;
+  kind?: string;
+  href?: string;
+  action?: () => void;
+  actionText?: string;
+}
 
 const props = defineProps({
   plugin: {
@@ -91,11 +135,11 @@ const changelogLoading = ref(false);
 const changelogError = ref('');
 const changelogEmpty = ref(false);
 const renderedChangelog = ref('');
-const expandedCommandGroups = ref(new Set());
+const expandedCommandGroups = ref<Set<string>>(new Set());
 const logoLoadFailed = ref(false);
 const detailPageRef = ref(null);
 const isHeaderStuck = ref(false);
-const pluginDetail = ref(null);
+const pluginDetail = ref<PluginRecord | null>(null);
 
 const pluginData = computed(() => pluginDetail.value || props.plugin);
 const displayName = computed(() => pluginName(pluginData.value));
@@ -186,7 +230,7 @@ const repoUrl = computed(
   () => pluginData.value?.repo || props.marketPlugin?.repo || '',
 );
 
-const firstPresentValue = (...values) =>
+const firstPresentValue = (...values: unknown[]) =>
   values.find(
     (value) =>
       value !== undefined &&
@@ -194,6 +238,14 @@ const firstPresentValue = (...values) =>
       value !== '' &&
       (!Array.isArray(value) || value.length > 0),
   );
+
+const getErrorMessage = (err: unknown): string => {
+  const error = err as { message?: string } | null;
+  return error?.message || String(err);
+};
+
+const toPlatformList = (value: string | string[]): string[] =>
+  Array.isArray(value) ? value : [value];
 
 const versionDisplay = computed(() =>
   String(
@@ -246,7 +298,7 @@ const updatedAtDisplay = computed(() => {
   );
   if (!value) return '';
 
-  const updatedAt = new Date(value);
+  const updatedAt = new Date(value as string | number);
   if (Number.isNaN(updatedAt.getTime())) return '';
 
   return new Intl.DateTimeFormat(locale.value, {
@@ -260,8 +312,8 @@ const updatedAtDisplay = computed(() => {
   }).format(updatedAt);
 });
 
-const infoRows = computed(() => {
-  const rows = [
+const infoRows = computed<InfoRow[]>(() => {
+  const rows: InfoRow[] = [
     {
       label: tm('detail.info.version'),
       value: versionDisplay.value,
@@ -321,23 +373,26 @@ const infoRows = computed(() => {
   );
 });
 
-const normalizeHandlerList = (source) => {
+const normalizeHandlerList = (source: unknown): PluginHandler[] => {
   if (!source || typeof source !== 'object') return [];
-  if (Array.isArray(source.handlers)) {
-    return source.handlers.filter(
-      (handler) => handler && typeof handler === 'object',
+  const record = source as Record<string, unknown>;
+  if (Array.isArray(record.handlers)) {
+    return record.handlers.filter(
+      (handler): handler is PluginHandler =>
+        Boolean(handler) && typeof handler === 'object',
     );
   }
-  if (Array.isArray(source.command_handlers)) {
-    return source.command_handlers.filter(
-      (handler) => handler && typeof handler === 'object',
+  if (Array.isArray(record.command_handlers)) {
+    return record.command_handlers.filter(
+      (handler): handler is PluginHandler =>
+        Boolean(handler) && typeof handler === 'object',
     );
   }
-  if (Array.isArray(source.commands)) {
-    return source.commands
+  if (Array.isArray(record.commands)) {
+    return record.commands
       .filter(
-        (command) =>
-          command &&
+        (command): command is string | PluginHandler =>
+          Boolean(command) &&
           (typeof command === 'string' || typeof command === 'object'),
       )
       .map((command) =>
@@ -349,7 +404,7 @@ const normalizeHandlerList = (source) => {
   return [];
 };
 
-const componentGroupOrder = [
+const componentGroupOrder: string[] = [
   'page',
   'skill',
   'command',
@@ -358,7 +413,7 @@ const componentGroupOrder = [
   'hook',
 ];
 
-const componentGroupIcons = {
+const componentGroupIcons: Record<string, string> = {
   page: 'mdi-application-brackets-outline',
   skill: 'mdi-lightning-bolt',
   command: 'mdi-console-line',
@@ -367,7 +422,7 @@ const componentGroupIcons = {
   hook: 'mdi-hook',
 };
 
-const getFallbackHandlerGroupKey = (handler) => {
+const getFallbackHandlerGroupKey = (handler: PluginHandler) => {
   const type = String(handler?.type || '').trim();
   const eventType = String(handler?.event_type || '').trim();
   const eventTypeH = String(handler?.event_type_h || '').trim();
@@ -384,7 +439,7 @@ const getFallbackHandlerGroupKey = (handler) => {
   return 'hook';
 };
 
-const getComponentGroupKey = (component) => {
+const getComponentGroupKey = (component: PluginHandler) => {
   const type = String(
     component?.type || component?.component_type || '',
   ).trim();
@@ -392,7 +447,10 @@ const getComponentGroupKey = (component) => {
   return getFallbackHandlerGroupKey(component);
 };
 
-const normalizeComponent = (component, fallbackType = '') => {
+const normalizeComponent = (
+  component: PluginHandler,
+  fallbackType = '',
+): PluginHandler => {
   const type = fallbackType || getComponentGroupKey(component);
   const normalized = { ...component, type };
   if (component?.type && component.type !== type && !normalized.display_type) {
@@ -401,27 +459,35 @@ const normalizeComponent = (component, fallbackType = '') => {
   return normalized;
 };
 
-const normalizeComponentList = (source) => {
+const normalizeComponentList = (source: unknown): PluginHandler[] => {
   if (!source || typeof source !== 'object') return [];
-  const { components } = source;
+  const { components } = source as Record<string, unknown>;
 
   if (
     components &&
     typeof components === 'object' &&
     !Array.isArray(components)
   ) {
-    return componentGroupOrder.flatMap((key) =>
-      Array.isArray(components[key])
-        ? components[key]
-            .filter((component) => component && typeof component === 'object')
+    const componentMap = components as Record<string, unknown>;
+    return componentGroupOrder.flatMap((key) => {
+      const group = componentMap[key];
+      return Array.isArray(group)
+        ? group
+            .filter(
+              (component): component is PluginHandler =>
+                Boolean(component) && typeof component === 'object',
+            )
             .map((component) => normalizeComponent(component, key))
-        : [],
-    );
+        : [];
+    });
   }
 
   if (Array.isArray(components)) {
     return components
-      .filter((component) => component && typeof component === 'object')
+      .filter(
+        (component): component is PluginHandler =>
+          Boolean(component) && typeof component === 'object',
+      )
       .map((component) => normalizeComponent(component));
   }
 
@@ -431,14 +497,16 @@ const normalizeComponentList = (source) => {
   }));
 };
 
-const components = computed(() => {
+const components = computed<PluginHandler[]>(() => {
   const pluginComponents = normalizeComponentList(pluginData.value);
   if (pluginComponents.length > 0) return pluginComponents;
   return normalizeComponentList(props.marketPlugin);
 });
 
 const groupedComponentSections = computed(() => {
-  const groups = new Map(componentGroupOrder.map((key) => [key, []]));
+  const groups = new Map<string, PluginHandler[]>(
+    componentGroupOrder.map((key): [string, PluginHandler[]] => [key, []]),
+  );
 
   components.value.forEach((component) => {
     const key = getComponentGroupKey(component);
@@ -455,7 +523,7 @@ const groupedComponentSections = computed(() => {
     .filter((group) => group.components.length > 0);
 });
 
-const getHandlerCommand = (handler) =>
+const getHandlerCommand = (handler: PluginHandler) =>
   String(
     handler?.name ||
       handler?.cmd ||
@@ -463,7 +531,7 @@ const getHandlerCommand = (handler) =>
       tm('status.unknown'),
   ).trim();
 
-const getHandlerDisplayName = (handler, groupKey) => {
+const getHandlerDisplayName = (handler: PluginHandler, groupKey: string) => {
   if (groupKey === 'page') {
     return handler?.title || handler?.name || tm('status.unknown');
   }
@@ -476,12 +544,13 @@ const getHandlerDisplayName = (handler, groupKey) => {
   return handler?.cmd || handler?.handler_name || tm('status.unknown');
 };
 
-const getHandlerTiming = (handler) =>
+const getHandlerTiming = (handler: PluginHandler) =>
   String(handler?.event_type_h || handler?.event_type || '').trim();
 
-const isCommandGroupExpanded = (key) => expandedCommandGroups.value.has(key);
+const isCommandGroupExpanded = (key: string) =>
+  expandedCommandGroups.value.has(key);
 
-const toggleCommandGroup = (key) => {
+const toggleCommandGroup = (key: string) => {
   const next = new Set(expandedCommandGroups.value);
   if (next.has(key)) {
     next.delete(key);
@@ -491,29 +560,36 @@ const toggleCommandGroup = (key) => {
   expandedCommandGroups.value = next;
 };
 
-const getComponentDescription = (component) => {
+const getComponentDescription = (component: PluginHandler) => {
   return String(
     component?.description || component?.desc || tm('status.unknown'),
   ).trim();
 };
 
-const getCommandRowKey = (component, path) =>
+const getCommandRowKey = (component: PluginHandler, path: string[]): string =>
   component?.handler_full_name || component?.path || path.join(' ');
 
-const buildCommandComponentRows = (commandComponents) => {
-  const rows = [];
+const buildCommandComponentRows = (
+  commandComponents: PluginHandler[],
+): CommandRow[] => {
+  const rows: CommandRow[] = [];
 
-  const appendRows = (component, path = [], depth = 0) => {
+  const appendRows = (
+    component: PluginHandler,
+    path: string[] = [],
+    depth = 0,
+  ) => {
     const name = getHandlerCommand(component);
     const nextPath = [...path, name];
     const key = getCommandRowKey(component, nextPath);
     const children = Array.isArray(component?.subcommands)
       ? component.subcommands.filter(
-          (child) => child && typeof child === 'object',
+          (child): child is PluginHandler =>
+            Boolean(child) && typeof child === 'object',
         )
       : [];
 
-    let kind = 'handler';
+    let kind: CommandRow['kind'] = 'handler';
     if (children.length > 0) {
       kind = 'group';
     } else if (depth > 0) {
@@ -541,7 +617,7 @@ const buildCommandComponentRows = (commandComponents) => {
   return rows;
 };
 
-const openExternal = (url) => {
+const openExternal = (url?: string) => {
   if (!url) return;
   window.open(url, '_blank', 'noopener,noreferrer');
 };
@@ -550,7 +626,7 @@ const goBack = () => {
   router.push({ name: 'Extensions', hash: `#${detailSourceTab.value}` });
 };
 
-const openPluginPage = (component) => {
+const openPluginPage = (component: PluginHandler) => {
   const extensionId = String(component?.extension_id || '').trim();
   const pageId = String(component?.page_id || '').trim();
   if (!extensionId || !pageId) return;
@@ -560,7 +636,7 @@ const openPluginPage = (component) => {
   });
 };
 
-const renderMarkdown = (source) => {
+const renderMarkdown = (source: unknown) => {
   const normalizedSource = String(source || '')
     .replace(/[“”]/g, '"')
     .replace(/[‘’]/g, "'");
@@ -569,7 +645,7 @@ const renderMarkdown = (source) => {
   const container = document.createElement('div');
   container.innerHTML = cleanHtml;
 
-  const usedIds = new Set();
+  const usedIds = new Set<string>();
   container.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((heading) => {
     if (heading.id) {
       usedIds.add(heading.id);
@@ -607,7 +683,7 @@ const renderMarkdown = (source) => {
   return container.innerHTML;
 };
 
-const handleDocsClick = (event) => {
+const handleDocsClick = (event: MouseEvent) => {
   const target = event.target instanceof Element ? event.target : null;
   const anchor = target?.closest('a[href^="#"]');
   if (!anchor) return;
@@ -663,13 +739,13 @@ const fetchPluginDetail = async () => {
   }
 };
 
-const getDocumentUrl = (fieldName) => {
+const getDocumentUrl = (fieldName: string) => {
   const plugin = pluginData.value || {};
   const marketPlugin = props.marketPlugin || {};
   return String(plugin[fieldName] || marketPlugin[fieldName] || '').trim();
 };
 
-const fetchRemoteMarkdown = async (url) => {
+const fetchRemoteMarkdown = async (url: string) => {
   const res = await axios.get(url, {
     responseType: 'text',
     transformResponse: [(data) => data],
@@ -702,7 +778,7 @@ const fetchReadme = async () => {
       }
       renderedReadme.value = renderMarkdown(content);
     } catch (err) {
-      readmeError.value = err?.message || String(err);
+      readmeError.value = getErrorMessage(err);
     } finally {
       readmeLoading.value = false;
     }
@@ -742,7 +818,7 @@ const fetchReadme = async () => {
 
     renderedReadme.value = renderMarkdown(content);
   } catch (err) {
-    readmeError.value = err?.message || String(err);
+    readmeError.value = getErrorMessage(err);
   } finally {
     readmeLoading.value = false;
   }
@@ -773,7 +849,7 @@ const fetchChangelog = async () => {
       }
       renderedChangelog.value = renderMarkdown(content);
     } catch (err) {
-      changelogError.value = err?.message || String(err);
+      changelogError.value = getErrorMessage(err);
     } finally {
       changelogLoading.value = false;
     }
@@ -796,7 +872,7 @@ const fetchChangelog = async () => {
 
     renderedChangelog.value = renderMarkdown(content);
   } catch (err) {
-    changelogError.value = err?.message || String(err);
+    changelogError.value = getErrorMessage(err);
   } finally {
     changelogLoading.value = false;
   }
@@ -1051,7 +1127,7 @@ onBeforeUnmount(() => {
                   </v-chip>
                 </div>
                 <div v-else-if="row.kind === 'platforms'" class="detail-tags">
-                  <PluginPlatformChip :platforms="row.value" />
+                  <PluginPlatformChip :platforms="toPlatformList(row.value)" />
                 </div>
                 <button
                   v-else-if="row.href"

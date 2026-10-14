@@ -22,6 +22,15 @@ const allowedDynamicStyles = new Map([
   ['src/components/chat/Chat.vue', ['threadSelection.left']],
   ['src/components/chat/message_list_comps/ActionRef.vue', ['zIndex']],
   ['src/components/chat/message_list_comps/RefNode.vue', ['chipStyle']],
+  [
+    'src/components/shared/ProviderSelectMenu.vue',
+    [
+      'visibleProviderGroups[0]?.top',
+      'group.paddingTop',
+      'group.paddingBottom',
+      'providerGroups[providerGroups.length - 1]?.bottom',
+    ],
+  ],
 ]);
 
 const allowedRoundedValues = new Set(['0', 'sm', 'md', 'circle']);
@@ -62,11 +71,33 @@ function stripHtmlComments(text) {
   return result;
 }
 
+// Extract the SFC root template by balancing nested `<template #slot>` blocks.
+// A non-greedy `<template>...</template>` match stops at the first nested
+// closing tag, silently skipping the rest of files that use slots.
+function rootTemplate(source) {
+  const open = source.match(/<template\b[^>]*>/);
+  if (!open) return null;
+  const tokens = /<template\b[^>]*>|<\/template>/g;
+  tokens.lastIndex = open.index + open[0].length;
+  const contentStart = open.index + open[0].length;
+  let depth = 1;
+  let token;
+  while ((token = tokens.exec(source))) {
+    if (token[0].startsWith('</')) {
+      depth -= 1;
+      if (depth === 0) return source.slice(contentStart, token.index);
+    } else {
+      depth += 1;
+    }
+  }
+  return source.slice(contentStart);
+}
+
 const violations = [];
 
 for (const filePath of vueFiles(sourceRoot)) {
   const source = readFileSync(filePath, 'utf8');
-  const template = source.match(/<template\b[^>]*>([\s\S]*?)<\/template>/)?.[1];
+  const template = rootTemplate(stripHtmlComments(source));
   if (!template) continue;
 
   const file = relative('.', filePath).replaceAll('\\', '/');

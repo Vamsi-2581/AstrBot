@@ -1,10 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import MarketPluginCard from '@/components/extension/MarketPluginCard.vue';
 import FloatingActionStack from '@/components/ui/FloatingActionStack.vue';
 import PluginSortControl from '@/components/extension/PluginSortControl.vue';
 import defaultPluginIcon from '/favicon.svg';
 import { computed } from 'vue';
 import { normalizeTextInput } from '@/utils/inputValue';
+import type { PluginMarketItem, PluginSourceItem } from '@/types/extensions';
 import {
   getMarketPluginId,
   toRoutePluginIdParam,
@@ -48,7 +49,7 @@ const currentSourceName = computed(() => {
     return tm('market.defaultSource');
   }
   const matched = customSources.value.find(
-    (s) => s.url === selectedSource.value,
+    (s: PluginSourceItem) => s.url === selectedSource.value,
   );
   return matched?.name || tm('market.defaultSource');
 });
@@ -62,13 +63,15 @@ const marketSortItems = computed(() => [
 ]);
 
 const marketCategorySelectItems = computed(() =>
-  marketCategoryItems.value.map((item) => ({
-    title: `${item.label || ''} (${item.count || 0})`,
-    value: item.value,
-  })),
+  marketCategoryItems.value.map(
+    (item: { value: string; label: string; count: number }) => ({
+      title: `${item.label || ''} (${item.count || 0})`,
+      value: item.value,
+    }),
+  ),
 );
 
-const openMarketPluginDetail = (plugin) => {
+const openMarketPluginDetail = (plugin: PluginMarketItem) => {
   const pluginId = getMarketPluginId(plugin);
   if (!pluginId) return;
   router.push({

@@ -238,7 +238,7 @@
   </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import ConfigDocsLink from '@/components/shared/ConfigDocsLink.vue';
 import AstrBotConfigV4 from '@/components/shared/AstrBotConfigV4.vue';
@@ -264,10 +264,23 @@ const props = defineProps({
 
 const { tm } = useModuleI18n('features/config');
 
+interface MetadataGroup {
+  key: string;
+  metadata: Record<string, unknown>;
+}
+
+interface RunnerTypeMetadata {
+  options?: string[];
+  runner_defaults?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+type LocalTabKey = 'model' | 'prompt' | 'capabilities' | 'advanced';
+
 const runnerDialog = ref(false);
 const pendingRunnerType = ref('local');
 const runnerChangeAcknowledged = ref(false);
-const activeLocalTab = ref('model');
+const activeLocalTab = ref<LocalTabKey>('model');
 
 const aiEnabled = computed({
   get() {
@@ -281,11 +294,13 @@ const aiEnabled = computed({
   },
 });
 
-const runnerType = computed(
+const runnerType = computed<string>(
   () => props.configData?.agent_runner?.runner_type || 'local',
 );
-const runnerTypeMetadata = computed(
-  () => props.metadata?.agent_runner?.items?.['agent_runner.runner_type'] || {},
+const runnerTypeMetadata = computed<RunnerTypeMetadata>(
+  () =>
+    (props.metadata?.agent_runner?.items?.['agent_runner.runner_type'] ||
+      {}) as RunnerTypeMetadata,
 );
 
 const runnerOptions = computed(() => {
@@ -296,7 +311,7 @@ const runnerOptions = computed(() => {
     'dashscope',
     'deerflow',
   ];
-  return availableTypes.map((value) => ({
+  return availableTypes.map((value: string) => ({
     value,
     title: tm(`aiSettings.runners.${value}.title`),
     description: tm(`aiSettings.runners.${value}.description`),
@@ -321,15 +336,20 @@ const runnerSettingsTitle = computed(() =>
     : `${currentRunner.value.title} ${tm('aiSettings.settingsSuffix')}`,
 );
 
-const localTabs = computed(() => [
+const localTabs = computed<Array<{ value: LocalTabKey; label: string }>>(() => [
   { value: 'model', label: tm('aiSettings.tabs.model') },
   { value: 'prompt', label: tm('aiSettings.tabs.prompt') },
   { value: 'capabilities', label: tm('aiSettings.tabs.capabilities') },
   { value: 'advanced', label: tm('aiSettings.tabs.advanced') },
 ]);
 
-function filterMetadataGroup(groupKey, itemFilter, overrides = {}) {
-  const source = props.metadata?.[groupKey];
+function filterMetadataGroup(
+  groupKey: string,
+  itemFilter: (itemKey: string, itemMeta: unknown) => boolean,
+  overrides: Record<string, unknown> = {},
+): MetadataGroup | null {
+  const source = props.metadata?.[groupKey] as
+    { items?: Record<string, unknown>; [key: string]: unknown } | undefined;
   if (!source) return null;
   const items = Object.fromEntries(
     Object.entries(source.items || {}).filter(([itemKey, itemMeta]) =>
@@ -366,9 +386,16 @@ const localTabGroups = computed(() => {
   );
 
   return {
-    model: [modelGroup].filter(Boolean),
+    model: [modelGroup].filter(
+      (group): group is MetadataGroup => group !== null,
+    ),
     prompt: props.metadata?.prompt
-      ? [{ key: 'prompt', metadata: props.metadata.prompt }]
+      ? [
+          {
+            key: 'prompt',
+            metadata: props.metadata.prompt as Record<string, unknown>,
+          },
+        ]
       : [],
     capabilities: [
       'knowledgebase',
@@ -382,17 +409,20 @@ const localTabGroups = computed(() => {
       .filter((key) => props.metadata?.[key])
       .map((key) => ({
         key,
-        metadata: props.metadata[key],
+        metadata: props.metadata[key] as Record<string, unknown>,
       })),
     advanced: [
       props.metadata?.truncate_and_compress
         ? {
             key: 'truncate_and_compress',
-            metadata: props.metadata.truncate_and_compress,
+            metadata: props.metadata.truncate_and_compress as Record<
+              string,
+              unknown
+            >,
           }
         : null,
       executionGroup,
-    ].filter(Boolean),
+    ].filter((group): group is MetadataGroup => group !== null),
   };
 });
 
@@ -407,38 +437,43 @@ const normalizedSearchKeyword = computed(() =>
     .toLowerCase(),
 );
 
-function metadataMatchesSearch(metaObject, keyword) {
+function metadataMatchesSearch(metaObject: unknown, keyword: string): boolean {
   if (!metaObject || typeof metaObject !== 'object') {
     return false;
   }
-  const directText = [
-    tm(metaObject.description || ''),
-    tm(metaObject.hint || ''),
-  ]
+  const meta = metaObject as {
+    description?: string;
+    hint?: string;
+    items?: Record<string, unknown>;
+  };
+  const directText = [tm(meta.description || ''), tm(meta.hint || '')]
     .join(' ')
     .toLowerCase();
   if (directText.includes(keyword)) {
     return true;
   }
-  return Object.entries(metaObject.items || {}).some(
+  return Object.entries(meta.items || {}).some(
     ([itemKey, itemMeta]) =>
       itemKey.toLowerCase().includes(keyword) ||
       metadataMatchesSearch(itemMeta, keyword),
   );
 }
 
-function tabMatchesSearch(tabValue, keyword) {
+function tabMatchesSearch(tabValue: LocalTabKey, keyword: string): boolean {
   return (localTabGroups.value[tabValue] || []).some((group) =>
     metadataMatchesSearch(group.metadata, keyword),
   );
 }
 
-const thirdPartyRunnerGroup = computed(() => {
+const thirdPartyRunnerGroup = computed<MetadataGroup | null>(() => {
   const key = `${runnerType.value}_runner`;
-  return props.metadata?.[key] ? { key, metadata: props.metadata[key] } : null;
+  const metadata = props.metadata?.[key];
+  return metadata
+    ? { key, metadata: metadata as Record<string, unknown> }
+    : null;
 });
 
-const commonGroups = computed(() =>
+const commonGroups = computed<MetadataGroup[]>(() =>
   [
     filterMetadataGroup(
       'ai',
@@ -456,7 +491,7 @@ const commonGroups = computed(() =>
         hint: tm('aiSettings.groups.behaviorHint'),
       },
     ),
-  ].filter(Boolean),
+  ].filter((group): group is MetadataGroup => group !== null),
 );
 
 watch(

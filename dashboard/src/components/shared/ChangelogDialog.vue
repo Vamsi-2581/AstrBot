@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch, computed } from 'vue';
 import { useDisplay } from 'vuetify';
 import { changelogApi, statsApi } from '@/api/v1';
@@ -34,9 +34,9 @@ const changelogLoading = ref(false);
 const changelogError = ref('');
 const changelogVersion = ref('');
 const selectedVersion = ref('');
-const availableVersions = ref([]);
+const availableVersions = ref<string[]>([]);
 const loadingVersions = ref(false);
-const scrollContainer = ref(null);
+const scrollContainer = ref<HTMLElement | null>(null);
 
 // 获取当前版本号（从版本信息中提取）
 async function getCurrentVersion() {
@@ -53,7 +53,7 @@ async function getCurrentVersion() {
 }
 
 // 加载更新日志
-async function loadChangelog(version) {
+async function loadChangelog(version?: string) {
   const targetVersion =
     version || selectedVersion.value || changelogVersion.value;
   if (!targetVersion) {
@@ -69,7 +69,7 @@ async function loadChangelog(version) {
     const res = await changelogApi.get(targetVersion);
 
     if (res.data.status === 'ok') {
-      changelogContent.value = res.data.data.content;
+      changelogContent.value = res.data.data.content as string;
       selectedVersion.value = targetVersion;
     } else {
       changelogError.value =
@@ -77,9 +77,12 @@ async function loadChangelog(version) {
     }
   } catch (err) {
     console.error('Failed to load changelog:', err);
+    const error = err as {
+      response?: { status?: number; data?: { message?: string } };
+    };
     if (
-      err.response?.status === 404 ||
-      err.response?.data?.message?.includes('not found')
+      error.response?.status === 404 ||
+      error.response?.data?.message?.includes('not found')
     ) {
       changelogError.value = t('core.navigation.changelogDialog.notFound');
     } else {
@@ -112,7 +115,7 @@ function onVersionChange() {
   }
 }
 
-function handleChangelogClick(event) {
+function handleChangelogClick(event: MouseEvent) {
   const targetElement = event.target instanceof Element ? event.target : null;
   const anchor = targetElement?.closest('a[href^="#"]');
   if (!anchor) return;

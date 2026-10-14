@@ -41,7 +41,7 @@
             v-for="item in filteredItems"
             :key="item.id"
             :active="modelValue === item.id"
-            rounded="lg"
+            rounded="md"
             class="config-profile-menu__item"
             @click="selectProfile(item.id)"
           >
@@ -81,31 +81,35 @@
   </v-menu>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useModuleI18n } from '@/i18n/composables';
 
-const props = defineProps({
-  modelValue: {
-    type: String,
-    default: '',
+interface ConfigProfileItem {
+  id: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
+const props = withDefaults(
+  defineProps<{
+    modelValue?: string;
+    items?: ConfigProfileItem[];
+    disabled?: boolean;
+  }>(),
+  {
+    modelValue: '',
+    items: () => [],
+    disabled: false,
   },
-  items: {
-    type: Array,
-    default: () => [],
-  },
-  disabled: {
-    type: Boolean,
-    default: false,
-  },
-});
+);
 
 const emit = defineEmits(['select', 'manage']);
 const { tm } = useModuleI18n('features/config');
 const menuOpen = ref(false);
 const searchQuery = ref('');
 
-function displayName(item) {
+function displayName(item: ConfigProfileItem) {
   if (item?.id === 'default') {
     return tm('configSelection.defaultConfig');
   }
@@ -143,7 +147,7 @@ watch(menuOpen, (isOpen) => {
   }
 });
 
-function selectProfile(id) {
+function selectProfile(id: string) {
   emit('select', id);
   menuOpen.value = false;
 }

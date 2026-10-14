@@ -57,19 +57,32 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { statsApi } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
-import { useToastStore } from '@/stores/toast';
+import { useToastStore, type ToastColor } from '@/stores/toast';
 import { askForConfirmation, useConfirmDialog } from '@/utils/confirmDialog';
 
 const { tm } = useModuleI18n('features/settings');
 const toastStore = useToastStore();
 const confirmDialog = useConfirmDialog();
 
+interface StorageEntry {
+  size_bytes: number;
+  file_count: number;
+  path: string;
+  exists: boolean;
+}
+
+interface StorageStatus {
+  logs: StorageEntry;
+  cache: StorageEntry;
+  total_bytes: number;
+}
+
 const cleaningTarget = ref('');
-const storageStatus = ref({
+const storageStatus = ref<StorageStatus>({
   logs: {
     size_bytes: 0,
     file_count: 0,
@@ -85,7 +98,7 @@ const storageStatus = ref({
   total_bytes: 0,
 });
 
-const showToast = (message, color = 'success') => {
+const showToast = (message: string, color: ToastColor = 'success') => {
   toastStore.add({
     message,
     color,
@@ -93,7 +106,7 @@ const showToast = (message, color = 'success') => {
   });
 };
 
-const formatBytes = (bytes) => {
+const formatBytes = (bytes: number | string) => {
   const value = Number(bytes || 0);
   if (value <= 0) return '0 B';
 
@@ -135,17 +148,19 @@ const loadStorageStatus = async () => {
       );
       return;
     }
-    storageStatus.value = res.data.data || storageStatus.value;
+    storageStatus.value =
+      (res.data.data as unknown as StorageStatus) || storageStatus.value;
   } catch (error) {
+    const err = error as { response?: { data?: { message?: string } } };
     showToast(
-      error?.response?.data?.message ||
+      err?.response?.data?.message ||
         tm('system.cleanup.messages.statusFailed'),
       'error',
     );
   }
 };
 
-const cleanupStorage = async (target) => {
+const cleanupStorage = async (target: string) => {
   const confirmed = await askForConfirmation(
     tm('system.cleanup.confirm', {
       target: tm(`system.cleanup.targetNames.${target}`),
@@ -165,17 +180,19 @@ const cleanupStorage = async (target) => {
       return;
     }
 
-    const cleanupData = res.data.data || {};
-    storageStatus.value = cleanupData.status || storageStatus.value;
+    const cleanupData: Record<string, unknown> = res.data.data || {};
+    storageStatus.value =
+      (cleanupData.status as StorageStatus) || storageStatus.value;
     showToast(
       tm('system.cleanup.messages.cleanupSuccess', {
-        size: formatBytes(cleanupData.removed_bytes || 0),
-        count: cleanupData.processed_files || 0,
+        size: formatBytes(Number(cleanupData.removed_bytes) || 0),
+        count: Number(cleanupData.processed_files) || 0,
       }),
     );
   } catch (error) {
+    const err = error as { response?: { data?: { message?: string } } };
     showToast(
-      error?.response?.data?.message ||
+      err?.response?.data?.message ||
         tm('system.cleanup.messages.cleanupFailed'),
       'error',
     );

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { LazyMonacoEditor as VueMonacoEditor } from './LazyMonacoEditor';
 import { ref, computed } from 'vue';
 import ConfigItemRenderer from './ConfigItemRenderer.vue';
@@ -53,6 +53,20 @@ const { getRaw } = useModuleI18n('features/config-metadata');
 const { translateIfKey, resolveConfigText } = useConfigTextResolver(props);
 const currentConfigPath = computed(() => props.pathPrefix || props.metadataKey);
 
+interface ConfigItemMeta {
+  type?: string;
+  hint?: string;
+  description?: string;
+  condition?: Record<string, unknown>;
+  invisible?: boolean;
+  obvious_hint?: boolean;
+  templates?: Record<string, unknown>;
+  editor_mode?: unknown;
+  editor_theme?: string;
+  editor_language?: string;
+  [key: string]: unknown;
+}
+
 const filteredIterable = computed(() => {
   if (!props.iterable) return {};
   const { hint, ...rest } = props.iterable;
@@ -73,7 +87,7 @@ const providerHint = computed(() => {
   return hint;
 });
 
-const getItemHint = (itemKey, itemMeta) => {
+const getItemHint = (itemKey: string, itemMeta?: ConfigItemMeta): string => {
   if (itemMeta?.hint) return itemMeta.hint;
 
   if (itemKey !== 'embedding_api_base') return '';
@@ -97,10 +111,15 @@ const dialog = ref(false);
 const currentEditingKey = ref('');
 const currentEditingLanguage = ref('json');
 const currentEditingTheme = ref('vs-light');
-let currentEditingKeyIterable = null;
+let currentEditingKeyIterable: Record<string, string> = {};
 const loadingEmbeddingDim = ref(false);
 
-function openEditorDialog(key, value, theme, language) {
+function openEditorDialog(
+  key: string,
+  value: Record<string, string>,
+  theme?: string,
+  language?: string,
+) {
   currentEditingKey.value = key;
   currentEditingLanguage.value = language || 'json';
   currentEditingTheme.value = theme || 'vs-light';
@@ -112,7 +131,7 @@ function saveEditedContent() {
   dialog.value = false;
 }
 
-async function getEmbeddingDimensions(providerConfig) {
+async function getEmbeddingDimensions(providerConfig: Record<string, unknown>) {
   if (loadingEmbeddingDim.value) return;
 
   loadingEmbeddingDim.value = true;
@@ -138,7 +157,7 @@ async function getEmbeddingDimensions(providerConfig) {
         `获取成功: ${response.data.data.embedding_dimensions}`,
       );
     } else {
-      useToast().error(response.data.message);
+      useToast().error(response.data.message as string);
     }
   } catch (error) {
     console.error('Error getting embedding dimensions:', error);
@@ -147,12 +166,15 @@ async function getEmbeddingDimensions(providerConfig) {
   }
 }
 
-function getValueBySelector(obj, selector) {
+function getValueBySelector(
+  obj: Record<string, unknown>,
+  selector: string,
+): unknown {
   const keys = selector.split('.');
-  let current = obj;
+  let current: unknown = obj;
   for (const key of keys) {
     if (current && typeof current === 'object' && key in current) {
-      current = current[key];
+      current = (current as Record<string, unknown>)[key];
     } else {
       return undefined;
     }
@@ -160,7 +182,10 @@ function getValueBySelector(obj, selector) {
   return current;
 }
 
-function shouldShowItem(itemMeta, _itemKey) {
+function shouldShowItem(
+  itemMeta: ConfigItemMeta | undefined,
+  _itemKey: string,
+): boolean {
   if (!itemMeta?.condition) {
     return true;
   }
@@ -175,11 +200,14 @@ function shouldShowItem(itemMeta, _itemKey) {
   return true;
 }
 
-function getItemPath(key) {
+function getItemPath(key: string): string {
   return props.pathPrefix ? `${props.pathPrefix}.${key}` : key;
 }
 
-function hasVisibleItemsAfter(items, currentIndex) {
+function hasVisibleItemsAfter(
+  items: Record<string, unknown>,
+  currentIndex: number,
+): boolean {
   const itemEntries = Object.entries(items);
 
   // 检查当前索引之后是否还有可见的配置项

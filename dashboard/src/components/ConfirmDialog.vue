@@ -16,23 +16,24 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { useI18n } from '@/i18n/composables';
+import type { ConfirmDialogOptions } from '@/utils/confirmDialog';
 
 const { t } = useI18n();
 
 const isOpen = ref(false);
 const title = ref('');
 const message = ref('');
-let resolvePromise = null; // ✅ 确保 Promise 句柄可用
+let resolvePromise: ((value: boolean) => void) | null = null;
 
-const open = (options) => {
+const open = (options: ConfirmDialogOptions): Promise<boolean> => {
   title.value = options.title || t('core.common.dialog.confirmTitle');
   message.value = options.message || t('core.common.dialog.confirmMessage');
   isOpen.value = true;
 
-  return new Promise((resolve) => {
+  return new Promise<boolean>((resolve) => {
     resolvePromise = resolve; // ✅ 赋值 Promise 解析方法
   });
 };

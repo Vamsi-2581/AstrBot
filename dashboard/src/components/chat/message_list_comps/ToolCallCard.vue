@@ -40,7 +40,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useModuleI18n } from '@/i18n/composables';
 
@@ -62,7 +62,7 @@ const props = defineProps({
 const { tm } = useModuleI18n('features/chat');
 const isExpanded = ref(props.initialExpanded);
 const currentTime = ref(Date.now() / 1000);
-let timer = null;
+let timer: ReturnType<typeof setInterval> | null = null;
 
 const elapsedTime = computed(() => {
   if (props.toolCall.finished_ts) return '';
@@ -106,7 +106,7 @@ const formattedResult = computed(() => {
   }
 });
 
-const formatDuration = (seconds) => {
+const formatDuration = (seconds: number) => {
   if (!Number.isFinite(seconds) || seconds < 0) return '';
   if (seconds < 1) {
     return `${Math.round(seconds * 1000)}ms`;

@@ -10,7 +10,7 @@
     v-model="snackbarShow"
     :color="toastStore.current.color"
     :timeout="toastStore.current.timeout"
-    :location="toastStore.current.location"
+    :location="toastStore.current.location as Anchor"
     close-on-back
   >
     <div class="app-snackbar-message">
@@ -29,16 +29,19 @@
   </v-snackbar>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { RouterView } from 'vue-router';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import type { Anchor } from 'vuetify';
 import { useToastStore } from '@/stores/toast';
 import WaitingForRestart from '@/components/shared/WaitingForRestart.vue';
 import UpgradeRecoveryDialog from '@/components/shared/UpgradeRecoveryDialog.vue';
 
 const toastStore = useToastStore();
-const globalWaitingRef = ref(null);
-let disposeTrayRestartListener = null;
+const globalWaitingRef = ref<InstanceType<typeof WaitingForRestart> | null>(
+  null,
+);
+let disposeTrayRestartListener: (() => void) | null = null;
 
 const snackbarShow = computed({
   get: () => Boolean(toastStore.current),

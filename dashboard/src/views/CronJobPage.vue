@@ -194,45 +194,10 @@
           </template>
         </section>
 
-        <v-dialog
+        <CronPlatformDialog
           v-model="platformDialog"
-          max-width="520"
-          scrollable
-          :aria-label="tm('platformDialog.title')"
-        >
-          <v-card class="dashboard-dialog-card platform-dialog__card">
-            <v-card-title class="text-h3 pt-5 px-5">
-              {{ tm('platformDialog.title') }}
-            </v-card-title>
-            <v-card-text class="px-5 pb-2 platform-dialog__content">
-              <p class="platform-dialog-description">
-                {{ tm('platformDialog.description') }}
-              </p>
-              <div v-if="proactivePlatforms.length" class="platform-list">
-                <div
-                  v-for="platform in proactivePlatforms"
-                  :key="platform.id"
-                  class="platform-list-item"
-                >
-                  <div class="platform-name">
-                    {{ platform.display_name || platform.name }}
-                  </div>
-                  <div class="platform-id">{{ platform.id }}</div>
-                </div>
-              </div>
-              <div v-else class="dashboard-empty platform-dialog-empty">
-                {{ tm('page.proactive.unsupported') }}
-              </div>
-            </v-card-text>
-            <v-card-actions
-              class="justify-end px-5 pb-5 platform-dialog__actions"
-            >
-              <v-btn variant="text" @click="platformDialog = false">
-                {{ tm('actions.close') }}
-              </v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
+          :platforms="proactivePlatforms"
+        />
 
         <v-snackbar
           v-model="snackbar.show"
@@ -242,218 +207,21 @@
           {{ snackbar.message }}
         </v-snackbar>
 
-        <v-dialog
+        <CronEditorDialog
           v-model="createDialog"
-          max-width="620"
-          scrollable
-          :aria-label="dialogTitle"
-        >
-          <v-card class="dashboard-dialog-card cron-dialog__card">
-            <v-card-title class="text-h3 pt-5 px-5">{{
-              dialogTitle
-            }}</v-card-title>
-            <v-card-text class="px-5 pb-2 cron-dialog__content">
-              <div class="dashboard-form-grid dashboard-form-grid--single">
-                <v-text-field
-                  v-model="newJob.name"
-                  :label="tm('form.name')"
-                  variant="outlined"
-                  density="comfortable"
-                />
-                <v-textarea
-                  v-model="newJob.note"
-                  :label="tm('form.note')"
-                  variant="outlined"
-                  density="comfortable"
-                  rows="5"
-                />
-
-                <div class="schedule-field">
-                  <v-select
-                    v-model="newJob.schedule_mode"
-                    class="schedule-mode-select"
-                    :items="scheduleModeOptions"
-                    item-title="label"
-                    item-value="value"
-                    :label="tm('form.scheduleMode')"
-                    variant="outlined"
-                    density="comfortable"
-                    hide-details
-                  />
-
-                  <v-text-field
-                    v-if="newJob.schedule_mode === 'once'"
-                    v-model="newJob.run_at"
-                    :label="tm('form.runAt')"
-                    type="datetime-local"
-                    variant="outlined"
-                    density="comfortable"
-                    hide-details
-                  />
-
-                  <div
-                    v-else-if="newJob.schedule_mode === 'interval'"
-                    class="schedule-inline-fields"
-                  >
-                    <v-text-field
-                      v-model.number="newJob.interval_value"
-                      :label="tm('form.intervalEvery')"
-                      type="number"
-                      min="1"
-                      variant="outlined"
-                      density="comfortable"
-                      hide-details
-                    />
-                    <v-select
-                      v-model="newJob.interval_unit"
-                      :items="intervalUnitOptions"
-                      item-title="label"
-                      item-value="value"
-                      :label="tm('form.intervalUnit')"
-                      variant="outlined"
-                      density="comfortable"
-                      hide-details
-                    />
-                  </div>
-
-                  <v-text-field
-                    v-else-if="newJob.schedule_mode === 'daily'"
-                    v-model="newJob.daily_time"
-                    :label="tm('form.dailyTime')"
-                    type="time"
-                    variant="outlined"
-                    density="comfortable"
-                    hide-details
-                  />
-
-                  <div
-                    v-else-if="newJob.schedule_mode === 'weekly'"
-                    class="schedule-inline-fields"
-                  >
-                    <v-select
-                      v-model="newJob.weekly_day"
-                      :items="weekdayOptions"
-                      item-title="label"
-                      item-value="value"
-                      :label="tm('form.weeklyDay')"
-                      variant="outlined"
-                      density="comfortable"
-                      hide-details
-                    />
-                    <v-text-field
-                      v-model="newJob.weekly_time"
-                      :label="tm('form.weeklyTime')"
-                      type="time"
-                      variant="outlined"
-                      density="comfortable"
-                      hide-details
-                    />
-                  </div>
-
-                  <div
-                    v-else-if="newJob.schedule_mode === 'monthly'"
-                    class="schedule-inline-fields"
-                  >
-                    <v-text-field
-                      v-model.number="newJob.monthly_day"
-                      :label="tm('form.monthlyDay')"
-                      type="number"
-                      min="1"
-                      max="31"
-                      variant="outlined"
-                      density="comfortable"
-                      hide-details
-                    />
-                    <v-text-field
-                      v-model="newJob.monthly_time"
-                      :label="tm('form.monthlyTime')"
-                      type="time"
-                      variant="outlined"
-                      density="comfortable"
-                      hide-details
-                    />
-                  </div>
-
-                  <v-text-field
-                    v-else
-                    v-model="newJob.cron_expression"
-                    :label="tm('form.cron')"
-                    :placeholder="tm('form.cronPlaceholder')"
-                    variant="outlined"
-                    density="comfortable"
-                    hide-details
-                  />
-                </div>
-
-                <v-autocomplete
-                  v-model="newJob.session"
-                  :items="availableUmos"
-                  :loading="loadingUmos"
-                  :label="tm('form.session')"
-                  variant="outlined"
-                  density="comfortable"
-                  clearable
-                  hide-details
-                  :no-data-text="tm('form.noUmos')"
-                  @focus="loadUmos()"
-                >
-                  <template #item="{ props, item }">
-                    <v-list-item v-bind="props">
-                      <template #title>
-                        <UmoDisplay
-                          v-bind="getUmoDisplayProps(resolveUmoSlotValue(item))"
-                          compact
-                          :show-info="false"
-                          :show-platform="false"
-                        />
-                      </template>
-                      <template #append>
-                        <v-chip
-                          v-if="getUmoInfo(resolveUmoSlotValue(item)).platform"
-                          size="x-small"
-                          :color="
-                            getPlatformColor(
-                              getUmoInfo(resolveUmoSlotValue(item)).platform,
-                            )
-                          "
-                          class="cron-umo-platform"
-                        >
-                          {{ getUmoInfo(resolveUmoSlotValue(item)).platform }}
-                        </v-chip>
-                      </template>
-                    </v-list-item>
-                  </template>
-                  <template #selection="{ item }">
-                    <v-chip
-                      v-if="
-                        item && getUmoSelectionText(resolveUmoSlotValue(item))
-                      "
-                      size="small"
-                      variant="tonal"
-                      color="primary"
-                      class="umo-selection-chip"
-                    >
-                      {{ getUmoSelectionText(resolveUmoSlotValue(item)) }}
-                    </v-chip>
-                  </template>
-                </v-autocomplete>
-              </div>
-            </v-card-text>
-            <v-card-actions class="justify-end px-5 pb-5 cron-dialog__actions">
-              <v-btn variant="text" @click="createDialog = false">{{
-                tm('actions.cancel')
-              }}</v-btn>
-              <v-btn
-                variant="tonal"
-                color="primary"
-                :loading="creating"
-                @click="submitJob"
-              >
-                {{ dialogSubmitText }}
-              </v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
+          :job="newJob"
+          :title="dialogTitle"
+          :submit-text="dialogSubmitText"
+          :schedule-mode-options="scheduleModeOptions"
+          :interval-unit-options="intervalUnitOptions"
+          :weekday-options="weekdayOptions"
+          :available-umos="availableUmos"
+          :loading-umos="loadingUmos"
+          :creating="creating"
+          :umo-info-map="availableUmoInfoMap"
+          @save="submitJob"
+          @load-umos="loadUmos()"
+        />
       </div>
     </v-container>
   </div>
@@ -464,11 +232,11 @@ import { computed, onMounted, ref } from 'vue';
 import { useTheme } from 'vuetify';
 import { botApi, cronApi, sessionApi } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
-import { getPlatformColor as resolvePlatformColor } from '@/utils/platformUtils';
+import CronEditorDialog from '@/components/cron/CronEditorDialog.vue';
+import CronPlatformDialog from '@/components/cron/CronPlatformDialog.vue';
 import ConfigDocsLink from '@/components/shared/ConfigDocsLink.vue';
 import OutlinedActionListItem from '@/components/shared/OutlinedActionListItem.vue';
 import StyledMenu from '@/components/shared/StyledMenu.vue';
-import UmoDisplay from '@/components/shared/UmoDisplay.vue';
 import { resolveErrorMessage } from '@/utils/errorUtils';
 
 const { tm } = useModuleI18n('features/cron');
@@ -844,41 +612,6 @@ function mergeUmoInfos(infos: UmoInfo[] = []) {
     }
   }
   availableUmoInfoMap.value = next;
-}
-
-function getUmoInfo(umo: string): UmoInfo {
-  return availableUmoInfoMap.value[umo] || parseUmoInfo(umo);
-}
-
-function getUmoDisplayProps(umo: string) {
-  const info = getUmoInfo(umo);
-  return {
-    umo,
-    platform: info.platform || '',
-    messageType: info.message_type || '',
-    sessionId: info.session_id || '',
-    autoName: info.auto_name || '',
-    userAlias: info.user_alias || '',
-  };
-}
-
-function getPlatformColor(platform = '') {
-  return resolvePlatformColor(platform);
-}
-
-function getUmoSelectionText(value?: string | null): string {
-  if (!value) return '';
-  const info = getUmoInfo(value);
-  const aliasName = info.user_alias || '';
-  const autoName = info.auto_name || '';
-  if (aliasName && autoName && aliasName !== autoName) {
-    return `${aliasName}（${autoName}）`;
-  }
-  return aliasName || autoName || value || info.display_name || '';
-}
-
-function resolveUmoSlotValue(item: unknown): string {
-  return typeof item === 'string' ? item : '';
 }
 
 async function loadUmos(force = false) {
@@ -1521,17 +1254,6 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-.cron-umo-platform {
-  margin-inline-start: 12px;
-  max-width: 96px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.umo-selection-chip {
-  max-width: 100%;
-}
-
 .list-action-icon-btn {
   color: rgb(var(--v-theme-on-surface-variant));
 }
@@ -1539,102 +1261,6 @@ onMounted(() => {
 .list-action-icon-btn:hover {
   background: rgb(var(--v-theme-surface-variant));
   color: rgb(var(--v-theme-on-surface));
-}
-
-.platform-dialog-description {
-  margin: 0 0 16px;
-  color: var(--dashboard-muted);
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-.platform-list {
-  display: grid;
-  gap: 10px;
-  max-height: min(56dvh, 480px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.platform-list-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 12px;
-  border: 1px solid var(--dashboard-border);
-  border-radius: 8px;
-}
-
-.platform-name {
-  min-width: 0;
-  color: var(--dashboard-text);
-  font-size: 14px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.platform-id {
-  color: var(--dashboard-muted);
-  font-size: 12px;
-}
-
-.platform-dialog-empty {
-  min-height: 120px;
-}
-
-.platform-dialog__card {
-  display: flex;
-  flex-direction: column;
-  max-height: min(88dvh, 720px);
-}
-
-.platform-dialog__content {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.platform-dialog__actions {
-  flex-shrink: 0;
-}
-
-.cron-dialog__card {
-  display: flex;
-  flex-direction: column;
-  max-height: min(88dvh, 960px);
-}
-
-.cron-dialog__content {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.cron-dialog__actions {
-  flex-shrink: 0;
-}
-
-.schedule-field {
-  display: grid;
-  grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-  margin-bottom: 16px;
-}
-
-.schedule-mode-select {
-  min-width: 0;
-}
-
-.schedule-inline-fields {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
 }
 
 @media (max-width: 900px) {
@@ -1649,11 +1275,6 @@ onMounted(() => {
 
   .task-filter-bar {
     align-items: stretch;
-  }
-
-  .schedule-field,
-  .schedule-inline-fields {
-    grid-template-columns: 1fr;
   }
 }
 </style>
