@@ -332,13 +332,14 @@ function platformIcon(item: Conversation | BotOption) {
   return getPlatformIcon(platformType);
 }
 
-function formatTimestamp(timestamp?: number | string) {
+function formatTimestamp(timestamp?: number | string | null) {
   if (timestamp === undefined || timestamp === null || timestamp === '') {
     return tm('status.unknown');
   }
   const numeric = Number(timestamp);
+  const millis = numeric > 10_000_000_000 ? numeric : numeric * 1000;
   const date = Number.isFinite(numeric)
-    ? new Date(numeric > 10_000_000_000 ? numeric : numeric * 1000)
+    ? new Date(millis)
     : new Date(String(timestamp));
   if (Number.isNaN(date.getTime())) return tm('status.unknown');
   return new Intl.DateTimeFormat(locale.value || 'zh-CN', {
@@ -365,15 +366,10 @@ async function fetchFilterOptions() {
   }
 }
 
-async function fetchConversations() {
-  cancelScheduledFetch();
-  listAbortController.value?.abort();
-  const controller = new AbortController();
-  const requestId = ++listRequestId.value;
-  listAbortController.value = controller;
-  listLoading.value = true;
-  listError.value = false;
-
+function buildConversationListParams(): Record<
+  string,
+  string | number | boolean
+> {
   const [sortBy, sortOrder] = sortValue.value.split(':') as [
     'created_at' | 'updated_at',
     'asc' | 'desc',
@@ -394,6 +390,19 @@ async function fetchConversations() {
   if (selectedTypes.value.length) {
     params.message_types = selectedTypes.value.join(',');
   }
+  return params;
+}
+
+async function fetchConversations() {
+  cancelScheduledFetch();
+  listAbortController.value?.abort();
+  const controller = new AbortController();
+  const requestId = ++listRequestId.value;
+  listAbortController.value = controller;
+  listLoading.value = true;
+  listError.value = false;
+
+  const params = buildConversationListParams();
 
   try {
     const response = await conversationApi.list(params, {

@@ -118,8 +118,9 @@ const timelineEntries = computed<TimelineEntry[]>(() => {
 
     part.tool_calls.forEach((tool, toolIndex) => {
       const normalizedTool = normalizeToolCall(tool);
+      const fallbackKey = `${partIndex}-${toolIndex}`;
       entries.push({
-        key: `tool-${String(tool.id || tool.name || `${partIndex}-${toolIndex}`)}`,
+        key: `tool-${String(tool.id || tool.name || fallbackKey)}`,
         kind: 'tool_call',
         title: tm('reasoning.toolUsed'),
         tool: normalizedTool,

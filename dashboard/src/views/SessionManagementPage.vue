@@ -1466,6 +1466,31 @@ async function saveQuickEditName() {
   }
 }
 
+function collectProviderTask(
+  targetPayload: ReturnType<typeof buildBatchTargetPayload>,
+  providerValue: string,
+  providerType: 'chat_completion' | 'text_to_speech',
+  ruleKey: string,
+): Promise<unknown> {
+  if (providerValue === FOLLOW_CONFIG_VALUE) {
+    return sessionApi.deleteRules({ ...targetPayload, rule_key: ruleKey });
+  }
+  const providerData: BatchSessionProviderRequest = {
+    ...targetPayload,
+    provider_type: providerType,
+    provider_id: providerValue,
+  };
+  return sessionApi.batchUpdateProvider(providerData);
+}
+
+function isOkResult(result: unknown): boolean {
+  if (!result || typeof result !== 'object') {
+    return false;
+  }
+  const responseData = (result as { data?: { status?: string } }).data;
+  return responseData?.status === 'ok';
+}
+
 async function applyBatchChanges() {
   batchUpdating.value = true;
   try {
@@ -1501,39 +1526,25 @@ async function applyBatchChanges() {
     }
 
     if (batchChatProvider.value !== null) {
-      if (batchChatProvider.value === FOLLOW_CONFIG_VALUE) {
-        tasks.push(
-          sessionApi.deleteRules({
-            ...targetPayload,
-            rule_key: 'provider_perf_chat_completion',
-          }),
-        );
-      } else {
-        const providerData: BatchSessionProviderRequest = {
-          ...targetPayload,
-          provider_type: 'chat_completion',
-          provider_id: batchChatProvider.value,
-        };
-        tasks.push(sessionApi.batchUpdateProvider(providerData));
-      }
+      tasks.push(
+        collectProviderTask(
+          targetPayload,
+          batchChatProvider.value,
+          'chat_completion',
+          'provider_perf_chat_completion',
+        ),
+      );
     }
 
     if (batchTtsProvider.value !== null) {
-      if (batchTtsProvider.value === FOLLOW_CONFIG_VALUE) {
-        tasks.push(
-          sessionApi.deleteRules({
-            ...targetPayload,
-            rule_key: 'provider_perf_text_to_speech',
-          }),
-        );
-      } else {
-        const providerData: BatchSessionProviderRequest = {
-          ...targetPayload,
-          provider_type: 'text_to_speech',
-          provider_id: batchTtsProvider.value,
-        };
-        tasks.push(sessionApi.batchUpdateProvider(providerData));
-      }
+      tasks.push(
+        collectProviderTask(
+          targetPayload,
+          batchTtsProvider.value,
+          'text_to_speech',
+          'provider_perf_text_to_speech',
+        ),
+      );
     }
 
     if (tasks.length === 0) {
@@ -1542,14 +1553,7 @@ async function applyBatchChanges() {
     }
 
     const results = await Promise.all(tasks);
-    const allOk = results.every((result) => {
-      if (!result || typeof result !== 'object') {
-        return false;
-      }
-
-      const responseData = (result as { data?: { status?: string } }).data;
-      return responseData?.status === 'ok';
-    });
+    const allOk = results.every(isOkResult);
 
     if (!allOk) {
       showError(tm('messages.partialUpdateFailed'));
@@ -1577,14 +1581,8 @@ async function loadGroups() {
       return;
     }
 
-    const rawData = response.data.data;
-    const rawGroups: unknown[] =
-      rawData &&
-      typeof rawData === 'object' &&
-      'groups' in rawData &&
-      Array.isArray(rawData.groups)
-        ? rawData.groups
-        : [];
+    const groupsValue = response.data.data.groups;
+    const rawGroups: unknown[] = Array.isArray(groupsValue) ? groupsValue : [];
 
     groups.value = rawGroups
       .map((group) => normalizeGroup(group))

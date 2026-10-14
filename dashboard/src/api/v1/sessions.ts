@@ -45,7 +45,7 @@ export const sessionApi = {
     );
   },
   listGroups() {
-    return typed<OpenConfig[]>(openApiV1.listSessionGroups());
+    return typed<{ groups: OpenConfig[] }>(openApiV1.listSessionGroups());
   },
   createGroup(payload: SessionGroupRequest) {
     return typed<OpenConfig>(openApiV1.createSessionGroup({ body: payload }));

@@ -40,7 +40,7 @@ export function useCommandFilters(commands: Ref<CommandItem[]>) {
         .filter((cmd) => effectiveShowSystemPlugins.value || !cmd.reserved)
         .map((cmd) => cmd.plugin),
     );
-    return Array.from(plugins).sort();
+    return Array.from(plugins).sort((a, b) => a.localeCompare(b));
   });
 
   const availableActions = computed(() =>
@@ -50,8 +50,36 @@ export function useCommandFilters(commands: Ref<CommandItem[]>) {
           .map((cmd) => cmd.action)
           .filter((action): action is string => Boolean(action)),
       ),
-    ).sort(),
+    ).sort((a, b) => a.localeCompare(b)),
   );
+
+  const matchesSearchQuery = (cmd: CommandItem, query: string): boolean => {
+    return Boolean(
+      cmd.effective_command?.toLowerCase().includes(query) ||
+      cmd.signature?.toLowerCase().includes(query) ||
+      cmd.display_signature?.toLowerCase().includes(query) ||
+      cmd.description?.toLowerCase().includes(query) ||
+      cmd.plugin?.toLowerCase().includes(query),
+    );
+  };
+
+  const matchesStatusFilter = (cmd: CommandItem): boolean => {
+    const filter = statusFilter.value;
+    if (filter === 'all') return true;
+    if (filter === 'enabled') return Boolean(cmd.enabled);
+    if (filter === 'disabled') return !cmd.enabled;
+    if (filter === 'conflict') return Boolean(cmd.has_conflict);
+    return true;
+  };
+
+  const matchesTypeFilter = (cmd: CommandItem): boolean => {
+    const filter = typeFilter.value;
+    if (filter === 'all') return true;
+    if (filter === 'group') return cmd.type === 'group';
+    if (filter === 'command') return cmd.type === 'command';
+    if (filter === 'sub_command') return cmd.type === 'sub_command';
+    return true;
+  };
 
   /**
    * 检查指令是否匹配过滤条件
@@ -63,14 +91,8 @@ export function useCommandFilters(commands: Ref<CommandItem[]>) {
     }
 
     // 搜索过滤
-    if (query) {
-      const matchesSearch =
-        cmd.effective_command?.toLowerCase().includes(query) ||
-        cmd.signature?.toLowerCase().includes(query) ||
-        cmd.display_signature?.toLowerCase().includes(query) ||
-        cmd.description?.toLowerCase().includes(query) ||
-        cmd.plugin?.toLowerCase().includes(query);
-      if (!matchesSearch) return false;
+    if (query && !matchesSearchQuery(cmd, query)) {
+      return false;
     }
 
     // 插件过滤
@@ -84,22 +106,52 @@ export function useCommandFilters(commands: Ref<CommandItem[]>) {
     }
 
     // 状态过滤
-    if (statusFilter.value !== 'all') {
-      if (statusFilter.value === 'enabled' && !cmd.enabled) return false;
-      if (statusFilter.value === 'disabled' && cmd.enabled) return false;
-      if (statusFilter.value === 'conflict' && !cmd.has_conflict) return false;
+    if (!matchesStatusFilter(cmd)) {
+      return false;
     }
 
     // 类型过滤
-    if (typeFilter.value !== 'all') {
-      if (typeFilter.value === 'group' && cmd.type !== 'group') return false;
-      if (typeFilter.value === 'command' && cmd.type !== 'command')
-        return false;
-      if (typeFilter.value === 'sub_command' && cmd.type !== 'sub_command')
-        return false;
+    if (!matchesTypeFilter(cmd)) {
+      return false;
     }
 
     return true;
+  };
+
+  interface CommandBuckets {
+    conflict: CommandItem[];
+    normal: CommandItem[];
+  }
+
+  const bucketCommand = (buckets: CommandBuckets, cmd: CommandItem): void => {
+    if (cmd.has_conflict) {
+      buckets.conflict.push(cmd);
+    } else {
+      buckets.normal.push(cmd);
+    }
+  };
+
+  const collectGroupMatches = (
+    cmd: CommandItem,
+    query: string,
+    buckets: CommandBuckets,
+  ): void => {
+    const groupMatches = matchesFilters(cmd, query);
+    const matchingSubCmds = (cmd.sub_commands || []).filter((sub) =>
+      matchesFilters(sub, query),
+    );
+
+    // 如果组匹配或有匹配的子指令，则包含它
+    if (!groupMatches && matchingSubCmds.length === 0) return;
+
+    bucketCommand(buckets, cmd);
+
+    // 如果组已展开，添加匹配的子指令
+    if (!expandedGroups.value.has(cmd.command_id)) return;
+    const subsToShow = query ? matchingSubCmds : cmd.sub_commands || [];
+    for (const sub of subsToShow) {
+      bucketCommand(buckets, sub);
+    }
   };
 
   /**
@@ -107,55 +159,24 @@ export function useCommandFilters(commands: Ref<CommandItem[]>) {
    */
   const filteredCommands = computed(() => {
     const query = normalizeTextInput(searchQuery.value).toLowerCase();
-    const conflictCmds: CommandItem[] = [];
-    const normalCmds: CommandItem[] = [];
+    const buckets: CommandBuckets = { conflict: [], normal: [] };
 
     for (const cmd of commands.value) {
       // 对于指令组，检查组本身或子指令是否匹配
       if (cmd.is_group) {
-        const groupMatches = matchesFilters(cmd, query);
-        const matchingSubCmds = (cmd.sub_commands || []).filter((sub) =>
-          matchesFilters(sub, query),
-        );
-
-        // 如果组匹配或有匹配的子指令，则包含它
-        if (groupMatches || matchingSubCmds.length > 0) {
-          if (cmd.has_conflict) {
-            conflictCmds.push(cmd);
-          } else {
-            normalCmds.push(cmd);
-          }
-
-          // 如果组已展开，添加匹配的子指令
-          if (expandedGroups.value.has(cmd.command_id)) {
-            const subsToShow = query ? matchingSubCmds : cmd.sub_commands || [];
-            for (const sub of subsToShow) {
-              if (sub.has_conflict) {
-                conflictCmds.push(sub);
-              } else {
-                normalCmds.push(sub);
-              }
-            }
-          }
-        }
-      } else if (cmd.type !== 'sub_command') {
+        collectGroupMatches(cmd, query, buckets);
+      } else if (cmd.type !== 'sub_command' && matchesFilters(cmd, query)) {
         // 普通指令（子指令通过组处理）
-        if (matchesFilters(cmd, query)) {
-          if (cmd.has_conflict) {
-            conflictCmds.push(cmd);
-          } else {
-            normalCmds.push(cmd);
-          }
-        }
+        bucketCommand(buckets, cmd);
       }
     }
 
     // 按 effective_command 排序冲突指令，使其分组在一起
-    conflictCmds.sort((a, b) =>
+    buckets.conflict.sort((a, b) =>
       (a.effective_command || '').localeCompare(b.effective_command || ''),
     );
 
-    return [...conflictCmds, ...normalCmds];
+    return [...buckets.conflict, ...buckets.normal];
   });
 
   /**

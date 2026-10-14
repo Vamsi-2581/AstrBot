@@ -417,6 +417,17 @@ function triggerImport() {
   }
 }
 
+function nextAvailablePromptId(baseId: string, existingIds: Set<string>) {
+  let promptId = baseId;
+  let suffix = 1;
+  while (existingIds.has(promptId)) {
+    const suffixLabel = suffix === 1 ? '' : `_${suffix}`;
+    promptId = `${baseId}_imported${suffixLabel}`;
+    suffix += 1;
+  }
+  return promptId;
+}
+
 async function handleImportFile(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
@@ -447,12 +458,7 @@ async function handleImportFile(event: Event) {
       typeof imported.prompt_id === 'string' && imported.prompt_id
         ? imported.prompt_id
         : 'imported_prompt';
-    let promptId = baseId;
-    let suffix = 1;
-    while (existingIds.has(promptId)) {
-      promptId = `${baseId}_imported${suffix === 1 ? '' : `_${suffix}`}`;
-      suffix += 1;
-    }
+    const promptId = nextAvailablePromptId(baseId, existingIds);
 
     const createResponse = await promptApi.create({
       prompt_id: promptId,

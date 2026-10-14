@@ -28,7 +28,9 @@ defineProps<{
 }>();
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@use './panel-styles' as panel;
+
 .overview-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -36,16 +38,7 @@ defineProps<{
   margin-bottom: 20px;
 }
 
-.stat-card {
-  border: 1px solid var(--stats-border);
-  border-radius: 16px;
-  background: var(--stats-surface);
-}
-
-.stats-page.is-dark .stat-card {
-  border-color: var(--stats-border-strong);
-  background: var(--stats-surface);
-}
+@include panel.stat-card;
 
 .overview-card {
   padding: 20px 20px 18px;
@@ -67,16 +60,7 @@ defineProps<{
   color: rgb(var(--v-theme-primary));
 }
 
-.card-label {
-  margin-top: 8px;
-  color: var(--stats-muted);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.stats-page.is-dark .card-label {
-  color: var(--stats-muted);
-}
+@include panel.card-label;
 
 .card-value {
   margin-top: 8px;
@@ -86,16 +70,7 @@ defineProps<{
   letter-spacing: -0.03em;
 }
 
-.card-note {
-  margin-top: 8px;
-  color: var(--stats-subtle);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.stats-page.is-dark .card-note {
-  color: var(--stats-muted);
-}
+@include panel.card-note;
 
 @media (max-width: 1400px) {
   .overview-grid {

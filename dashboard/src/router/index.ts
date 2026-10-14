@@ -3,7 +3,6 @@ import MainRoutes from './MainRoutes';
 import AuthRoutes from './AuthRoutes';
 import ChatBoxRoutes from './ChatBoxRoutes';
 import SharedRoutes from './SharedRoutes';
-import { useAuthStore } from '@/stores/auth';
 import { useRouterLoadingStore } from '@/stores/routerLoading';
 
 export const router = createRouter({
@@ -32,6 +31,7 @@ router.beforeEach(async (to, from) => {
 
   const publicPages = ['/auth/login', '/auth/setup'];
   const authRequired = !publicPages.includes(to.path);
+  const { useAuthStore } = await import('@/stores/auth');
   const auth: AuthStore = useAuthStore();
 
   // 如果用户已登录且试图访问登录页面，则重定向到首页

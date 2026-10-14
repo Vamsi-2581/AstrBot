@@ -227,7 +227,8 @@ async function restartCore() {
     });
     statusMessage.value = t('core.common.upgradeRecovery.waiting');
     waitForRestart();
-  } catch (_error) {
+  } catch {
+    // Restart request failed: surface a generic failure message.
     restarting.value = false;
     statusMessage.value = t('core.common.upgradeRecovery.failed');
   }

@@ -160,6 +160,69 @@ function pulseEvent(spanId: string): void {
   };
 }
 
+function createEventGroup(
+  trace: TracePayload,
+  spanId: string,
+  action: string,
+  time: number,
+): TraceEventGroup {
+  return {
+    span_id: spanId,
+    name: trace.name,
+    umo: trace.umo,
+    sender_name: trace.sender_name,
+    message_outline: trace.message_outline,
+    first_time: time,
+    last_time: time,
+    collapsed: true,
+    visibleCount: 20,
+    records: [],
+    hasAgentPrepare: action === 'astr_agent_prepare',
+  };
+}
+
+function ingestTrace(rawTrace: unknown, touched: Set<string>): boolean {
+  const trace = normalizeTracePayload(rawTrace);
+  if (!trace?.span_id || !trace.action || !trace.time) {
+    return false;
+  }
+
+  const recordKey = `${trace.time}-${trace.span_id}-${trace.action}`;
+  let event = eventIndex.value[trace.span_id];
+  let created = false;
+  if (!event) {
+    event = createEventGroup(trace, trace.span_id, trace.action, trace.time);
+    eventIndex.value[trace.span_id] = event;
+    events.value.push(event);
+    created = true;
+  }
+
+  if (event.records.some((item) => item.key === recordKey)) {
+    return created;
+  }
+
+  event.records.push({
+    time: trace.time,
+    action: trace.action,
+    fieldsText: formatFields(trace.fields),
+    timeLabel: formatTime(trace.time),
+    key: recordKey,
+  });
+  if (trace.action === 'astr_agent_prepare') {
+    event.hasAgentPrepare = true;
+  }
+  event.first_time = Math.min(event.first_time, trace.time);
+  event.last_time = Math.max(event.last_time, trace.time);
+  if (!event.sender_name && trace.sender_name) {
+    event.sender_name = trace.sender_name;
+  }
+  if (!event.message_outline && trace.message_outline) {
+    event.message_outline = trace.message_outline;
+  }
+  touched.add(trace.span_id);
+  return true;
+}
+
 function processNewTraces(newTraces: unknown[]): void {
   if (newTraces.length === 0) {
     return;
@@ -169,60 +232,9 @@ function processNewTraces(newTraces: unknown[]): void {
   const touched = new Set<string>();
 
   for (const rawTrace of newTraces) {
-    const trace = normalizeTracePayload(rawTrace);
-    if (!trace?.span_id || !trace.action || !trace.time) {
-      continue;
-    }
-    const recordKey = `${trace.time}-${trace.span_id}-${trace.action}`;
-    let event = eventIndex.value[trace.span_id];
-    if (!event) {
-      event = {
-        span_id: trace.span_id,
-        name: trace.name,
-        umo: trace.umo,
-        sender_name: trace.sender_name,
-        message_outline: trace.message_outline,
-        first_time: trace.time,
-        last_time: trace.time,
-        collapsed: true,
-        visibleCount: 20,
-        records: [],
-        hasAgentPrepare: trace.action === 'astr_agent_prepare',
-      };
-      eventIndex.value[trace.span_id] = event;
-      events.value.push(event);
+    if (ingestTrace(rawTrace, touched)) {
       hasUpdate = true;
     }
-
-    const exists = event.records.some((item) => item.key === recordKey);
-    if (exists) {
-      continue;
-    }
-
-    event.records.push({
-      time: trace.time,
-      action: trace.action,
-      fieldsText: formatFields(trace.fields),
-      timeLabel: formatTime(trace.time),
-      key: recordKey,
-    });
-    if (trace.action === 'astr_agent_prepare') {
-      event.hasAgentPrepare = true;
-    }
-    if (trace.time < event.first_time) {
-      event.first_time = trace.time;
-    }
-    if (trace.time > event.last_time) {
-      event.last_time = trace.time;
-    }
-    if (!event.sender_name && trace.sender_name) {
-      event.sender_name = trace.sender_name;
-    }
-    if (!event.message_outline && trace.message_outline) {
-      event.message_outline = trace.message_outline;
-    }
-    touched.add(trace.span_id);
-    hasUpdate = true;
   }
 
   if (!hasUpdate) {

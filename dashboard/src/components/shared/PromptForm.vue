@@ -694,8 +694,7 @@ const showDialog = computed({
 
 const promptIdRules = computed<PromptRule[]>(() => [
   (value) => Boolean(value) || tm('validation.required'),
-  (value) =>
-    (value.length >= 1 && true) || tm('validation.minLength', { min: 1 }),
+  (value) => value.length >= 1 || tm('validation.minLength', { min: 1 }),
   (value) =>
     props.editingPrompt?.prompt_id === value ||
     !existingPromptIds.value.includes(value) ||
@@ -705,8 +704,7 @@ const promptIdRules = computed<PromptRule[]>(() => [
 const systemPromptRules = computed<PromptRule[]>(() => [
   (value) => Boolean(value) || tm('validation.required'),
   (value) =>
-    (value.trim().length >= 10 && true) ||
-    tm('validation.minLength', { min: 10 }),
+    value.trim().length >= 10 || tm('validation.minLength', { min: 10 }),
 ]);
 
 const filteredTools = computed(() => {
@@ -1284,7 +1282,7 @@ function getDialogRules(index: number): PromptRule[] {
     (value) =>
       Boolean(value) || tm('validation.dialogRequired', { type: dialogType }),
     (value) =>
-      (value.trim().length > 0 && true) ||
+      value.trim().length > 0 ||
       tm('validation.dialogRequired', { type: dialogType }),
   ];
 }

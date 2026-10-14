@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, type PropType } from 'vue';
 import DOMPurify from 'dompurify';
 import { useModuleI18n } from '@/i18n/composables';
 import {
@@ -54,7 +54,7 @@ const props = defineProps({
     default: true,
   },
   forceExpanded: {
-    type: Boolean,
+    type: Boolean as PropType<boolean | null>,
     default: null,
   },
 });

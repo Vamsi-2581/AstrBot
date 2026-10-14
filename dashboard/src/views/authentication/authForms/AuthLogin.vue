@@ -85,7 +85,11 @@ async function submitTotpStage() {
   }
 }
 
-defineExpose({ stage });
+defineExpose({
+  get stage() {
+    return stage.value;
+  },
+});
 
 async function submitRecoveryStage() {
   if (!recoveryCode.value) {
@@ -151,35 +155,14 @@ async function submitRecoveryStage() {
 </template>
 
 <style lang="scss">
+@use './auth-form-fields' as authFields;
+
 .login-form {
   .v-text-field .v-field--active input {
     font-weight: 500;
   }
 
-  .input-field,
-  .pwd-input {
-    .v-field__field {
-      padding-top: 5px;
-      padding-bottom: 5px;
-    }
-
-    .v-field__outline {
-      opacity: 0.7;
-    }
-
-    &:hover .v-field__outline {
-      opacity: 0.9;
-    }
-
-    .v-field--focused .v-field__outline {
-      opacity: 1;
-    }
-
-    .v-field__prepend-inner {
-      padding-right: 8px;
-      opacity: 0.7;
-    }
-  }
+  @include authFields.auth-form-fields;
 
   .pwd-input {
     position: relative;

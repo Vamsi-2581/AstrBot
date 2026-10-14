@@ -227,13 +227,9 @@ async function updateRenderedHtml() {
     const lang = normalizeShikiLanguage(token.info);
     const code = token.content;
     const escapedLangLabel = lang && lang !== 'text' ? escapeHtml(lang) : '';
+    const theme = isDark.value ? 'dark' : 'light';
     const highlighted = highlighter
-      ? renderShikiCode(
-          highlighter,
-          code,
-          lang,
-          isDark.value ? 'dark' : 'light',
-        )
+      ? renderShikiCode(highlighter, code, lang, theme)
       : `<pre class="shiki shiki-fallback"><code>${escapeHtml(code)}</code></pre>`;
     const html = sanitizeHighlightedBlock(`<div class="code-block-wrapper">
       ${escapedLangLabel ? `<span class="code-lang-label">${escapedLangLabel}</span>` : ''}
@@ -323,6 +319,35 @@ const requiresPluginName = computed(
   () => props.mode === 'readme' || props.mode === 'changelog',
 );
 
+async function requestContent() {
+  if (props.mode === 'changelog') {
+    return pluginApi.changelog(props.pluginName);
+  }
+  if (props.mode === 'readme') {
+    return pluginApi.readme(props.pluginName);
+  }
+  if (props.mode === 'first-notice') {
+    return statsApi.firstNotice(locale.value);
+  }
+  return undefined;
+}
+
+function applyContentResponse(res: {
+  data: { status?: string; message?: string | null; data?: unknown };
+}) {
+  if (res.data.status !== 'ok') {
+    error.value = res.data.message ?? null;
+    return;
+  }
+  const payload = res.data.data as Record<string, unknown>;
+  const contentValue = payload.content;
+  if (typeof contentValue === 'string' && contentValue) {
+    content.value = contentValue;
+  } else {
+    isEmpty.value = true;
+  }
+}
+
 async function fetchContent() {
   if (requiresPluginName.value && !props.pluginName) return;
   const requestId = ++lastRequestId.value;
@@ -332,27 +357,9 @@ async function fetchContent() {
   isEmpty.value = false;
 
   try {
-    let res;
-    if (props.mode === 'changelog') {
-      res = await pluginApi.changelog(props.pluginName);
-    } else if (props.mode === 'readme') {
-      res = await pluginApi.readme(props.pluginName);
-    } else if (props.mode === 'first-notice') {
-      res = await statsApi.firstNotice(locale.value);
-    }
+    const res = await requestContent();
     if (!res || requestId !== lastRequestId.value) return;
-
-    if (res.data.status === 'ok') {
-      const payload = res.data.data as Record<string, unknown>;
-      const contentValue = payload.content;
-      if (typeof contentValue === 'string' && contentValue) {
-        content.value = contentValue;
-      } else {
-        isEmpty.value = true;
-      }
-    } else {
-      error.value = res.data.message ?? null;
-    }
+    applyContentResponse(res);
   } catch (err) {
     if (requestId === lastRequestId.value) {
       error.value = err instanceof Error ? err.message : String(err);

@@ -888,10 +888,14 @@ const timezoneTimePreview = computed(() => {
   const absoluteOffset = Math.abs(serverUtcOffsetMinutes.value);
   const offsetHours = Math.floor(absoluteOffset / 60);
   const offsetMinutes = absoluteOffset % 60;
+  const sign = serverUtcOffsetMinutes.value > 0 ? '+' : '-';
+  const minutesPart = offsetMinutes
+    ? `:${String(offsetMinutes).padStart(2, '0')}`
+    : '';
   const offsetLabel =
     serverUtcOffsetMinutes.value === 0
       ? 'UTC'
-      : `UTC${serverUtcOffsetMinutes.value > 0 ? '+' : '-'}${offsetHours}${offsetMinutes ? `:${String(offsetMinutes).padStart(2, '0')}` : ''}`;
+      : `UTC${sign}${offsetHours}${minutesPart}`;
 
   return { localTime, offsetLabel };
 });

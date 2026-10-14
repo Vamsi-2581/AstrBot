@@ -132,31 +132,10 @@ async function validate(
 </template>
 
 <style lang="scss">
+@use './auth-form-fields' as authFields;
+
 .setup-form {
-  .input-field,
-  .pwd-input {
-    .v-field__field {
-      padding-top: 5px;
-      padding-bottom: 5px;
-    }
-
-    .v-field__outline {
-      opacity: 0.7;
-    }
-
-    &:hover .v-field__outline {
-      opacity: 0.9;
-    }
-
-    .v-field--focused .v-field__outline {
-      opacity: 1;
-    }
-
-    .v-field__prepend-inner {
-      padding-right: 8px;
-      opacity: 0.7;
-    }
-  }
+  @include authFields.auth-form-fields;
 
   .setup-hint {
     display: block;

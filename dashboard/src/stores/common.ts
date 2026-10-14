@@ -21,89 +21,88 @@ interface CommonState {
   pluginMarketData: PluginMarketItem[];
 }
 
+const toOptionalString = (value: unknown): string | undefined =>
+  typeof value === 'string' ? value : undefined;
+
+const toStringOr = (value: unknown, fallback: string): string =>
+  typeof value === 'string' ? value : fallback;
+
+const firstStringArray = (...candidates: unknown[]): string[] => {
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate.filter(
+        (value): value is string => typeof value === 'string',
+      );
+    }
+  }
+  return [];
+};
+
+const normalizePluginMarketEntry = (
+  key: string,
+  rawPlugin: unknown,
+): PluginMarketItem | null => {
+  if (isMarketMetaKey(key)) {
+    return null;
+  }
+
+  const pluginData =
+    rawPlugin && typeof rawPlugin === 'object'
+      ? (rawPlugin as Record<string, unknown>)
+      : {};
+  const name =
+    typeof pluginData.name === 'string' && pluginData.name.trim()
+      ? pluginData.name
+      : key;
+  const { market_plugin_id: _ignoredMarketPluginId, ...record } = pluginData;
+  const item: PluginMarketItem = {
+    ...record,
+    name,
+    desc: toOptionalString(pluginData.desc),
+    short_desc: toStringOr(pluginData.short_desc, ''),
+    author: pluginData.author,
+    repo: toOptionalString(pluginData.repo),
+    installed: false,
+    version: toStringOr(pluginData.version, '未知'),
+    social_link: toOptionalString(pluginData.social_link),
+    tags: Array.isArray(pluginData.tags)
+      ? pluginData.tags.filter(
+          (value): value is string => typeof value === 'string',
+        )
+      : [],
+    logo: toStringOr(pluginData.logo, ''),
+    pinned: Boolean(pluginData.pinned),
+    stars: typeof pluginData.stars === 'number' ? pluginData.stars : 0,
+    updated_at: toStringOr(pluginData.updated_at, ''),
+    download_url: toStringOr(pluginData.download_url, ''),
+    display_name: toStringOr(pluginData.display_name, ''),
+    i18n:
+      pluginData.i18n && typeof pluginData.i18n === 'object'
+        ? (pluginData.i18n as Record<string, unknown>)
+        : {},
+    astrbot_version: toStringOr(pluginData.astrbot_version, ''),
+    category: toStringOr(pluginData.category, ''),
+    support_platforms: firstStringArray(
+      pluginData.support_platforms,
+      pluginData.support_platform,
+      pluginData.platform,
+    ),
+  };
+  const marketPluginId = getMarketPluginId(item);
+  if (marketPluginId) {
+    item.market_plugin_id = marketPluginId;
+  }
+  return item;
+};
+
 const normalizePluginMarketData = (marketData: unknown): PluginMarketItem[] => {
   if (!marketData || typeof marketData !== 'object') {
     return [];
   }
 
   return Object.entries(marketData).flatMap(([key, rawPlugin]) => {
-    if (isMarketMetaKey(key)) {
-      return [];
-    }
-    const pluginData =
-      rawPlugin && typeof rawPlugin === 'object'
-        ? (rawPlugin as Record<string, unknown>)
-        : {};
-    let supportPlatforms: string[] = [];
-    if (Array.isArray(pluginData.support_platforms)) {
-      supportPlatforms = pluginData.support_platforms.filter(
-        (value): value is string => typeof value === 'string',
-      );
-    } else if (Array.isArray(pluginData.support_platform)) {
-      supportPlatforms = pluginData.support_platform.filter(
-        (value): value is string => typeof value === 'string',
-      );
-    } else if (Array.isArray(pluginData.platform)) {
-      supportPlatforms = pluginData.platform.filter(
-        (value): value is string => typeof value === 'string',
-      );
-    }
-
-    const name =
-      typeof pluginData.name === 'string' && pluginData.name.trim()
-        ? pluginData.name
-        : key;
-    const { market_plugin_id: _ignoredMarketPluginId, ...record } = pluginData;
-    const item: PluginMarketItem = {
-      ...record,
-      name,
-      desc: typeof pluginData.desc === 'string' ? pluginData.desc : undefined,
-      short_desc:
-        typeof pluginData.short_desc === 'string' ? pluginData.short_desc : '',
-      author: pluginData.author,
-      repo: typeof pluginData.repo === 'string' ? pluginData.repo : undefined,
-      installed: false,
-      version:
-        typeof pluginData.version === 'string' ? pluginData.version : '未知',
-      social_link:
-        typeof pluginData.social_link === 'string'
-          ? pluginData.social_link
-          : undefined,
-      tags: Array.isArray(pluginData.tags)
-        ? pluginData.tags.filter(
-            (value): value is string => typeof value === 'string',
-          )
-        : [],
-      logo: typeof pluginData.logo === 'string' ? pluginData.logo : '',
-      pinned: Boolean(pluginData.pinned),
-      stars: typeof pluginData.stars === 'number' ? pluginData.stars : 0,
-      updated_at:
-        typeof pluginData.updated_at === 'string' ? pluginData.updated_at : '',
-      download_url:
-        typeof pluginData.download_url === 'string'
-          ? pluginData.download_url
-          : '',
-      display_name:
-        typeof pluginData.display_name === 'string'
-          ? pluginData.display_name
-          : '',
-      i18n:
-        pluginData.i18n && typeof pluginData.i18n === 'object'
-          ? (pluginData.i18n as Record<string, unknown>)
-          : {},
-      astrbot_version:
-        typeof pluginData.astrbot_version === 'string'
-          ? pluginData.astrbot_version
-          : '',
-      category:
-        typeof pluginData.category === 'string' ? pluginData.category : '',
-      support_platforms: supportPlatforms,
-    };
-    const marketPluginId = getMarketPluginId(item);
-    if (marketPluginId) {
-      item.market_plugin_id = marketPluginId;
-    }
-    return [item];
+    const item = normalizePluginMarketEntry(key, rawPlugin);
+    return item ? [item] : [];
   });
 };
 

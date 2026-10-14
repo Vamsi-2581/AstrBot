@@ -944,6 +944,77 @@ const uploadFromUrl = async () => {
   }
 };
 
+// 更新对应文件的进度
+const updateUploadProgress = (
+  taskId: string,
+  progress: KnowledgeTaskProgressPayload,
+) => {
+  const fileIndex = progress.file_index || 0;
+  documents.value = documents.value.map((doc) => {
+    if (doc.taskId !== taskId) return doc;
+    const docIndex = parseInt(doc.doc_id.split('_').pop() || '0', 10);
+    if (docIndex !== fileIndex) return doc;
+    return {
+      ...doc,
+      uploadProgress: {
+        stage: progress.stage || 'waiting',
+        current: progress.current || 0,
+        total: progress.total || 100,
+      },
+    };
+  });
+};
+
+const finishUploadTask = async (
+  taskId: string,
+  data: KnowledgeTaskPayload | undefined,
+) => {
+  // 任务完成
+  stopProgressPolling();
+
+  const result = data?.result;
+  const successCount = result?.success_count || 0;
+  const failedCount = result?.failed_count || 0;
+
+  // 移除上传中的占位文档
+  documents.value = documents.value.filter((doc) => doc.taskId !== taskId);
+
+  // 重新加载文档列表
+  await loadDocuments();
+  emit('refresh');
+
+  if (failedCount === 0) {
+    showSnackbar(
+      ingestSummary(result?.uploaded) || `成功上传 ${successCount} 个文档`,
+    );
+    return;
+  }
+  showSnackbar(
+    `上传完成: ${successCount} 个成功, ${failedCount} 个失败`,
+    'warning',
+  );
+};
+
+const failUploadTask = async (
+  taskId: string,
+  status: string,
+  data: KnowledgeTaskPayload | undefined,
+) => {
+  // 任务失败
+  stopProgressPolling();
+
+  // 移除上传中的占位文档
+  documents.value = documents.value.filter((doc) => doc.taskId !== taskId);
+
+  if (status === 'interrupted') {
+    await loadDocuments();
+    emit('refresh');
+    showSnackbar(t('documents.taskInterrupted'), 'warning');
+    return;
+  }
+  showSnackbar(`上传失败: ${data?.error || '未知错误'}`, 'error');
+};
+
 // 开始轮询进度
 const startProgressPolling = (taskId: string) => {
   // 如果已经在轮询，先停止
@@ -955,83 +1026,24 @@ const startProgressPolling = (taskId: string) => {
     try {
       const response = await knowledgeApi.task(taskId);
 
-      if (response.data.status === 'ok') {
-        const data = response.data.data as KnowledgeTaskPayload | undefined;
-        const status = data?.status;
-
-        if (status === 'processing' && data?.progress) {
-          // 更新进度
-          const progress = data.progress;
-          const fileIndex = progress.file_index || 0;
-
-          // 更新对应文件的进度
-          documents.value = documents.value.map((doc) => {
-            if (doc.taskId === taskId) {
-              const docIndex = parseInt(doc.doc_id.split('_').pop() || '0', 10);
-              if (docIndex === fileIndex) {
-                return {
-                  ...doc,
-                  uploadProgress: {
-                    stage: progress.stage || 'waiting',
-                    current: progress.current || 0,
-                    total: progress.total || 100,
-                  },
-                };
-              }
-            }
-            return doc;
-          });
-        } else if (status === 'completed') {
-          // 任务完成
-          stopProgressPolling();
-
-          const result = data?.result;
-          const successCount = result?.success_count || 0;
-          const failedCount = result?.failed_count || 0;
-
-          // 移除上传中的占位文档
-          documents.value = documents.value.filter(
-            (doc) => doc.taskId !== taskId,
-          );
-
-          // 重新加载文档列表
-          await loadDocuments();
-          emit('refresh');
-
-          if (failedCount === 0) {
-            showSnackbar(
-              ingestSummary(result?.uploaded) ||
-                `成功上传 ${successCount} 个文档`,
-            );
-          } else {
-            showSnackbar(
-              `上传完成: ${successCount} 个成功, ${failedCount} 个失败`,
-              'warning',
-            );
-          }
-        } else if (status === 'failed' || status === 'interrupted') {
-          // 任务失败
-          stopProgressPolling();
-
-          // 移除上传中的占位文档
-          documents.value = documents.value.filter(
-            (doc) => doc.taskId !== taskId,
-          );
-
-          if (status === 'interrupted') {
-            await loadDocuments();
-            emit('refresh');
-            showSnackbar(t('documents.taskInterrupted'), 'warning');
-          } else {
-            showSnackbar(`上传失败: ${data?.error || '未知错误'}`, 'error');
-          }
-        }
-      } else {
+      if (response.data.status !== 'ok') {
         // 任务不存在，停止轮询
         stopProgressPolling();
         documents.value = documents.value.filter(
           (doc) => doc.taskId !== taskId,
         );
+        return;
+      }
+
+      const data = response.data.data as KnowledgeTaskPayload | undefined;
+      const status = data?.status;
+
+      if (status === 'processing' && data?.progress) {
+        updateUploadProgress(taskId, data.progress);
+      } else if (status === 'completed') {
+        await finishUploadTask(taskId, data);
+      } else if (status === 'failed' || status === 'interrupted') {
+        await failUploadTask(taskId, status, data);
       }
     } catch (error) {
       console.error('Failed to fetch progress:', error);

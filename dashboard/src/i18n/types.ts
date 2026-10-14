@@ -9,49 +9,8 @@ import { translations } from './translations';
 // 导出翻译数据常量，供类型推断使用
 export const translationData = translations;
 
-// 从实际的翻译数据推断完整的翻译结构类型
-export type TranslationSchema =
-  (typeof translations)[keyof typeof translations];
-
-// TypeScript 助手：递归提取嵌套键路径
-type NestedKeyOf<T> = T extends object
-  ? {
-      [K in keyof T & string]: T[K] extends object
-        ? `${K}` | `${K}.${NestedKeyOf<T[K]>}`
-        : `${K}`;
-    }[keyof T & string]
-  : never;
-
-// 自动推断的翻译键联合类型 - 包含所有有效的点分隔键路径
-export type TranslationKey = NestedKeyOf<TranslationSchema>;
-
 // 语言环境类型 - 从实际的翻译数据键推断
 export type Locale = keyof typeof translations;
-
-// 翻译函数类型
-export type TranslationFunction = {
-  (key: TranslationKey): string;
-  (key: TranslationKey, params: Record<string, string | number>): string;
-};
-
-// 以下是保留的工具类型定义，这些不依赖具体的翻译结构
-
-// 模块加载状态
-export interface ModuleLoadingState {
-  core: boolean;
-  features: boolean;
-  messages: boolean;
-}
-
-// 翻译配置
-export interface I18nConfig {
-  locale: Locale;
-  fallbackLocale: Locale;
-  lazy: boolean;
-  preload: string[];
-  caching: boolean;
-  devMode: boolean;
-}
 
 // 验证结果
 export interface ValidationResult {
@@ -97,21 +56,6 @@ export interface TranslationStats {
     totalKeys: number;
     averageCoverage: number;
     lastSync: string;
-  };
-}
-
-// 开发工具类型
-export interface DevToolsData {
-  currentLocale: Locale;
-  loadedModules: string[];
-  cacheStats: {
-    size: number;
-    hits: number;
-    misses: number;
-  };
-  performance: {
-    loadTime: number;
-    renderTime: number;
   };
 }
 

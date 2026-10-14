@@ -91,42 +91,54 @@ function scrollToLatestActivity() {
   });
 }
 
+function handleWheelInteraction(event: WheelEvent) {
+  if (event.ctrlKey || event.deltaY === 0) return;
+  scrollIntent = Math.sign(event.deltaY);
+}
+
+function handleTouchInteraction(event: TouchEvent) {
+  const touch = event.touches[0];
+  if (!touch) return;
+  if (event.type === 'touchstart') {
+    touchScrollY = touch.clientY;
+    return;
+  }
+  scrollIntent = Math.sign(touchScrollY - touch.clientY);
+  touchScrollY = touch.clientY;
+}
+
+function handleKeyboardInteraction(event: KeyboardEvent) {
+  const target = event.target as HTMLElement;
+  if (target.closest('input, textarea, select, [contenteditable], button, a')) {
+    return;
+  }
+  if (
+    ['ArrowUp', 'PageUp', 'Home'].includes(event.key) ||
+    (event.key === ' ' && event.shiftKey)
+  ) {
+    scrollIntent = -1;
+  } else if (['ArrowDown', 'PageDown', 'End', ' '].includes(event.key)) {
+    scrollIntent = 1;
+  }
+}
+
+function handlePointerInteraction(event: PointerEvent) {
+  if (event.target !== sidebarBody.value) return;
+  scrollIntent = 0;
+  shouldStickToBottom.value = false;
+}
+
 function handleSidebarInteraction(
   event: WheelEvent | TouchEvent | PointerEvent | KeyboardEvent,
 ) {
   if (event instanceof WheelEvent) {
-    if (event.ctrlKey || event.deltaY === 0) return;
-    scrollIntent = Math.sign(event.deltaY);
+    handleWheelInteraction(event);
   } else if (event.type === 'touchstart' || event.type === 'touchmove') {
-    const touch = (event as TouchEvent).touches[0];
-    if (!touch) return;
-    if (event.type === 'touchstart') {
-      touchScrollY = touch.clientY;
-      return;
-    }
-    scrollIntent = Math.sign(touchScrollY - touch.clientY);
-    touchScrollY = touch.clientY;
+    handleTouchInteraction(event as TouchEvent);
   } else if (event instanceof KeyboardEvent) {
-    const target = event.target as HTMLElement;
-    if (
-      target.closest('input, textarea, select, [contenteditable], button, a')
-    ) {
-      return;
-    }
-    if (
-      ['ArrowUp', 'PageUp', 'Home'].includes(event.key) ||
-      (event.key === ' ' && event.shiftKey)
-    ) {
-      scrollIntent = -1;
-    } else if (['ArrowDown', 'PageDown', 'End', ' '].includes(event.key)) {
-      scrollIntent = 1;
-    } else {
-      return;
-    }
+    handleKeyboardInteraction(event);
   } else {
-    if (event.target !== sidebarBody.value) return;
-    scrollIntent = 0;
-    shouldStickToBottom.value = false;
+    handlePointerInteraction(event as PointerEvent);
   }
   if (scrollIntent < 0) shouldStickToBottom.value = false;
 }

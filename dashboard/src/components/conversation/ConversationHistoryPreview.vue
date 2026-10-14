@@ -161,90 +161,105 @@ function roleLabel(role: string): string {
   return role;
 }
 
+function contentItemPart(item: unknown): PreviewPart | null {
+  const text = textFromContentItem(item);
+  if (text !== null) {
+    if (!text.length) return null;
+    return {
+      kind: 'text',
+      text,
+      html: markdownEnabled.value ? renderTextHtml(text) : undefined,
+    };
+  }
+  const imageUrl = imageUrlFromContentItem(item);
+  if (imageUrl) {
+    return { kind: 'image', text: imageUrl };
+  }
+  return { kind: 'data', text: JSON.stringify(item, null, 2) };
+}
+
+function toolCallData(call: unknown): unknown {
+  const record = asRecord(call);
+  const fn = asRecord(record?.function);
+  if (fn && typeof fn.arguments === 'string') {
+    try {
+      return {
+        ...record,
+        function: { ...fn, arguments: JSON.parse(fn.arguments) },
+      };
+    } catch {
+      return call;
+    }
+  }
+  return call;
+}
+
+function toolCallPart(call: unknown): PreviewPart {
+  const fn = asRecord(asRecord(call)?.function);
+  const nameSuffix = typeof fn?.name === 'string' ? ` · ${fn.name}` : '';
+  return {
+    kind: 'data',
+    label: `${tm('workspace.preview.toolCall')}${nameSuffix}`,
+    text: JSON.stringify(toolCallData(call), null, 2),
+  };
+}
+
+function contentParts(message: Record<string, unknown>): PreviewPart[] {
+  const parts: PreviewPart[] = [];
+  const content = Array.isArray(message.content)
+    ? message.content
+    : [message.content];
+
+  for (const item of content) {
+    if (item === null || item === undefined) continue;
+    const part = contentItemPart(item);
+    if (part) parts.push(part);
+  }
+
+  if (
+    typeof message.reasoning_content === 'string' &&
+    message.reasoning_content
+  ) {
+    parts.push({
+      kind: 'data',
+      label: tm('workspace.preview.reasoning'),
+      text: message.reasoning_content,
+    });
+  }
+
+  if (Array.isArray(message.tool_calls)) {
+    for (const call of message.tool_calls) {
+      parts.push(toolCallPart(call));
+    }
+  }
+
+  return parts;
+}
+
+function buildPreviewRecord(entry: unknown) {
+  const message = asRecord(entry) ?? { content: entry };
+  const role = typeof message.role === 'string' ? message.role : 'unknown';
+  const parts = contentParts(message);
+  if (!parts.length && !Object.hasOwn(message, 'content')) {
+    parts.push({ kind: 'data', text: JSON.stringify(entry, null, 2) });
+  }
+  return {
+    role,
+    label: roleLabel(role),
+    name: typeof message.name === 'string' ? message.name : '',
+    toolCallId:
+      typeof message.tool_call_id === 'string' ? message.tool_call_id : '',
+    parts,
+  };
+}
+
 const records = computed(() =>
   props.messages
     .filter((entry) => {
       const record = asRecord(entry);
       return record?.role !== '_checkpoint';
     })
-    .map((entry) => {
-      const message = asRecord(entry) ?? { content: entry };
-      const role = typeof message.role === 'string' ? message.role : 'unknown';
-      const parts: PreviewPart[] = [];
-      const content = Array.isArray(message.content)
-        ? message.content
-        : [message.content];
-
-      for (const item of content) {
-        if (item === null || item === undefined) continue;
-        const text = textFromContentItem(item);
-        if (text !== null) {
-          if (text.length) {
-            parts.push({
-              kind: 'text',
-              text,
-              html: markdownEnabled.value ? renderTextHtml(text) : undefined,
-            });
-          }
-          continue;
-        }
-        const imageUrl = imageUrlFromContentItem(item);
-        if (imageUrl) {
-          parts.push({ kind: 'image', text: imageUrl });
-          continue;
-        }
-        parts.push({ kind: 'data', text: JSON.stringify(item, null, 2) });
-      }
-
-      if (
-        typeof message.reasoning_content === 'string' &&
-        message.reasoning_content
-      ) {
-        parts.push({
-          kind: 'data',
-          label: tm('workspace.preview.reasoning'),
-          text: message.reasoning_content,
-        });
-      }
-
-      if (Array.isArray(message.tool_calls)) {
-        for (const call of message.tool_calls) {
-          let data: unknown = call;
-          const record = asRecord(call);
-          const fn = asRecord(record?.function);
-          if (fn && typeof fn.arguments === 'string') {
-            try {
-              data = {
-                ...record,
-                function: { ...fn, arguments: JSON.parse(fn.arguments) },
-              };
-            } catch {
-              data = call;
-            }
-          }
-          parts.push({
-            kind: 'data',
-            label: `${tm('workspace.preview.toolCall')}${
-              typeof fn?.name === 'string' ? ` · ${fn.name}` : ''
-            }`,
-            text: JSON.stringify(data, null, 2),
-          });
-        }
-      }
-
-      if (!parts.length && !Object.hasOwn(message, 'content')) {
-        parts.push({ kind: 'data', text: JSON.stringify(entry, null, 2) });
-      }
-
-      return {
-        role,
-        label: roleLabel(role),
-        name: typeof message.name === 'string' ? message.name : '',
-        toolCallId:
-          typeof message.tool_call_id === 'string' ? message.tool_call_id : '',
-        parts,
-      };
-    }),
+    .map((entry) => buildPreviewRecord(entry)),
 );
 </script>
 

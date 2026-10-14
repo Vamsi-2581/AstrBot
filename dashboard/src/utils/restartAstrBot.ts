@@ -22,7 +22,8 @@ async function fetchCurrentStartTime(): Promise<number | null> {
     const rawStartTime = response?.data?.data?.start_time;
     const numericStartTime = Number(rawStartTime);
     return Number.isFinite(numericStartTime) ? numericStartTime : null;
-  } catch (_error) {
+  } catch {
+    // Start time is unavailable until the core finishes booting.
     return null;
   }
 }

@@ -689,21 +689,17 @@ function removeTemplateKey(templateKey: string) {
   }
 }
 
-function getDefaultValueForType(type: string) {
-  switch (type) {
-    case 'int':
-    case 'float':
-    case 'number':
-      return 0;
-    case 'bool':
-    case 'boolean':
-      return false;
-    case 'json':
-      return '{}';
-    case 'string':
-    default:
-      return '';
-  }
+const DEFAULT_VALUES_BY_TYPE: Record<string, string | number | boolean> = {
+  int: 0,
+  float: 0,
+  number: 0,
+  bool: false,
+  boolean: false,
+  json: '{}',
+};
+
+function getDefaultValueForType(type: string): string | number | boolean {
+  return DEFAULT_VALUES_BY_TYPE[type] ?? '';
 }
 
 function confirmDialog() {

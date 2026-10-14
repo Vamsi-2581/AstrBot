@@ -36,48 +36,19 @@ defineProps<{
 const { tm: t } = useModuleI18n('features/stats');
 </script>
 
-<style scoped>
-.stat-card {
-  border: 1px solid var(--stats-border);
-  border-radius: 16px;
-  background: var(--stats-surface);
-}
+<style lang="scss" scoped>
+@use './panel-styles' as panel;
 
-.stats-page.is-dark .stat-card {
-  border-color: var(--stats-border-strong);
-  background: var(--stats-surface);
-}
+@include panel.stat-card;
 
 .t2i-runtime-card {
   margin-bottom: 20px;
   padding: 20px;
 }
 
-.card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
-  margin-bottom: 18px;
-}
-
-.section-title {
-  font-size: 19px;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-
-.section-subtitle {
-  margin-top: 6px;
-  color: var(--stats-muted);
-  font-size: 13px;
-}
-
-.stats-page.is-dark .section-subtitle {
-  color: var(--stats-muted);
-}
+@include panel.card-head;
+@include panel.section-title;
+@include panel.section-subtitle;
 
 .t2i-runtime-grid {
   display: grid;
@@ -112,16 +83,7 @@ const { tm: t } = useModuleI18n('features/stats');
   color: var(--stats-muted);
 }
 
-.card-note {
-  margin-top: 8px;
-  color: var(--stats-subtle);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.stats-page.is-dark .card-note {
-  color: var(--stats-muted);
-}
+@include panel.card-note;
 
 @media (max-width: 1400px) {
   .t2i-runtime-grid {

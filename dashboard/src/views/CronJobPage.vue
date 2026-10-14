@@ -1022,17 +1022,15 @@ function validateJobForm(): boolean {
   return validateScheduleFields();
 }
 
-function validateScheduleFields(): boolean {
-  const mode = newJob.value.schedule_mode;
-  if (mode === 'once') {
+const scheduleFieldValidators: Record<string, () => boolean> = {
+  once: () => {
     if (!newJob.value.run_at) {
       toast(tm('messages.runAtRequired'), 'warning');
       return false;
     }
     return true;
-  }
-
-  if (mode === 'interval') {
+  },
+  interval: () => {
     const value = Number(newJob.value.interval_value);
     const validUnit = ['minutes', 'hours', 'days'].includes(
       newJob.value.interval_unit,
@@ -1042,17 +1040,15 @@ function validateScheduleFields(): boolean {
       return false;
     }
     return true;
-  }
-
-  if (mode === 'daily') {
+  },
+  daily: () => {
     if (!parseTimeParts(newJob.value.daily_time)) {
       toast(tm('messages.dailyTimeRequired'), 'warning');
       return false;
     }
     return true;
-  }
-
-  if (mode === 'weekly') {
+  },
+  weekly: () => {
     const weekday = Number(newJob.value.weekly_day);
     if (
       !parseTimeParts(newJob.value.weekly_time) ||
@@ -1064,9 +1060,8 @@ function validateScheduleFields(): boolean {
       return false;
     }
     return true;
-  }
-
-  if (mode === 'monthly') {
+  },
+  monthly: () => {
     const day = Number(newJob.value.monthly_day);
     if (
       !parseTimeParts(newJob.value.monthly_time) ||
@@ -1078,6 +1073,13 @@ function validateScheduleFields(): boolean {
       return false;
     }
     return true;
+  },
+};
+
+function validateScheduleFields(): boolean {
+  const validator = scheduleFieldValidators[newJob.value.schedule_mode];
+  if (validator) {
+    return validator();
   }
 
   if (!newJob.value.cron_expression.trim()) {

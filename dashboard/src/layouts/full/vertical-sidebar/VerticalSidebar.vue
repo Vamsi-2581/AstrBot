@@ -194,7 +194,7 @@ function startSidebarResize(event: MouseEvent) {
 }
 
 function formatNumber(num: number) {
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return num.toLocaleString('en-US');
 }
 
 function readCachedStarCount(): number | null {

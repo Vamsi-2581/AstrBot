@@ -53,11 +53,10 @@ let cardRevealTimer: ReturnType<typeof window.setTimeout> | null = null;
 type VersionItem = { key: string; label: string; value: string };
 type VersionWarning = { key: string; title: string; message: string };
 
+const loginStage = computed(() => authLoginRef.value?.stage);
+
 const logoTitle = computed(() => {
-  if (
-    authLoginRef.value?.stage === 'totp' ||
-    authLoginRef.value?.stage === 'recovery'
-  ) {
+  if (['totp', 'recovery'].includes(String(loginStage.value))) {
     return t('logo.totpTitle');
   }
   return t('logo.title');

@@ -1404,7 +1404,7 @@ function plainTextFromMessage(message: ChatRecord) {
     .join('\n');
 }
 
-function scrollToMessage(messageId?: string | number) {
+function scrollToMessage(messageId?: string | number | null) {
   if (!messageId) return;
   const index = activeMessages.value.findIndex(
     (message) => String(message.id) === String(messageId),

@@ -25,6 +25,7 @@ import {
   toInitials,
   toPinyinText,
 } from '@/utils/pluginSearch';
+import { stripTrailingSlashes } from '@/utils/text';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -765,9 +766,7 @@ export const useExtensionPage = () => {
   };
 
   const normalizeInstallUrl = (value: unknown): string =>
-    String(value || '')
-      .trim()
-      .replace(/\/+$/, '');
+    stripTrailingSlashes(String(value || '').trim());
 
   const isGithubRepoUrl = (value: unknown): boolean =>
     /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+(?:\.git)?(?:\/tree\/[^/\s]+)?$/i.test(
@@ -1501,6 +1500,23 @@ export const useExtensionPage = () => {
     });
   };
 
+  const backfillInstalledMetadata = (
+    plugin: PluginMarketItem,
+    matchedInstalled: InstalledPlugin,
+  ) => {
+    // 兜底：市场源未提供字段时，回填本地已安装插件中的元数据，便于在市场页直接展示
+    if (
+      (!Array.isArray(plugin.support_platforms) ||
+        plugin.support_platforms.length === 0) &&
+      Array.isArray(matchedInstalled.support_platforms)
+    ) {
+      plugin.support_platforms = matchedInstalled.support_platforms;
+    }
+    if (!plugin.astrbot_version && matchedInstalled.astrbot_version) {
+      plugin.astrbot_version = matchedInstalled.astrbot_version;
+    }
+  };
+
   const checkAlreadyInstalled = () => {
     const data = Array.isArray(extension_data?.data) ? extension_data.data : [];
     // 使用 marketplace_name 进行市场匹配（后端已统一为减号格式）
@@ -1525,32 +1541,19 @@ export const useExtensionPage = () => {
         (repoKey && installedByRepo.get(repoKey)) ||
         installedByName.get(normalizeStr(plugin.name));
 
-      // 兜底：市场源未提供字段时，回填本地已安装插件中的元数据，便于在市场页直接展示
       if (matchedInstalled) {
-        if (
-          (!Array.isArray(plugin.support_platforms) ||
-            plugin.support_platforms.length === 0) &&
-          Array.isArray(matchedInstalled.support_platforms)
-        ) {
-          plugin.support_platforms = matchedInstalled.support_platforms;
-        }
-        if (!plugin.astrbot_version && matchedInstalled.astrbot_version) {
-          plugin.astrbot_version = matchedInstalled.astrbot_version;
-        }
+        backfillInstalledMetadata(plugin, matchedInstalled);
       }
 
       plugin.installed = Boolean(matchedInstalled);
     }
 
-    const installed = [];
-    const notInstalled = [];
-    for (let i = 0; i < pluginMarketData.value.length; i++) {
-      if (pluginMarketData.value[i].installed) {
-        installed.push(pluginMarketData.value[i]);
-      } else {
-        notInstalled.push(pluginMarketData.value[i]);
-      }
-    }
+    const installed = pluginMarketData.value.filter(
+      (plugin) => plugin.installed,
+    );
+    const notInstalled = pluginMarketData.value.filter(
+      (plugin) => !plugin.installed,
+    );
     pluginMarketData.value = notInstalled.concat(installed);
   };
 
@@ -1563,7 +1566,7 @@ export const useExtensionPage = () => {
       .replace(/^v/i, '')
       .split(/[+-]/)[0];
     const parts = version.split('.').map((part) => {
-      const match = part.match(/^\d+/);
+      const match = /^\d+/.exec(part);
       return match ? Number.parseInt(match[0], 10) : 0;
     });
     return parts.length ? parts : [0];
@@ -1594,7 +1597,7 @@ export const useExtensionPage = () => {
     currentVersion: string,
     constraint: string,
   ): boolean | null => {
-    const match = constraint.match(/^(<=|>=|==|!=|~=|<|>|=)\s*(.+)$/);
+    const match = /^(<=|>=|==|!=|~=|<|>|=)\s*(\S.*)$/.exec(constraint);
     if (!match) return null;
 
     const [, operator, targetVersion] = match;
