@@ -60,6 +60,9 @@ class WorkEvent:
     def get_platform_id(self):
         return "webchat"
 
+    def get_platform_name(self):
+        return "webchat"
+
     def get_message_outline(self):
         return self.message_str
 
