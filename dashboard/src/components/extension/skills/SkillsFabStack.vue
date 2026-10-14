@@ -30,7 +30,11 @@ const { tm } = useModuleI18n('features/extension');
         />
       </template>
     </v-tooltip>
-    <v-tooltip v-if="mode === 'local'" :text="tm('skills.upload')" location="left">
+    <v-tooltip
+      v-if="mode === 'local'"
+      :text="tm('skills.upload')"
+      location="left"
+    >
       <template #activator="{ props }">
         <v-btn
           v-bind="props"
