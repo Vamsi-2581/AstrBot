@@ -369,7 +369,7 @@ class ToolSet:
         """
         result = []
         for tool in self.tools:
-            input_schema = {"type": "object"}
+            input_schema: dict[str, Any] = {"type": "object"}
             if tool.parameters:
                 if tool.parameters.get("type", "object") != "object":
                     raise ValueError(

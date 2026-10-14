@@ -204,12 +204,15 @@ class _RecordEnricherFilter(logging.Filter):
         record.conversation_id = getattr(record, "conversation_id", None)
         record.sender_id = getattr(record, "sender_id", None)
         context = _log_context.get()
-        context_is_active = context is not None and context.active
-        record.platform_id = getattr(record, "platform_id", None) or (
-            context.platform_id if context_is_active else None
-        )
-        record.platform_type = getattr(record, "platform_type", None) or (
-            context.platform_type if context_is_active else None
+        if context is not None and context.active:
+            context_platform_id = context.platform_id
+            context_platform_type = context.platform_type
+        else:
+            context_platform_id = None
+            context_platform_type = None
+        record.platform_id = getattr(record, "platform_id", None) or context_platform_id
+        record.platform_type = (
+            getattr(record, "platform_type", None) or context_platform_type
         )
         record.summary = redact_sensitive_text(
             str(getattr(record, "summary", record.getMessage()))[:512]

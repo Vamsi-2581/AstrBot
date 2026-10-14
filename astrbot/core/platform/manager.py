@@ -391,9 +391,13 @@ class PlatformManager:
     async def _task_wrapper(
         self, task: asyncio.Task, platform: Platform | None = None
     ) -> None:
-        meta = platform.meta() if platform else None
-        platform_id = (meta.id or platform.config.get("id")) if meta else None
-        platform_type = meta.name if meta else None
+        if platform is not None:
+            meta = platform.meta()
+            platform_id: str | None = meta.id or platform.config.get("id")
+            platform_type: str | None = meta.name
+        else:
+            platform_id = None
+            platform_type = None
         with log_context(platform_id, platform_type):
             # 设置平台状态为运行中
             if platform:
