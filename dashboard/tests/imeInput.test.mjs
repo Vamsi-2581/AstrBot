@@ -19,6 +19,21 @@ describe('IME Enter handling', () => {
     expect(isComposingEnter({ key: 'a', isComposing: true }, true)).toBe(false);
   });
 
+  it('detects Enter through the legacy keyCode 229 composition fallback', () => {
+    expect(
+      isComposingEnter(
+        { key: 'Enter', isComposing: false, keyCode: 229 },
+        false,
+      ),
+    ).toBe(true);
+    expect(
+      isComposingEnter(
+        { key: 'Enter', isComposing: false, keyCode: 13 },
+        false,
+      ),
+    ).toBe(false);
+  });
+
   it('detects Enter fired immediately after composition ended', () => {
     expect(
       isComposingEnter(

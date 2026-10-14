@@ -540,7 +540,7 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
   }
 
   event.preventDefault();
-  event.returnValue = '';
+  event.returnValue = true;
 }
 
 onMounted(() => {

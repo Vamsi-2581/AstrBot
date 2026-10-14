@@ -1,7 +1,14 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { flushPromises } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SubAgentPage from '@/views/SubAgentPage.vue';
 import { mountWithVuetify } from './utils/mountWithVuetify';
+
+const pageSource = readFileSync(
+  resolve(process.cwd(), 'src/views/SubAgentPage.vue'),
+  'utf8',
+);
 
 const api = vi.hoisted(() => ({
   getConfig: vi.fn(),
@@ -89,6 +96,10 @@ describe('SubAgentPage', () => {
       'beforeunload',
       expect.any(Function),
     );
+  });
+
+  it('requests the unload prompt with a truthy returnValue for legacy browsers', () => {
+    expect(pageSource).toContain('event.returnValue = true');
   });
 
   it('uses a stable load failure message when the transport exception is sensitive', async () => {

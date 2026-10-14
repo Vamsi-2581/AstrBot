@@ -34,6 +34,10 @@ describe('DataFilesPage contract', () => {
     expect(page).toContain("tm('reload')");
   });
 
+  it('requests the unload prompt with a truthy returnValue for legacy browsers', () => {
+    expect(page).toContain('event.returnValue = true');
+  });
+
   it('wires step-up confirmation and keeps the file tree independently scrollable', () => {
     expect(page).toContain('@confirm="submitStepUp"');
     expect(page).not.toContain('@submit="submitStepUp"');

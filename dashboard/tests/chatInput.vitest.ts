@@ -111,6 +111,36 @@ describe('ChatInput stop and send controls', () => {
   });
 });
 
+describe('ChatInput recording shortcut', () => {
+  it('starts from the physical B key on non-Latin keyboard layouts', async () => {
+    const wrapper = mountWithVuetify(ChatInput, { props: baseProps });
+    await flushPromises();
+    const textarea = wrapper.get('textarea.chat-textarea');
+
+    const layoutIndependent = new KeyboardEvent('keydown', {
+      key: 'и',
+      code: 'KeyB',
+      ctrlKey: true,
+      cancelable: true,
+      bubbles: true,
+    });
+    textarea.element.dispatchEvent(layoutIndependent);
+    expect(layoutIndependent.defaultPrevented).toBe(true);
+
+    document.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyB' }));
+
+    const otherKey = new KeyboardEvent('keydown', {
+      key: 'b',
+      code: 'KeyC',
+      ctrlKey: true,
+      cancelable: true,
+      bubbles: true,
+    });
+    textarea.element.dispatchEvent(otherKey);
+    expect(otherKey.defaultPrevented).toBe(false);
+  });
+});
+
 describe('ChatInput high-risk tools control', () => {
   it('renders the high-risk tools control in the plus menu', async () => {
     const wrapper = mountWithVuetify(ChatInput, {
