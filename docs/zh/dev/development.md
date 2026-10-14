@@ -112,6 +112,21 @@ pnpm test:e2e
 WebKit 项目定义保留在 `playwright.config.ts`，通过 `workflow_dispatch` 运行。
 Linux CI 使用 `playwright install --with-deps` 同时安装系统依赖。
 
+## Dashboard 静态检查与代码异味
+
+```bash
+cd dashboard
+pnpm run lint:check   # ESLint（typescript-eslint、vue、sonarjs）—— 阻塞门禁
+pnpm run knip         # 死代码、未使用导出、僵尸依赖
+pnpm run dup          # jscpd 复制粘贴检测（阈值见 .jscpd.json）
+pnpm run lint:report  # 提示性检查：认知复杂度、循环依赖
+```
+
+`make check-web` 除 build、smoke、prettier、i18n 外，还会运行
+`check-web-eslint`、`check-web-knip` 与 `check-web-dup`。历史存量较多的规则
+（认知复杂度、`import-x/no-cycle` 以及其他 SonarJS 提示项）位于
+`eslint.report.config.mjs`，不会阻断门禁。
+
 ## 格式、检查与质量门禁
 
 常用命令：

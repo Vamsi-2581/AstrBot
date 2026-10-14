@@ -1,9 +1,9 @@
 allowBuilds:
   '@parcel/watcher': true
   esbuild: true
+  unrs-resolver: true
   vue-demi: true
 minimumReleaseAgeExclude:
-  - prettier@3.9.9
   - '@vue/language-core@3.3.12'
   - vite@8.3.4
   - vue-tsc@3.3.12

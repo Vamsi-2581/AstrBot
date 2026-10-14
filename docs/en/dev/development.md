@@ -114,6 +114,21 @@ project only. Firefox and WebKit stay defined in `playwright.config.ts` and
 run on `workflow_dispatch`. Linux CI uses `playwright install --with-deps`
 to install system dependencies as well.
 
+## Dashboard Lint and Code Smells
+
+```bash
+cd dashboard
+pnpm run lint:check   # ESLint (typescript-eslint, vue, sonarjs) - blocking
+pnpm run knip         # dead code, unused exports, zombie dependencies
+pnpm run dup          # jscpd copy-paste detection (threshold in .jscpd.json)
+pnpm run lint:report  # advisory: cognitive complexity, dependency cycles
+```
+
+`make check-web` runs `check-web-eslint`, `check-web-knip`, and `check-web-dup`
+alongside the build, smoke, prettier, and i18n checks. Rules that still carry a
+large existing backlog (cognitive complexity, `import-x/no-cycle`, and other
+SonarJS advisories) live in `eslint.report.config.mjs` and do not fail the gate.
+
 ## Formatting, Checks, and Quality Gates
 
 Common commands:

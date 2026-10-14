@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["scripts/*.mjs"],
+  "project": ["src/**/*.{ts,vue}", "scripts/**/*.mjs", "tests/**/*.{ts,mjs}"],
+  "ignore": ["src/api/generated/**"],
+  "ignoreDependencies": ["@mdi/font", "@types/markdown-it"],
+  "ignoreBinaries": ["uv"],
+  "ignoreExportsUsedInFile": true,
+  "rules": {
+    "exports": "warn",
+    "types": "warn"
+  }
+}

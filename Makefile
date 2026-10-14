@@ -36,7 +36,7 @@ QUALITY_SECURITY_TARGETS := astrbot
 QUALITY_TARGETS := quality-pyright quality-bandit quality-audit quality-web-audit quality-complexity quality-radon-cc quality-radon-mi
 QUALITY_REPORT_TARGETS := quality-report-pyright quality-report-bandit quality-report-audit quality-report-radon-cc quality-report-radon-mi
 CHECK_PY_TARGETS := check-py-format check-py-lint
-CHECK_WEB_TARGETS := check-web-build check-web-eslint check-web-smoke check-web-prettier check-web-i18n
+CHECK_WEB_TARGETS := check-web-build check-web-eslint check-web-knip check-web-dup check-web-smoke check-web-prettier check-web-i18n
 CHECK_MD_TARGETS := check-md-prettier check-md-markdownlint
 CHECK_TOML_TARGETS := check-toml-format check-toml-lint
 CHECK_YAML_TARGETS := check-yaml-prettier check-yaml-lint
@@ -345,6 +345,20 @@ check-web-build:
 check-web-eslint:
 	@echo "==> [web] eslint"
 	cd $(DASHBOARD_DIR) && $(PNPM) exec eslint . --concurrency=auto --max-warnings=0
+
+check-web-knip:
+	@echo "==> [web] knip"
+	cd $(DASHBOARD_DIR) && $(PNPM) exec knip
+
+check-web-dup:
+	@echo "==> [web] jscpd"
+	cd $(DASHBOARD_DIR) && $(PNPM) exec jscpd src
+
+# Advisory only: reports the smell rules with a large existing backlog
+# (cognitive complexity, dependency cycles, ...) without failing the gate.
+check-web-eslint-report:
+	@echo "==> [web] eslint report (advisory)"
+	cd $(DASHBOARD_DIR) && $(PNPM) exec eslint . --concurrency=auto --config eslint.report.config.mjs
 
 # The Dashboard build regenerates the tracked MDI subset assets.  Run smoke
 # tests after that write completes so Vitest cannot observe a half-written

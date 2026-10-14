@@ -23,7 +23,11 @@
     "generate:api": "node -e \"const fs=require('node:fs'); fs.rmSync('src/api/generated/openapi-v1', { recursive: true, force: true }); fs.rmSync('src/api/generated/openapi-v1.ts', { force: true });\" && openapi-ts",
     "generate:docs:openapi": "uv run python ../docs/scripts/update_openapi_json.py",
     "typecheck": "tsc -p tsconfig.vite-config.json --noEmit && vue-tsc --noEmit",
-    "lint": "eslint . --fix"
+    "lint": "eslint . --concurrency=auto --fix",
+    "lint:check": "eslint . --concurrency=auto --max-warnings=0",
+    "lint:report": "eslint . --concurrency=auto --config eslint.report.config.mjs",
+    "knip": "knip",
+    "dup": "jscpd src"
   },
   "dependencies": {
     "@guolao/vue-monaco-editor": "1.6.0",
@@ -47,8 +51,7 @@
     "vue-i18n": "11.4.13",
     "vue-router": "5.4.0",
     "vue3-apexcharts": "1.11.2",
-    "vuetify": "4.2.4",
-    "yup": "1.7.1"
+    "vuetify": "4.2.4"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -63,10 +66,14 @@
     "@vue/tsconfig": "0.9.1",
     "eslint": "10.12.0",
     "eslint-config-prettier": "10.1.8",
+    "eslint-import-resolver-typescript": "4.4.5",
+    "eslint-plugin-import-x": "4.17.1",
+    "eslint-plugin-sonarjs": "4.2.2",
     "eslint-plugin-vue": "10.11.1",
     "globals": "17.13.0",
+    "jscpd": "5.4.1",
     "jsdom": "30.1.2",
-    "prettier": "3.9.9",
+    "knip": "6.41.0",
     "sass": "1.105.1",
     "subset-font": "2.9.0",
     "typescript": "6.0.3",

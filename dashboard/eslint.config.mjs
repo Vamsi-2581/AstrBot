@@ -6,6 +6,8 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
 import pluginVue from 'eslint-plugin-vue';
 import vueParser from 'vue-eslint-parser';
+import sonarjs from 'eslint-plugin-sonarjs';
+import importX from 'eslint-plugin-import-x';
 
 const tsconfigRootDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -22,6 +24,10 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...pluginVue.configs['flat/recommended'],
+  {
+    ...sonarjs.configs.recommended,
+    files: ['src/**/*.{ts,mts,cts,vue}'],
+  },
   {
     files: ['**/*.{js,mjs,cjs,ts,mts,cts}'],
     languageOptions: {
@@ -198,6 +204,48 @@ export default tseslint.config(
       '@typescript-eslint/switch-exhaustiveness-check': 'error',
       'vue/valid-v-slot': 'off',
       'vue/multi-word-component-names': 'off',
+    },
+  },
+  {
+    // SonarJS/import-x smell rules. Entries turned off here do not fit the
+    // codebase's established conventions; each has a documented reason and
+    // should be revisited if the underlying pattern changes. The rules that
+    // are only advisory (large existing backlogs) live in
+    // `eslint.report.config.mjs`.
+    files: ['src/**/*.{ts,mts,cts,vue}'],
+    plugins: {
+      'import-x': importX,
+    },
+    settings: {
+      'import-x/resolver': {
+        typescript: { project: './tsconfig.json' },
+      },
+      'import-x/extensions': ['.ts', '.mts', '.vue'],
+    },
+    rules: {
+      // `void` is used deliberately for fire-and-forget promises;
+      // `@typescript-eslint/no-confusing-void-expression` owns that check.
+      'sonarjs/void-use': 'off',
+      // Duplicate of `@typescript-eslint/no-unused-vars`.
+      'sonarjs/no-unused-vars': 'off',
+      // `Math.random` is only used for UI affordances (ids, animations),
+      // never for security-sensitive values.
+      'sonarjs/pseudo-random': 'off',
+      // Defensive runtime guards against values whose declared types are
+      // narrower than their runtime reality (e.g. `id === undefined`).
+      'sonarjs/different-types-comparison': 'off',
+      // Browser-compatibility-sensitive legacy APIs; deprecation is tracked
+      // through the TypeScript `@deprecated` surface instead.
+      'sonarjs/deprecation': 'off',
+      // The flagged expressions are anchored/simple; the rule is
+      // over-conservative for this codebase.
+      'sonarjs/super-linear-regex': 'off',
+      // The plugin-page host validates the session origin and transfers a
+      // MessageChannel port to a same-origin sandboxed iframe.
+      'sonarjs/post-message': 'off',
+      // Existing long dispatch functions predate this gate; tracked by the
+      // advisory `lint:report` target until they are refactored.
+      'sonarjs/cognitive-complexity': 'off',
     },
   },
   eslintConfigPrettier,
