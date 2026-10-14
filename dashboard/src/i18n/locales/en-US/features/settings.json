@@ -193,7 +193,9 @@
       "subtitle": "Drag to reorder modules, or move modules in/out of the \"More Features\" group. Settings are saved locally in your browser.",
       "reset": "Reset to Default",
       "mainItems": "Main Modules",
-      "moreItems": "More Features"
+      "moreItems": "More Features",
+      "moveToMore": "Move to More Features",
+      "moveToMain": "Move to Main Modules"
     }
   },
   "backup": {

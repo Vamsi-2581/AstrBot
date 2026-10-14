@@ -30,11 +30,13 @@ describe('ProviderSourcesPanel', () => {
       },
     });
 
-    expect(wrapper.findAll('button.provider-source-item')).toHaveLength(2);
+    expect(
+      wrapper.findAll('[role="button"].provider-source-item'),
+    ).toHaveLength(2);
     expect(wrapper.text()).toContain('openai-main');
     expect(wrapper.text()).toContain('template:anthropic');
 
-    await wrapper.find('button.provider-source-item').trigger('click');
+    await wrapper.find('[role="button"].provider-source-item').trigger('click');
     expect(wrapper.emitted('select-provider-source')?.[0]).toEqual([
       displayedProviderSources[0],
     ]);

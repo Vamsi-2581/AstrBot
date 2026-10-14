@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 export type ToastColor = 'info' | 'success' | 'error' | 'primary' | 'warning';
 
 export interface ToastItem {
+  id: number;
   message: string;
   color: ToastColor;
   timeout: number;
@@ -22,6 +23,7 @@ export interface ToastPayload {
 export const useToastStore = defineStore('toast', () => {
   const queue = ref<ToastItem[]>([]);
   const current = computed(() => queue.value[0] ?? null);
+  let nextId = 0;
 
   function add({
     message,
@@ -31,6 +33,7 @@ export const useToastStore = defineStore('toast', () => {
     location = 'top center',
   }: ToastPayload): void {
     queue.value.push({
+      id: nextId++,
       message,
       color,
       timeout,

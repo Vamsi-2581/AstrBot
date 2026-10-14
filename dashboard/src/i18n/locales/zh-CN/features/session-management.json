@@ -13,7 +13,8 @@
     "clear": "清除",
     "next": "下一步",
     "editCustomName": "编辑备注",
-    "batchDelete": "批量删除"
+    "batchDelete": "批量删除",
+    "close": "关闭"
   },
   "targetType": {
     "session": "会话",

@@ -1,6 +1,9 @@
 {
   "title": "Knowledge Base Details",
   "backToList": "Back to List",
+  "tavily": {
+    "title": "Configure Tavily API Key"
+  },
   "breadcrumb": {
     "list": "Knowledge Bases"
   },
@@ -32,6 +35,7 @@
   "documents": {
     "title": "Documents",
     "upload": "Upload Document",
+    "search": "Search documents",
     "empty": "No documents",
     "name": "Name",
     "type": "Type",
@@ -136,6 +140,7 @@
     "save": "Save Settings",
     "saveSuccess": "Settings saved successfully",
     "saveFailed": "Failed to save settings",
+    "embeddingChangeTitle": "Confirm Embedding Model Change",
     "tips": "Tip: Retrieval setting changes apply to later queries. After changing chunk size, reindex documents. Changing the embedding model or dimension is not migrated; reindex will fail."
   }
 }

@@ -15,7 +15,8 @@
     "reset": "Reset to Default",
     "export": "Export Configuration",
     "import": "Import Configuration",
-    "validate": "Validate Configuration"
+    "validate": "Validate Configuration",
+    "testConfig": "Test Current Configuration"
   },
   "help": {
     "documentation": "in-app documentation",
@@ -183,6 +184,8 @@
     "deleteSuccess": "Deleted file",
     "deleteFailed": "Delete failed",
     "addToConfig": "Added to config",
+    "addToConfigAction": "Add to config",
+    "deleteFileAction": "Delete file",
     "fileCount": "Files: {count}",
     "done": "Done"
   },

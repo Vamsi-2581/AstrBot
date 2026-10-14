@@ -26,6 +26,7 @@
               density="compact"
               hide-details
               variant="outlined"
+              :aria-label="tm('capabilityLoopSelector.loop')"
               @update:model-value="setRoute(capability.id, $event)"
             />
           </td>

@@ -1,5 +1,10 @@
 <template>
-  <v-dialog v-model="dialog" max-width="1600" scrollable>
+  <v-dialog
+    v-model="dialog"
+    max-width="1600"
+    scrollable
+    :aria-label="tm('actions.providerConfig')"
+  >
     <v-card class="provider-config-dialog">
       <div class="provider-config-dialog__body">
         <ProviderChatCompletionPanel
@@ -13,6 +18,7 @@
 
 <script setup>
 import { computed } from 'vue';
+import { useModuleI18n } from '@/i18n/composables';
 import ProviderChatCompletionPanel from '@/components/provider/ProviderChatCompletionPanel.vue';
 
 const props = defineProps({
@@ -23,6 +29,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:modelValue']);
+const { tm } = useModuleI18n('features/chat');
 const dialog = computed({
   get: () => props.modelValue,
   set: (val) => {

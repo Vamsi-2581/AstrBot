@@ -171,6 +171,7 @@ void getCurrentVersion();
     :fullscreen="xs"
     max-width="1000"
     scrollable
+    :aria-label="t('core.navigation.changelogDialog.title')"
     @update:model-value="dialog = $event"
   >
     <v-card class="changelog-dialog">

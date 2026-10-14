@@ -6,6 +6,7 @@
       inset
       density="compact"
       hide-details
+      :aria-label="tm('system_group.system.dashboard.totp.enable.description')"
       @update:model-value="onTotpToggle"
     ></v-switch>
     <div v-if="modelValue" class="totp-manager-actions">

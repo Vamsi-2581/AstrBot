@@ -110,14 +110,6 @@ vi.mock('@/components/shared/ConsoleDisplayer.vue', () => ({
   },
 }));
 
-vi.mock('@/components/shared/ItemCard.vue', () => ({
-  default: {
-    props: ['item'],
-    template:
-      '<div class="item-card-stub"><div class="item-card-id">{{ item.id }}</div><slot name="item-details" :item="item" /></div>',
-  },
-}));
-
 vi.mock('@/components/platform/AddNewPlatform.vue', () => ({
   default: {
     name: 'AddNewPlatform',

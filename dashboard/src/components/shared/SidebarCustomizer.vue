@@ -10,7 +10,12 @@
       {{ t('features.settings.sidebar.customize.title') }}
     </v-btn>
 
-    <v-dialog v-model="dialog" max-width="700px" scrollable>
+    <v-dialog
+      v-model="dialog"
+      max-width="700px"
+      scrollable
+      :aria-label="t('features.settings.sidebar.customize.title')"
+    >
       <v-card class="app-dialog sidebar-customizer-dialog">
         <v-card-title
           class="text-h3 pa-4 pb-0 pl-6 d-flex justify-space-between align-center"
@@ -19,6 +24,7 @@
           <v-btn
             icon="mdi-close"
             variant="text"
+            :aria-label="t('core.common.close')"
             @click="dialog = false"
           ></v-btn>
         </v-card-title>
@@ -61,6 +67,9 @@
                       icon="mdi-arrow-right"
                       variant="text"
                       size="x-small"
+                      :aria-label="
+                        t('features.settings.sidebar.customize.moveToMore')
+                      "
                       @click="moveToMore(index)"
                     ></v-btn>
                   </template>
@@ -100,6 +109,9 @@
                       icon="mdi-arrow-left"
                       variant="text"
                       size="x-small"
+                      :aria-label="
+                        t('features.settings.sidebar.customize.moveToMain')
+                      "
                       @click="moveToMain(index)"
                     ></v-btn>
                   </template>

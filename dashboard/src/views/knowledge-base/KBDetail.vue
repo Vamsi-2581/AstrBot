@@ -199,11 +199,6 @@
         </v-window-item>
       </v-window>
     </div>
-
-    <!-- 消息提示 -->
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color">
-      {{ snackbar.text }}
-    </v-snackbar>
   </div>
 </template>
 
@@ -212,6 +207,8 @@ import { ref, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { knowledgeApi } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
+import { useToast } from '@/utils/toast';
+import type { ToastColor } from '@/stores/toast';
 import DocumentsTab from './components/DocumentsTab.vue';
 import RetrievalTab from './components/RetrievalTab.vue';
 import SettingsTab from './components/SettingsTab.vue';
@@ -242,16 +239,10 @@ const loadError = ref(false);
 const activeTab = ref('overview');
 const kb = ref<KnowledgeBaseDetail>({});
 
-const snackbar = ref({
-  show: false,
-  text: '',
-  color: 'success',
-});
+const { toast } = useToast();
 
-const showSnackbar = (text: string, color: string = 'success') => {
-  snackbar.value.text = text;
-  snackbar.value.color = color;
-  snackbar.value.show = true;
+const showSnackbar = (text: string, color: ToastColor = 'success') => {
+  toast(text, color);
 };
 
 // 加载知识库详情

@@ -378,6 +378,7 @@
     "validationNoResult": "No validation result was returned. Check the platform logs.",
     "noDescription": "No description",
     "path": "Path",
+    "openParentDir": "Open parent directory",
     "uploadSuccess": "Upload succeeded",
     "uploadFailed": "Upload failed",
     "download": "Download",

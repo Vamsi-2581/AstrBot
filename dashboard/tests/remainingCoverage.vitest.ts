@@ -119,7 +119,6 @@ import PromptQuickPreview from '@/components/shared/PromptQuickPreview.vue';
 import UpgradeRecoveryDialog from '@/components/shared/UpgradeRecoveryDialog.vue';
 import UninstallConfirmDialog from '@/components/shared/UninstallConfirmDialog.vue';
 import LanguageSwitcher from '@/components/shared/LanguageSwitcher.vue';
-import ItemCard from '@/components/shared/ItemCard.vue';
 import UmoDisplay from '@/components/shared/UmoDisplay.vue';
 import WaitingForRestart from '@/components/shared/WaitingForRestart.vue';
 import StorageCleanupPanel from '@/components/shared/StorageCleanupPanel.vue';
@@ -324,16 +323,6 @@ describe('remaining coverage', () => {
         { props: { modelValue: true, pluginName: 'demo' } },
       ],
       [LanguageSwitcher, {}],
-      [
-        ItemCard,
-        {
-          props: {
-            item: { name: 'demo', enable: true },
-            titleKey: 'name',
-            enabledKey: 'enable',
-          },
-        },
-      ],
       [UmoDisplay, { props: { umo: 'webchat:FriendMessage:u' } }],
       [WaitingForRestart, {}],
       [StorageCleanupPanel, {}],

@@ -3,6 +3,7 @@
     v-model="visible"
     max-width="520"
     :persistent="blockingRecovery || restarting"
+    :aria-label="t('core.common.upgradeRecovery.title')"
   >
     <v-card>
       <v-card-title class="text-h3 pa-4 pb-0 pl-6">
@@ -256,8 +257,18 @@ function handleRecoveryEvent(event: Event) {
   void showRecoveryDialog(versionData, Boolean(versionData.blocking));
 }
 
+function hasAuthToken() {
+  return Boolean(
+    localStorage.getItem('token') ||
+    sessionStorage.getItem(UPGRADE_RECOVERY_TOKEN_KEY),
+  );
+}
+
 async function detectUpgradeMismatch() {
   if (detecting || visible.value || restarting.value) {
+    return;
+  }
+  if (!hasAuthToken()) {
     return;
   }
   detecting = true;

@@ -21,7 +21,7 @@
 提供文件夹管理的核心逻辑，包括状态管理、导航、CRUD 操作等。
 
 ```typescript
-import { useFolderManager } from '@/components/folder';
+import { useFolderManager } from '@/components/folder/useFolderManager';
 
 const {
   // 状态
@@ -164,14 +164,12 @@ const {
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import {
-  BaseFolderTree,
-  BaseFolderCard,
-  BaseFolderBreadcrumb,
-  BaseCreateFolderDialog,
-  BaseMoveToFolderDialog,
-  useFolderManager,
-} from '@/components/folder';
+import BaseFolderTree from '@/components/folder/BaseFolderTree.vue';
+import BaseFolderCard from '@/components/folder/BaseFolderCard.vue';
+import BaseFolderBreadcrumb from '@/components/folder/BaseFolderBreadcrumb.vue';
+import BaseCreateFolderDialog from '@/components/folder/BaseCreateFolderDialog.vue';
+import BaseMoveToFolderDialog from '@/components/folder/BaseMoveToFolderDialog.vue';
+import { useFolderManager } from '@/components/folder/useFolderManager';
 
 const folderManager = useFolderManager({
   operations: {
@@ -335,7 +333,7 @@ function handleDrop({ item_id, item_type, target_folder_id, source_data }) {
 ```typescript
 // stores/myFolderStore.ts
 import { defineStore } from 'pinia';
-import type { FolderTreeNode, Folder } from '@/components/folder';
+import type { FolderTreeNode, Folder } from '@/components/folder/types';
 
 export const useMyFolderStore = defineStore('myFolder', {
   state: () => ({

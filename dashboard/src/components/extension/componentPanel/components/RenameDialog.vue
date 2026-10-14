@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useModuleI18n } from '@/i18n/composables';
+import { useI18n, useModuleI18n } from '@/i18n/composables';
 import type { CommandItem } from '@/domain/commands';
 
+const { t } = useI18n();
 const { tm } = useModuleI18n('features/command');
 
 // Props
@@ -62,6 +63,7 @@ watch(showAliasEditor, (open) => {
   <v-dialog
     :model-value="show"
     max-width="500"
+    :aria-label="tm('dialogs.rename.title')"
     @update:model-value="emit('update:show', $event)"
   >
     <v-card>
@@ -109,6 +111,7 @@ watch(showAliasEditor, (open) => {
               >
                 <v-text-field
                   :model-value="alias"
+                  :aria-label="tm('dialogs.rename.aliases')"
                   variant="outlined"
                   density="compact"
                   hide-details
@@ -120,6 +123,7 @@ watch(showAliasEditor, (open) => {
                   variant="text"
                   color="error"
                   density="compact"
+                  :aria-label="t('core.actions.delete')"
                   @click="removeAlias(index)"
                 />
               </div>

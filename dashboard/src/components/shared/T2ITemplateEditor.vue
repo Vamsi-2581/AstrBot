@@ -1,5 +1,11 @@
 <template>
-  <v-dialog v-model="dialog" max-width="1400px" persistent scrollable>
+  <v-dialog
+    v-model="dialog"
+    max-width="1400px"
+    persistent
+    scrollable
+    :aria-label="tm('t2iTemplateEditor.dialogTitle')"
+  >
     <template #activator="{ props }">
       <div class="t2i-template-editor-trigger">
         <v-btn
@@ -208,7 +214,11 @@
     </v-card>
 
     <!-- 确认重置对话框 -->
-    <v-dialog v-model="resetDialog" max-width="400px">
+    <v-dialog
+      v-model="resetDialog"
+      max-width="400px"
+      :aria-label="tm('t2iTemplateEditor.confirmReset')"
+    >
       <v-card class="app-dialog">
         <v-card-title>{{ tm('t2iTemplateEditor.confirmReset') }}</v-card-title>
         <v-card-text>
@@ -231,7 +241,11 @@
     </v-dialog>
 
     <!-- 删除确认对话框 -->
-    <v-dialog v-model="deleteDialog" max-width="400px">
+    <v-dialog
+      v-model="deleteDialog"
+      max-width="400px"
+      :aria-label="tm('t2iTemplateEditor.confirmDelete')"
+    >
       <v-card class="app-dialog">
         <v-card-title>{{ tm('t2iTemplateEditor.confirmDelete') }}</v-card-title>
         <v-card-text>
@@ -258,7 +272,11 @@
     </v-dialog>
 
     <!-- 保存并应用确认对话框 -->
-    <v-dialog v-model="applyAndCloseDialog" max-width="500px">
+    <v-dialog
+      v-model="applyAndCloseDialog"
+      max-width="500px"
+      :aria-label="tm('t2iTemplateEditor.confirmAction')"
+    >
       <v-card>
         <v-card-title>{{ tm('t2iTemplateEditor.confirmAction') }}</v-card-title>
         <v-card-text>

@@ -445,7 +445,12 @@
       </v-card>
     </div>
 
-    <v-dialog v-model="detailDialog" max-width="760" scrollable>
+    <v-dialog
+      v-model="detailDialog"
+      max-width="760"
+      scrollable
+      :aria-label="tm('detail.title')"
+    >
       <v-card>
         <v-card-title class="d-flex align-center ga-2">
           <v-icon icon="mdi-dots-hexagon" />
@@ -506,7 +511,15 @@
       </v-card>
     </v-dialog>
 
-    <v-dialog v-model="actionDialog" max-width="520">
+    <v-dialog
+      v-model="actionDialog"
+      max-width="520"
+      :aria-label="
+        pendingAction === 'delete'
+          ? tm('confirm.deleteTitle')
+          : tm('confirm.restoreTitle')
+      "
+    >
       <v-card>
         <v-card-title>
           {{

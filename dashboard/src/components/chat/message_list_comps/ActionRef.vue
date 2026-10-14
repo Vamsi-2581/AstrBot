@@ -10,6 +10,7 @@
         <img
           v-if="ref.favicon"
           :src="ref.favicon"
+          :alt="ref.title || ''"
           class="ref-favicon"
           @error="hideBrokenImage"
         />

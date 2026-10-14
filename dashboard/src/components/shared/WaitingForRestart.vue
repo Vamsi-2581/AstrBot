@@ -1,5 +1,10 @@
 <template>
-  <v-dialog v-model="visible" persistent max-width="400">
+  <v-dialog
+    v-model="visible"
+    persistent
+    max-width="400"
+    :aria-label="t('core.common.restart.waiting')"
+  >
     <v-card>
       <v-card-title>{{ t('core.common.restart.waiting') }}</v-card-title>
       <v-card-text>

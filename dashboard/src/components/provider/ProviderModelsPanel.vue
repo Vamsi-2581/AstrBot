@@ -19,6 +19,7 @@
           flat
           class="provider-models-search"
           :placeholder="tm('models.searchPlaceholder')"
+          :aria-label="tm('models.searchPlaceholder')"
         />
 
         <v-btn
@@ -133,6 +134,7 @@
                     hide-details
                     color="primary"
                     class="provider-model-row__switch"
+                    :aria-label="tm('providerSources.enabled')"
                     :disabled="isProviderSaving(entry.provider.id)"
                     @update:model-value="
                       emit('toggle-provider-enable', entry.provider, $event)
@@ -146,6 +148,7 @@
                         icon="mdi-connection"
                         size="small"
                         variant="text"
+                        :aria-label="tm('models.testButton')"
                         :disabled="
                           !entry.provider.enable ||
                           isProviderSaving(entry.provider.id)
@@ -160,12 +163,14 @@
                     icon="mdi-cog-outline"
                     size="small"
                     variant="text"
+                    :aria-label="tm('models.configure')"
                     @click.stop="emit('open-provider-edit', entry.provider)"
                   ></v-btn>
                   <v-btn
                     icon="mdi-delete-outline"
                     size="small"
                     variant="text"
+                    :aria-label="tm('providerSources.delete')"
                     @click.stop="emit('delete-provider', entry.provider)"
                   ></v-btn>
                 </div>
@@ -278,6 +283,7 @@
                     size="small"
                     variant="text"
                     color="primary"
+                    :aria-label="tm('providerSources.add')"
                     @click.stop="emit('add-model-provider', entry.model)"
                   ></v-btn>
                 </div>

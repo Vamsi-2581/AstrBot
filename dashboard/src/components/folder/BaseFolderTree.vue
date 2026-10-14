@@ -4,6 +4,7 @@
     <v-text-field
       v-model="searchQuery"
       :placeholder="mergedLabels.searchPlaceholder"
+      :aria-label="mergedLabels.searchPlaceholder"
       prepend-inner-icon="mdi-magnify"
       variant="outlined"
       density="compact"

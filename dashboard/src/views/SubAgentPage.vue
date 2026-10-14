@@ -68,6 +68,7 @@
               hide-details
               inset
               density="comfortable"
+              :aria-label="tm('switches.enable')"
             />
           </div>
         </div>
@@ -87,6 +88,7 @@
               hide-details
               inset
               density="comfortable"
+              :aria-label="tm('switches.dedupe')"
             />
           </div>
         </div>
@@ -186,12 +188,14 @@
                 hide-details
                 inset
                 density="compact"
+                :aria-label="tm('cards.switchLabel')"
               />
               <v-btn
                 icon="mdi-delete-outline"
                 variant="text"
                 color="error"
                 density="comfortable"
+                :aria-label="tm('actions.delete')"
                 @click="removeAgent(idx)"
               />
             </div>

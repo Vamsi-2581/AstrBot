@@ -8,6 +8,7 @@
           v-model="pluginSearchKeyword"
           class="inline-plugin-selector__search"
           :placeholder="tm('pluginSetSelector.searchPlaceholder')"
+          :aria-label="tm('pluginSetSelector.searchPlaceholder')"
           prepend-inner-icon="mdi-magnify"
           variant="outlined"
           density="compact"
@@ -109,7 +110,12 @@
   </div>
 
   <!-- Plugin Set Selection Dialog -->
-  <v-dialog v-model="dialog" max-width="700px" scrollable>
+  <v-dialog
+    v-model="dialog"
+    max-width="700px"
+    scrollable
+    :aria-label="tm('pluginSetSelector.dialogTitle')"
+  >
     <v-card class="app-dialog plugin-set-dialog__card">
       <v-card-title class="app-dialog__title">
         {{ tm('pluginSetSelector.dialogTitle') }}
@@ -124,7 +130,12 @@
 
         <div v-if="!loading">
           <!-- 预设选项 -->
-          <v-radio-group v-model="selectionMode" class="mb-4" hide-details>
+          <v-radio-group
+            v-model="selectionMode"
+            class="mb-4"
+            :aria-label="tm('pluginSetSelector.dialogTitle')"
+            hide-details
+          >
             <v-radio
               value="all"
               :label="tm('pluginSetSelector.enableAll')"
@@ -158,6 +169,7 @@
                   <v-checkbox
                     v-model="selectedPlugins"
                     :value="plugin.name"
+                    :aria-label="pluginDisplayName(plugin)"
                     color="primary"
                     hide-details
                   ></v-checkbox>

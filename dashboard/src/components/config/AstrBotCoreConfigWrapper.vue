@@ -152,18 +152,21 @@ const props = withDefaults(
 
 const { locale } = useI18n();
 const { tm: tmConfig } = useModuleI18n('features/config');
-const { tm: tmMetadata } = useModuleI18n('features/config-metadata');
+const { tm: tmMetadata, getRaw: getMetadataRaw } = useModuleI18n(
+  'features/config-metadata',
+);
 const { tm: sharedTm } = useModuleI18n('core/shared');
 
 const tab = ref<string | null>(null);
 
 const tm = (key: string) => {
-  const metadataResult = tmMetadata(key);
-  if (
-    !metadataResult.startsWith('[MISSING:') &&
-    !metadataResult.startsWith('[INVALID:')
-  ) {
-    return metadataResult;
+  if (!key) {
+    return '';
+  }
+  // Probe metadata silently so a key that only exists in `features/config`
+  // does not emit a "Translation key not found" warning before the fallback.
+  if (typeof getMetadataRaw(key) === 'string') {
+    return tmMetadata(key);
   }
   return tmConfig(key);
 };

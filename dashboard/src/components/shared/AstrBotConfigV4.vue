@@ -378,7 +378,14 @@ function shouldShowSection() {
 
       <div v-if="hasCollapsedItems()" class="collapsed-config-section">
         <div class="collapsed-config-toggle-row">
-          <span class="collapsed-config-toggle" @click="toggleCollapsedItems">
+          <span
+            class="collapsed-config-toggle"
+            role="button"
+            tabindex="0"
+            @click="toggleCollapsedItems"
+            @keydown.enter="toggleCollapsedItems"
+            @keydown.space.prevent="toggleCollapsedItems"
+          >
             {{ tmConfig('sections.moreConfig') }}
             <v-icon end size="18">
               {{
@@ -518,6 +525,7 @@ function shouldShowSection() {
     fullscreen
     transition="dialog-bottom-transition"
     scrollable
+    :aria-label="t('core.common.editor.editingTitle')"
   >
     <v-card>
       <v-toolbar color="primary">

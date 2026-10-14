@@ -155,11 +155,6 @@
         </div>
       </v-card-text>
     </v-card>
-
-    <!-- 消息提示 -->
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color">
-      {{ snackbar.text }}
-    </v-snackbar>
   </div>
 </template>
 
@@ -167,6 +162,8 @@
 import { ref } from 'vue';
 import { knowledgeApi } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
+import { useToast } from '@/utils/toast';
+import type { ToastColor } from '@/stores/toast';
 
 interface RetrievalResult {
   chunk_id: string;
@@ -193,16 +190,10 @@ const results = ref<RetrievalResult[]>([]);
 const hasSearched = ref(false);
 const debugVisualize = ref<string | null>(null);
 
-const snackbar = ref({
-  show: false,
-  text: '',
-  color: 'success',
-});
+const { toast } = useToast();
 
-const showSnackbar = (text: string, color: string = 'success') => {
-  snackbar.value.text = text;
-  snackbar.value.color = color;
-  snackbar.value.show = true;
+const showSnackbar = (text: string, color: ToastColor = 'success') => {
+  toast(text, color);
 };
 
 // 执行检索

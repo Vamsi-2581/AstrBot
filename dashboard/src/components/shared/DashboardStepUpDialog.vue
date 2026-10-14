@@ -3,6 +3,7 @@
     :model-value="modelValue"
     max-width="460"
     persistent
+    :aria-label="t('features.authorization.stepUpTitle')"
     @update:model-value="onVisibilityChange"
   >
     <v-card>

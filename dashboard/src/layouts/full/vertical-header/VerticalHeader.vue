@@ -610,7 +610,12 @@ const changeLanguage = async (langCode: string) => {
     </StyledMenu>
 
     <!-- 账户对话框 -->
-    <v-dialog v-model="dialog" persistent :max-width="xs ? '90%' : '500'">
+    <v-dialog
+      v-model="dialog"
+      persistent
+      :max-width="xs ? '90%' : '500'"
+      :aria-label="t('core.header.accountDialog.title')"
+    >
       <v-card class="account-dialog">
         <v-card-text class="py-6">
           <div class="d-flex flex-column align-start mb-6">
@@ -745,7 +750,11 @@ const changeLanguage = async (langCode: string) => {
     </v-dialog>
 
     <!-- About 对话框 - 仅在 chat mode 下使用 -->
-    <v-dialog v-model="aboutDialog" width="600">
+    <v-dialog
+      v-model="aboutDialog"
+      width="600"
+      :aria-label="t('core.navigation.about')"
+    >
       <v-card class="app-dialog">
         <v-card-text class="top-header__about-content">
           <AboutPage />

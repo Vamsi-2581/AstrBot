@@ -27,6 +27,7 @@
           v-if="items.length > 5"
           v-model="searchQuery"
           :placeholder="tm('configSelection.search')"
+          :aria-label="tm('configSelection.search')"
           hide-details
           variant="outlined"
           density="compact"

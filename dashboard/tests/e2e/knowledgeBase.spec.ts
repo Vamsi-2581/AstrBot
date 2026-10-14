@@ -114,9 +114,12 @@ test.describe('knowledge-base operator workflow', () => {
     await expect(page.locator('body')).not.toContainText(privatePath);
 
     await page.getByRole('button', { name: 'Reindex' }).click();
-    await expect(
-      page.getByText('Document rebuilt with current chunk settings'),
-    ).toBeVisible();
+    const reindexToast = page.getByText(
+      'Document rebuilt with current chunk settings',
+    );
+    await expect(reindexToast).toBeVisible({ timeout: 15_000 });
+    // The global snackbar closes on browser back, so let it dismiss first.
+    await expect(reindexToast).toBeHidden({ timeout: 15_000 });
 
     await page.goBack();
     await page.getByRole('tab', { name: /Retrieval/ }).click();
@@ -160,7 +163,7 @@ test.describe('knowledge-base operator workflow', () => {
 
     await expect(
       page.getByText('上传失败: Knowledge base task failed'),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByText('broken-provider.md', { exact: true }),
     ).toHaveCount(0);

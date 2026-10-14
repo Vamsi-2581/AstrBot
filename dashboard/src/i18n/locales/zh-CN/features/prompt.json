@@ -11,8 +11,11 @@
     "save": "保存",
     "move": "移动",
     "addDialogPair": "添加对话对",
+    "removeDialogPair": "移除对话对",
     "export": "导出",
-    "import": "导入提示词"
+    "import": "导入提示词",
+    "moreActions": "更多操作",
+    "close": "关闭"
   },
   "labels": {
     "presetDialogs": "预设对话 ({count} 对)",

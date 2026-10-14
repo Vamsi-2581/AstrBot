@@ -184,6 +184,7 @@
                     density="compact"
                     hide-details
                     color="primary"
+                    :aria-label="tm('form.enabled')"
                     @click.stop
                     @change="toggleJob(item)"
                   />
@@ -193,7 +194,12 @@
           </template>
         </section>
 
-        <v-dialog v-model="platformDialog" max-width="520" scrollable>
+        <v-dialog
+          v-model="platformDialog"
+          max-width="520"
+          scrollable
+          :aria-label="tm('platformDialog.title')"
+        >
           <v-card class="dashboard-dialog-card platform-dialog__card">
             <v-card-title class="text-h3 pt-5 px-5">
               {{ tm('platformDialog.title') }}
@@ -236,7 +242,12 @@
           {{ snackbar.message }}
         </v-snackbar>
 
-        <v-dialog v-model="createDialog" max-width="620" scrollable>
+        <v-dialog
+          v-model="createDialog"
+          max-width="620"
+          scrollable
+          :aria-label="dialogTitle"
+        >
           <v-card class="dashboard-dialog-card cron-dialog__card">
             <v-card-title class="text-h3 pt-5 px-5">{{
               dialogTitle

@@ -99,7 +99,8 @@
     "displayName": "Session Name",
     "displayNameUpdated": "Session name updated",
     "displayNameUpdateFailed": "Failed to update session name",
-    "confirmDelete": "Are you sure you want to delete \"{name}\"? This action cannot be undone."
+    "confirmDelete": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
+    "delete": "Delete conversation"
   },
   "modes": {
     "darkMode": "Switch to Dark Mode",
@@ -128,6 +129,11 @@
   },
   "config": {
     "title": "Config",
+    "selectTitle": "Select Config",
+    "empty": "No configs available. Create one on the config page first.",
+    "cancel": "Cancel",
+    "apply": "Apply",
+    "applyFailed": "Failed to apply the config",
     "bindFailed": "Failed to bind the config profile; reverted to the profile the backend currently uses"
   },
   "reasoning": {
@@ -150,6 +156,7 @@
     "title": "Projects",
     "create": "Create Project",
     "edit": "Edit Project",
+    "delete": "Delete Project",
     "name": "Project Name",
     "emoji": "Icon (Emoji)",
     "description": "Description (Optional)",
@@ -183,7 +190,8 @@
   },
   "refs": {
     "title": "References",
-    "sources": "Sources"
+    "sources": "Sources",
+    "close": "Close"
   },
   "connection": {
     "title": "Connection Status Notice",

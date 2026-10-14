@@ -30,6 +30,8 @@
       "boundTitle": "已绑定的会话",
       "boundCount": "{count} 个",
       "remove": "移除绑定",
+      "moveUp": "上移",
+      "moveDown": "下移",
       "noBindings": "暂未单独绑定会话，所有会话将使用默认配置。",
       "advanced": "高级路由规则",
       "advancedDescription": "使用 UMO pattern 批量匹配会话。规则按从上到下的顺序匹配，适合熟悉 AstrBot 会话来源格式的用户。",
@@ -53,7 +55,8 @@
   "webhookDialog": {
     "title": "Webhook 回调地址",
     "description": "回调地址如下，请确保网络环境可以公网访问。也可以在日志中查看回调地址信息。建议填写 设置 -> 常规 中的「对外可达的回调接口地址」配置项。",
-    "close": "关闭"
+    "close": "关闭",
+    "copy": "复制 Webhook 地址"
   },
   "details": {
     "adapterType": "适配器类型",
@@ -114,6 +117,7 @@
     "editMode": "编辑",
     "noRouteRules": "该平台暂无路由规则，将使用默认配置文件",
     "sessionIdPlaceholder": "会话ID或*",
+    "messageTypeLabel": "消息类型",
     "routeSource": {
       "selectPlaceholder": "选择会话来源",
       "noData": "暂无与该机器人的统一会话来源，在对应的消息平台与该机器人产生一次对话后才会显示在这里。",

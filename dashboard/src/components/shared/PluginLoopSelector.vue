@@ -26,6 +26,7 @@
               density="compact"
               hide-details
               variant="outlined"
+              :aria-label="tm('pluginLoopSelector.loop')"
               @update:model-value="setRoute(plugin.id, $event)"
             />
           </td>

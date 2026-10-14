@@ -1,5 +1,10 @@
 <template>
-  <v-dialog v-model="dialog" max-width="500px" persistent>
+  <v-dialog
+    v-model="dialog"
+    max-width="500px"
+    persistent
+    :aria-label="t('tavily.title')"
+  >
     <v-card>
       <v-card-title class="text-h5"> 配置 Tavily API Key </v-card-title>
       <v-card-text>
@@ -51,6 +56,7 @@ import DashboardStepUpDialog from '@/components/shared/DashboardStepUpDialog.vue
 import { useDashboardStepUp } from '@/composables/useDashboardStepUp';
 import { runConfigMutationWithStepUp, stepUpHeaders } from '@/utils/stepUp';
 import { resolveErrorMessage } from '@/utils/errorUtils';
+import { useModuleI18n } from '@/i18n/composables';
 
 interface ProviderSettings {
   websearch_tavily_key?: string[];
@@ -68,6 +74,8 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits(['update:modelValue', 'success']);
+
+const { tm: t } = useModuleI18n('features/knowledge-base/detail');
 
 const dialog = ref(props.modelValue);
 const apiKey = ref('');

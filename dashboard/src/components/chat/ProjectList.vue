@@ -28,13 +28,16 @@
           <span class="project-title">{{ tm('project.create') }}</span>
         </button>
 
-        <button
+        <div
           v-for="project in projects"
           :key="project.project_id"
           class="project-row project-item"
           :class="{ active: selectedProjectId === project.project_id }"
-          type="button"
+          role="button"
+          tabindex="0"
           @click="$emit('selectProject', project.project_id)"
+          @keydown.enter="$emit('selectProject', project.project_id)"
+          @keydown.space.prevent="$emit('selectProject', project.project_id)"
         >
           <span class="project-emoji">{{ project.emoji || '📁' }}</span>
           <span class="project-title">{{ project.title }}</span>
@@ -44,6 +47,8 @@
               size="x-small"
               variant="text"
               class="edit-project-btn"
+              :aria-label="tm('project.edit')"
+              :title="tm('project.edit')"
               @click.stop="$emit('editProject', project)"
             />
             <v-btn
@@ -52,10 +57,12 @@
               variant="text"
               class="delete-project-btn"
               color="error"
+              :aria-label="tm('project.delete')"
+              :title="tm('project.delete')"
               @click.stop="handleDeleteProject(project)"
             />
           </span>
-        </button>
+        </div>
       </div>
     </v-expand-transition>
   </div>

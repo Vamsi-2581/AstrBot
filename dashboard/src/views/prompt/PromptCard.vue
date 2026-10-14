@@ -19,6 +19,7 @@
             variant="text"
             size="small"
             v-bind="activatorProps"
+            :aria-label="tm('buttons.moreActions')"
             @click.stop
           />
         </template>
@@ -138,6 +139,7 @@ import {
   askForConfirmation as askForConfirmationDialog,
   useConfirmDialog,
 } from '@/utils/confirmDialog';
+import { formatDate, truncate as truncateText } from '@/utils/text';
 
 interface Prompt {
   prompt_id: string;
@@ -200,23 +202,6 @@ function handleDragStart(event: DragEvent) {
 
 function handleDragEnd() {
   isDragging.value = false;
-}
-
-function truncateText(
-  text: string | undefined | null,
-  maxLength: number,
-): string {
-  if (!text) {
-    return '';
-  }
-  return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
-}
-
-function formatDate(dateString: string | undefined | null): string {
-  if (!dateString) {
-    return '';
-  }
-  return new Date(dateString).toLocaleString();
 }
 
 async function exportPrompt() {

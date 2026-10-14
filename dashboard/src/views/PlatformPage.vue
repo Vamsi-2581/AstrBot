@@ -42,6 +42,7 @@
                   flat
                   hide-details
                   :placeholder="tm('workspace.selectHint')"
+                  :aria-label="tm('workspace.selectHint')"
                 >
                   <template #selection="{ item }">
                     <div class="bot-mobile-selection">
@@ -179,14 +180,18 @@
     <AddNewPlatform
       v-model:show="showAddPlatformDialog"
       :metadata="metadata"
-      :config_data="configData"
+      :config-data="configData"
       :updating-mode="false"
       :request-step-up="requestStepUp"
       @show-toast="showToast"
       @refresh-config="handlePlatformCreated"
     />
 
-    <v-dialog v-model="showWebhookDialog" max-width="600">
+    <v-dialog
+      v-model="showWebhookDialog"
+      max-width="600"
+      :aria-label="tm('webhookDialog.title')"
+    >
       <v-card>
         <v-card-title class="text-h3 pa-4 pb-0 pl-6 d-flex align-center">
           <v-icon class="me-2" color="primary">mdi-webhook</v-icon>
@@ -201,12 +206,14 @@
             readonly
             variant="outlined"
             hide-details
+            :aria-label="tm('webhookDialog.title')"
           >
             <template #append-inner>
               <v-btn
                 icon="mdi-content-copy"
                 size="small"
                 variant="text"
+                :aria-label="tm('webhookDialog.copy')"
                 @click="copyWebhookUrl(currentWebhookUuid)"
               />
             </template>
@@ -225,7 +232,11 @@
       </v-card>
     </v-dialog>
 
-    <v-dialog v-model="showQrDialog" max-width="480">
+    <v-dialog
+      v-model="showQrDialog"
+      max-width="480"
+      :aria-label="tm('platformQr.title')"
+    >
       <v-card>
         <v-card-title class="text-h3 pa-4 pb-0 pl-6 d-flex align-center">
           <v-icon class="me-2">mdi-qrcode</v-icon>
@@ -257,7 +268,11 @@
       </v-card>
     </v-dialog>
 
-    <v-dialog v-model="showErrorDialog" max-width="700">
+    <v-dialog
+      v-model="showErrorDialog"
+      max-width="700"
+      :aria-label="tm('errorDialog.title')"
+    >
       <v-card>
         <v-card-title class="text-h3 pa-4 pb-0 pl-6 d-flex align-center">
           <v-icon class="me-2" color="error">mdi-alert-circle</v-icon>

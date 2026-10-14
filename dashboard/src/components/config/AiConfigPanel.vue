@@ -149,7 +149,11 @@
       </div>
     </div>
 
-    <v-dialog v-model="runnerDialog" max-width="560">
+    <v-dialog
+      v-model="runnerDialog"
+      max-width="560"
+      :aria-label="tm('aiSettings.runnerDialog.title')"
+    >
       <v-card class="runner-dialog-card">
         <v-card-title class="text-h3 pa-4 pb-0 pl-6">
           {{ tm('aiSettings.runnerDialog.title') }}
@@ -198,6 +202,9 @@
             density="compact"
             hide-details
             :disabled="pendingRunnerType === runnerType"
+            :aria-label="`${tm('aiSettings.runnerDialog.warningPrefix')}${tm(
+              'aiSettings.runnerDialog.warningEmphasis',
+            )}${tm('aiSettings.runnerDialog.warningSuffix')}`"
           >
             <template #label>
               <span class="runner-dialog-acknowledgement__label">

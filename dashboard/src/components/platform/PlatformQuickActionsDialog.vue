@@ -2,6 +2,7 @@
   <v-dialog
     :model-value="modelValue"
     max-width="720"
+    :aria-label="tm('quickActions.title')"
     @update:model-value="emitModelValue"
   >
     <v-card>

@@ -4,334 +4,38 @@
     class="chat-ui"
     :class="{ 'is-dark': isDark, 'sidebar-collapsed': isSidebarCollapsed }"
   >
-    <v-navigation-drawer
-      v-model="chatSidebarDrawer"
-      class="chat-sidebar"
-      :class="{ collapsed: isSidebarCollapsed }"
-      :permanent="lgAndUp"
-      :temporary="!lgAndUp"
-      :rail="lgAndUp && sidebarCollapsed"
-      :width="280"
-      :rail-width="68"
-      location="left"
-      floating
-    >
-      <div class="sidebar-top">
-        <div v-if="lgAndUp" class="brand-row">
-          <v-btn
-            icon
-            size="small"
-            variant="text"
-            class="sidebar-toggle"
-            @click="sidebarCollapsed = !sidebarCollapsed"
-          >
-            <v-icon
-              size="20"
-              class="sidebar-action-icon"
-              :class="{ 'chevron-collapsed': isSidebarCollapsed }"
-            >
-              mdi-chevron-left
-            </v-icon>
-          </v-btn>
-        </div>
-
-        <v-btn
-          class="new-chat-btn sidebar-provider-btn"
-          :class="{
-            'icon-only': isSidebarCollapsed,
-            'sidebar-workspace-btn--active': isProviderWorkspace,
-          }"
-          variant="text"
-          :icon="isSidebarCollapsed"
-          @click="openProviderWorkspace"
-        >
-          <v-icon
-            size="20"
-            class="sidebar-action-icon"
-            :class="{ 'mr-2': !isSidebarCollapsed }"
-            >mdi-creation</v-icon
-          >
-          <span v-if="!isSidebarCollapsed">{{
-            tm('actions.providerConfig')
-          }}</span>
-        </v-btn>
-
-        <v-btn
-          class="new-chat-btn"
-          :class="{ 'icon-only': isSidebarCollapsed }"
-          variant="text"
-          :icon="isSidebarCollapsed"
-          @click="startNewChat"
-        >
-          <v-icon
-            size="20"
-            class="sidebar-action-icon"
-            :class="{ 'mr-2': !isSidebarCollapsed }"
-            >mdi-square-edit-outline</v-icon
-          >
-          <span v-if="!isSidebarCollapsed">{{ tm('actions.newChat') }}</span>
-        </v-btn>
-
-        <ProjectList
-          v-if="!isSidebarCollapsed"
-          :projects="projects"
-          :selected-project-id="selectedProjectId"
-          @create-project="openCreateProjectDialog"
-          @edit-project="openEditProjectDialog"
-          @delete-project="handleDeleteProject"
-          @select-project="selectProject"
-        />
-      </div>
-
-      <div v-if="!isSidebarCollapsed" class="session-search">
-        <v-text-field
-          :model-value="sessionSearchInput"
-          density="compact"
-          variant="solo-filled"
-          flat
-          hide-details
-          clearable
-          prepend-inner-icon="mdi-magnify"
-          :placeholder="tm('conversation.searchPlaceholder')"
-          :aria-label="tm('conversation.searchPlaceholder')"
-          @update:model-value="onSessionSearchInput"
-        />
-      </div>
-
-      <div
-        v-if="!isSidebarCollapsed"
-        ref="sidebarContent"
-        class="session-list"
-        @scroll.passive="loadMoreSessions"
-      >
-        <div
-          v-for="session in sidebarSessions"
-          :key="session.session_id"
-          class="session-item"
-          :class="{
-            active:
-              !isProviderWorkspace && currSessionId === session.session_id,
-          }"
-          role="button"
-          tabindex="0"
-          @click="selectSession(session.session_id)"
-          @keydown.enter="selectSession(session.session_id)"
-          @keydown.space.prevent="selectSession(session.session_id)"
-        >
-          <span v-if="!isSidebarCollapsed" class="session-title">{{
-            sessionTitle(session)
-          }}</span>
-          <div class="session-actions" @click.stop>
-            <v-btn
-              icon="mdi-share-variant-outline"
-              size="x-small"
-              variant="text"
-              class="session-action-btn"
-              :title="tm('actions.share')"
-              @click="openShareDialog(session)"
-            />
-            <v-btn
-              icon="mdi-pencil-outline"
-              size="x-small"
-              variant="text"
-              class="session-action-btn"
-              :title="tm('conversation.editDisplayName')"
-              @click="editSidebarSessionTitle(session)"
-            />
-            <v-btn
-              icon="mdi-delete-outline"
-              size="x-small"
-              variant="text"
-              class="session-action-btn"
-              :title="tm('actions.deleteChat')"
-              @click="deleteSidebarSession(session)"
-            />
-          </div>
-          <v-progress-circular
-            v-if="isSessionRunning(session.session_id)"
-            class="session-progress"
-            indeterminate
-            size="16"
-            width="2"
-          />
-        </div>
-
-        <div
-          v-if="
-            !isSidebarCollapsed && !sidebarSessions.length && !loadingSessions
-          "
-          class="empty-sessions"
-        >
-          {{ tm('conversation.noHistory') }}
-        </div>
-
-        <v-progress-linear
-          v-if="sessionsPagination.loading"
-          color="primary"
-          height="2"
-          indeterminate
-          :aria-label="tm('conversation.loading')"
-        />
-        <ChatLoadError
-          v-if="sessionsPagination.error"
-          :message="tm('conversation.loadFailed')"
-          :loading="sessionsPagination.loading"
-          @retry="getSessions(sessionsPagination.append)"
-        />
-      </div>
-
-      <div class="sidebar-footer">
-        <StyledMenu
-          location="top start"
-          offset="10"
-          :close-on-content-click="false"
-        >
-          <template #activator="{ props: menuProps }">
-            <v-btn
-              v-bind="menuProps"
-              class="settings-btn"
-              :class="{ 'icon-only': isSidebarCollapsed }"
-              variant="text"
-              :icon="isSidebarCollapsed"
-            >
-              <v-icon
-                size="20"
-                class="sidebar-action-icon"
-                :class="{ 'mr-2': !isSidebarCollapsed }"
-                >mdi-cog-outline</v-icon
-              >
-              <span v-if="!isSidebarCollapsed">{{
-                t('core.common.settings')
-              }}</span>
-            </v-btn>
-          </template>
-
-          <div class="settings-menu-content">
-            <v-menu
-              location="end"
-              offset="8"
-              :open-on-hover="!isTouchDevice"
-              :open-on-click="isTouchDevice"
-              :close-on-content-click="true"
-            >
-              <template #activator="{ props: transportMenuProps }">
-                <v-list-item
-                  v-bind="transportMenuProps"
-                  class="styled-menu-item"
-                  rounded="md"
-                >
-                  <template #prepend>
-                    <v-icon size="18">mdi-connection</v-icon>
-                  </template>
-                  <v-list-item-title>{{
-                    tm('transport.title')
-                  }}</v-list-item-title>
-                  <template #append>
-                    <span class="settings-menu-value">{{
-                      currentTransportLabel
-                    }}</span>
-                    <v-icon size="18">mdi-chevron-right</v-icon>
-                  </template>
-                </v-list-item>
-              </template>
-
-              <v-card class="styled-menu-card" elevation="4" rounded="md">
-                <v-list density="compact" class="styled-menu-list pa-1">
-                  <v-list-item
-                    v-for="item in transportOptions"
-                    :key="item.value"
-                    class="styled-menu-item"
-                    :class="{
-                      'styled-menu-item-active': transportMode === item.value,
-                    }"
-                    rounded="md"
-                    @click="transportMode = item.value"
-                  >
-                    <v-list-item-title>{{
-                      tm(item.labelKey)
-                    }}</v-list-item-title>
-                    <template #append>
-                      <v-icon v-if="transportMode === item.value" size="18">
-                        mdi-check
-                      </v-icon>
-                    </template>
-                  </v-list-item>
-                </v-list>
-              </v-card>
-            </v-menu>
-
-            <v-menu
-              location="end"
-              offset="8"
-              :open-on-hover="!isTouchDevice"
-              :open-on-click="isTouchDevice"
-              :close-on-content-click="true"
-            >
-              <template #activator="{ props: languageMenuProps }">
-                <v-list-item
-                  v-bind="languageMenuProps"
-                  class="styled-menu-item"
-                  rounded="md"
-                >
-                  <template #prepend>
-                    <v-icon size="18">mdi-translate</v-icon>
-                  </template>
-                  <v-list-item-title>{{
-                    t('core.common.language')
-                  }}</v-list-item-title>
-                  <template #append>
-                    <span class="settings-menu-value">{{
-                      currentLanguage?.label || locale
-                    }}</span>
-                    <v-icon size="18">mdi-chevron-right</v-icon>
-                  </template>
-                </v-list-item>
-              </template>
-
-              <v-card class="styled-menu-card" elevation="4" rounded="md">
-                <v-list density="compact" class="styled-menu-list pa-1">
-                  <v-list-item
-                    v-for="lang in languageOptions"
-                    :key="lang.value"
-                    class="styled-menu-item"
-                    :class="{
-                      'styled-menu-item-active': locale === lang.value,
-                    }"
-                    rounded="md"
-                    @click="switchLanguage(lang.value as Locale)"
-                  >
-                    <template #prepend>
-                      <span class="language-flag">{{ lang.flag }}</span>
-                    </template>
-                    <v-list-item-title>{{ lang.label }}</v-list-item-title>
-                    <template #append>
-                      <v-icon v-if="locale === lang.value" size="18">
-                        mdi-check
-                      </v-icon>
-                    </template>
-                  </v-list-item>
-                </v-list>
-              </v-card>
-            </v-menu>
-
-            <v-list-item
-              class="styled-menu-item"
-              rounded="md"
-              @click="toggleTheme"
-            >
-              <template #prepend>
-                <v-icon size="18">{{
-                  isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night'
-                }}</v-icon>
-              </template>
-              <v-list-item-title>{{
-                isDark ? tm('modes.lightMode') : tm('modes.darkMode')
-              }}</v-list-item-title>
-            </v-list-item>
-          </div>
-        </StyledMenu>
-      </div>
-    </v-navigation-drawer>
+    <ChatSidebar
+      v-model:collapsed="sidebarCollapsed"
+      v-model:transport-mode="transportMode"
+      :is-sidebar-collapsed="isSidebarCollapsed"
+      :projects="projects"
+      :selected-project-id="selectedProjectId"
+      :sessions="sidebarSessions"
+      :curr-session-id="currSessionId"
+      :is-provider-workspace="isProviderWorkspace"
+      :loading-sessions="loadingSessions"
+      :sessions-pagination="sessionsPagination"
+      :is-dark="isDark"
+      :is-touch-device="isTouchDevice"
+      :language-options="languageOptions"
+      :current-language="currentLanguage"
+      :locale="locale"
+      :is-session-running="isSessionRunning"
+      @select-session="selectSession"
+      @new-chat="startNewChat"
+      @open-provider-workspace="openProviderWorkspace"
+      @share-session="openShareDialog"
+      @edit-session-title="editSidebarSessionTitle"
+      @delete-session="deleteSidebarSession"
+      @create-project="openCreateProjectDialog"
+      @edit-project="openEditProjectDialog"
+      @delete-project="handleDeleteProject"
+      @select-project="selectProject"
+      @switch-language="switchLanguage"
+      @toggle-theme="toggleTheme"
+      @load-sessions="handleLoadSessions"
+      @search-sessions="handleSessionSearch"
+    />
 
     <main
       class="chat-main"
@@ -370,52 +74,13 @@
         @edit-session-title="editProjectSessionTitle"
         @delete-session="deleteProjectSession"
       >
-        <section class="project-composer-shell">
-          <ChatInput
-            ref="inputRef"
-            v-model:prompt="draft"
-            :staged-images-url="stagedImagesUrl"
-            :staged-audio-url="stagedAudioUrl"
-            :staged-files="stagedNonImageFiles"
-            :failed-uploads="failedUploadViews"
-            :active-uploads="activeUploadViews"
-            :disabled="sending"
-            :enable-streaming="enableStreaming"
-            :enable-reasoning="enableReasoning"
-            :is-recording="isRecording"
-            :is-running="
-              Boolean(currSessionId && isSessionRunning(currSessionId))
-            "
-            :token-usage="tokenUsageIndicator"
-            :web-chat-tools-enabled="webChatToolsEnabled"
-            :session-id="currSessionId || null"
-            :current-session="currentSession"
-            :reply-to="chatInputReplyTarget"
-            :send-shortcut="sendShortcut"
-            :multi-model-enabled="multiModelEnabled"
-            :multi-model-max="multiModelMax"
-            :multi-model-selection="multiModelSelection"
-            :placeholder="tm('input.projectPlaceholder')"
-            @send="sendCurrentMessage"
-            @stop="stopCurrentSession"
-            @toggle-streaming="toggleStreaming"
-            @toggle-reasoning="enableReasoning = !enableReasoning"
-            @remove-image="removeImage"
-            @remove-audio="removeAudio"
-            @remove-file="removeFile"
-            @retry-failed-upload="retryFailedUpload"
-            @discard-failed-upload="discardFailedUpload"
-            @cancel-active-upload="cancelActiveUpload"
-            @start-recording="startRecording"
-            @stop-recording="stopRecording"
-            @paste-image="handlePaste"
-            @file-select="handleFilesSelected"
-            @clear-reply="replyTarget = null"
-            @config-changed="handleChatConfigChange"
-            @toggle-web-chat-tools="toggleWebChatTools"
-            @update:multi-model-selection="multiModelSelection = $event"
-          />
-        </section>
+        <ChatComposer
+          ref="inputRef"
+          project
+          :chat-input-props="chatInputProps"
+          :chat-input-listeners="chatInputListeners"
+          :placeholder="tm('input.projectPlaceholder')"
+        />
       </ProjectView>
 
       <template v-else>
@@ -509,60 +174,13 @@
           </div>
         </section>
 
-        <section class="composer-shell">
-          <button
-            v-if="showScrollToBottom"
-            class="scroll-to-bottom-btn"
-            type="button"
-            :aria-label="tm('input.scrollToBottom')"
-            @click="scrollToBottom"
-          >
-            <v-icon size="20">mdi-chevron-down</v-icon>
-          </button>
-          <ChatInput
-            ref="inputRef"
-            v-model:prompt="draft"
-            :staged-images-url="stagedImagesUrl"
-            :staged-audio-url="stagedAudioUrl"
-            :staged-files="stagedNonImageFiles"
-            :failed-uploads="failedUploadViews"
-            :active-uploads="activeUploadViews"
-            :disabled="sending"
-            :enable-streaming="enableStreaming"
-            :enable-reasoning="enableReasoning"
-            :is-recording="isRecording"
-            :is-running="
-              Boolean(currSessionId && isSessionRunning(currSessionId))
-            "
-            :token-usage="tokenUsageIndicator"
-            :web-chat-tools-enabled="webChatToolsEnabled"
-            :session-id="currSessionId || null"
-            :current-session="currentSession"
-            :reply-to="chatInputReplyTarget"
-            :send-shortcut="sendShortcut"
-            :multi-model-enabled="multiModelEnabled"
-            :multi-model-max="multiModelMax"
-            :multi-model-selection="multiModelSelection"
-            @send="sendCurrentMessage"
-            @stop="stopCurrentSession"
-            @toggle-streaming="toggleStreaming"
-            @toggle-reasoning="enableReasoning = !enableReasoning"
-            @remove-image="removeImage"
-            @remove-audio="removeAudio"
-            @remove-file="removeFile"
-            @retry-failed-upload="retryFailedUpload"
-            @discard-failed-upload="discardFailedUpload"
-            @cancel-active-upload="cancelActiveUpload"
-            @start-recording="startRecording"
-            @stop-recording="stopRecording"
-            @paste-image="handlePaste"
-            @file-select="handleFilesSelected"
-            @clear-reply="replyTarget = null"
-            @config-changed="handleChatConfigChange"
-            @toggle-web-chat-tools="toggleWebChatTools"
-            @update:multi-model-selection="multiModelSelection = $event"
-          />
-        </section>
+        <ChatComposer
+          ref="inputRef"
+          :chat-input-props="chatInputProps"
+          :chat-input-listeners="chatInputListeners"
+          :show-scroll-to-bottom="showScrollToBottom"
+          @scroll-to-bottom="scrollToBottom"
+        />
       </template>
     </main>
 
@@ -589,37 +207,12 @@
       :saving="savingProject"
       @save="saveProject"
     />
-    <v-dialog v-model="sessionTitleDialogOpen" max-width="420">
-      <v-card>
-        <v-card-title class="text-h6">
-          {{ tm('conversation.editDisplayName') }}
-        </v-card-title>
-        <v-card-text>
-          <v-text-field
-            v-model="sessionTitleDraft"
-            :label="tm('conversation.displayName')"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            autofocus
-            @keydown.enter="saveSessionTitleDialog"
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="sessionTitleDialogOpen = false">
-            {{ t('core.common.cancel') }}
-          </v-btn>
-          <v-btn
-            color="primary"
-            :loading="savingSessionTitle"
-            @click="saveSessionTitleDialog"
-          >
-            {{ t('core.common.save') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <SessionTitleDialog
+      v-model="sessionTitleDialogOpen"
+      v-model:title="sessionTitleDraft"
+      :saving="savingSessionTitle"
+      @save="saveSessionTitleDialog"
+    />
     <ThreadPanel
       v-model="threadPanelOpen"
       :thread="activeThread"
@@ -667,13 +260,20 @@ import { useRoute, useRouter } from 'vue-router';
 import { useDisplay } from 'vuetify';
 import { isAxiosError } from 'axios';
 import { chatApi, providerApi } from '@/api/v1';
-import StyledMenu from '@/components/shared/StyledMenu.vue';
 import ProjectDialog, {
   type ProjectFormData,
 } from '@/components/chat/ProjectDialog.vue';
-import ProjectList, { type Project } from '@/components/chat/ProjectList.vue';
+import type { Project } from '@/components/chat/ProjectList.vue';
 import ProjectView from '@/components/chat/ProjectView.vue';
-import ChatInput from '@/components/chat/ChatInput.vue';
+import ChatSidebar from '@/components/chat/ChatSidebar.vue';
+import ChatComposer from '@/components/chat/ChatComposer.vue';
+import SessionTitleDialog from '@/components/chat/SessionTitleDialog.vue';
+import {
+  formatUsagePercent,
+  readStoredValue,
+  readTokenCount,
+  writeStoredValue,
+} from '@/components/chat/chatHelpers';
 import DashboardStepUpDialog from '@/components/shared/DashboardStepUpDialog.vue';
 import ChatMessageList from '@/components/chat/ChatMessageList.vue';
 import ChatLoadError from '@/components/chat/ChatLoadError.vue';
@@ -697,12 +297,7 @@ import { useDragUpload } from '@/composables/useDragUpload';
 import { useProviderModelSelection } from '@/composables/useProviderModelSelection';
 import { useCustomizerStore } from '@/stores/customizer';
 import ProviderChatCompletionPanel from '@/components/provider/ProviderChatCompletionPanel.vue';
-import {
-  useI18n,
-  useLanguageSwitcher,
-  useModuleI18n,
-} from '@/i18n/composables';
-import type { Locale } from '@/i18n/types';
+import { useLanguageSwitcher, useModuleI18n } from '@/i18n/composables';
 import { askForConfirmation, useConfirmDialog } from '@/utils/confirmDialog';
 import {
   contextLimit,
@@ -711,6 +306,7 @@ import {
   type ProviderMetadataSource,
 } from '@/utils/providerMetadata';
 import { useToast } from '@/utils/toast';
+import { truncate } from '@/utils/text';
 import { readChatDraft, writeChatDraft } from '@/utils/chatDraftStorage';
 import { useDashboardStepUp } from '@/composables/useDashboardStepUp';
 
@@ -726,7 +322,6 @@ const route = useRoute();
 const router = useRouter();
 const { lgAndUp } = useDisplay();
 const customizer = useCustomizerStore();
-const { t } = useI18n();
 const { tm } = useModuleI18n('features/chat');
 const confirmDialog = useConfirmDialog();
 const toast = useToast();
@@ -737,7 +332,6 @@ const { languageOptions, currentLanguage, switchLanguage, locale } =
 const {
   sessions,
   sessionsPagination,
-  sessionSearch,
   currSessionId,
   getSessions,
   setSessionSearch,
@@ -747,22 +341,10 @@ const {
   updateSessionTitle,
 } = useSessions(props.chatboxMode);
 
-const sessionSearchInput = ref(sessionSearch.value);
-let sessionSearchTimer: ReturnType<typeof setTimeout> | null = null;
-function onSessionSearchInput(value: string) {
-  sessionSearchInput.value = value ?? '';
-  if (sessionSearchTimer) {
-    clearTimeout(sessionSearchTimer);
-  }
-  sessionSearchTimer = setTimeout(() => {
-    void setSessionSearch(sessionSearchInput.value);
-  }, 250);
+function handleSessionSearch(value: string) {
+  void setSessionSearch(value);
 }
-onBeforeUnmount(() => {
-  if (sessionSearchTimer) {
-    clearTimeout(sessionSearchTimer);
-  }
-});
+
 const {
   projects,
   selectedProjectId,
@@ -796,24 +378,6 @@ const {
 
 type WorkspaceView = 'chat' | 'providers';
 
-/** Read browser state without letting restricted storage abort chat setup. */
-function readStoredValue(key: string): string {
-  try {
-    return localStorage.getItem(key) || '';
-  } catch {
-    return '';
-  }
-}
-
-/** Persist browser state when storage is available. */
-function writeStoredValue(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Browser persistence must not block chat interactions.
-  }
-}
-
 const sidebarCollapsed = ref(false);
 interface TokenProviderConfig extends ProviderMetadataSource {
   id: string;
@@ -840,8 +404,7 @@ const tokenProviderConfigs = ref<TokenProviderConfig[]>([]);
 const tokenModelMetadata = ref<Record<string, ProviderModelMetadata>>({});
 const selectedTokenProviderId = ref('');
 const messagesContainer = ref<HTMLElement | null>(null);
-const sidebarContent = ref<HTMLElement | null>(null);
-const inputRef = ref<InstanceType<typeof ChatInput> | null>(null);
+const inputRef = ref<InstanceType<typeof ChatComposer> | null>(null);
 const shouldStickToBottom = ref(true);
 const suppressAutoScroll = ref(false);
 let autoScrollFrame: number | null = null;
@@ -881,14 +444,6 @@ const {
   startRecording: startRecorder,
   stopRecording: stopRecorder,
 } = useRecording();
-const chatSidebarDrawer = computed({
-  get: () => lgAndUp.value || customizer.chatSidebarOpen,
-  set: (value: boolean) => {
-    if (!lgAndUp.value) {
-      customizer.SET_CHAT_SIDEBAR(value);
-    }
-  },
-});
 const isSidebarCollapsed = computed(() =>
   lgAndUp.value ? sidebarCollapsed.value : !customizer.chatSidebarOpen,
 );
@@ -1071,16 +626,6 @@ const handlePointerChange = (event: MediaQueryListEvent) => {
   isTouchDevice.value = event.matches;
 };
 pointerMediaQuery.addEventListener('change', handlePointerChange);
-const transportOptions: Array<{ value: TransportMode; labelKey: string }> = [
-  { value: 'sse', labelKey: 'transport.sse' },
-  { value: 'websocket', labelKey: 'transport.websocket' },
-];
-const currentTransportLabel = computed(() =>
-  tm(
-    transportOptions.find((item) => item.value === transportMode.value)
-      ?.labelKey || 'transport.sse',
-  ),
-);
 
 watch(transportMode, (mode) => {
   writeStoredValue('chat.transportMode', mode);
@@ -1202,6 +747,61 @@ const tokenUsageIndicator = computed(() => {
     }),
   };
 });
+
+const chatInputProps = computed(() => ({
+  prompt: draft.value,
+  stagedImagesUrl: stagedImagesUrl.value,
+  stagedAudioUrl: stagedAudioUrl.value,
+  stagedFiles: stagedNonImageFiles.value,
+  failedUploads: failedUploadViews.value,
+  activeUploads: activeUploadViews.value,
+  disabled: sending.value,
+  enableStreaming: enableStreaming.value,
+  enableReasoning: enableReasoning.value,
+  isRecording: isRecording.value,
+  isRunning: Boolean(
+    currSessionId.value && isSessionRunning(currSessionId.value),
+  ),
+  tokenUsage: tokenUsageIndicator.value,
+  webChatToolsEnabled: webChatToolsEnabled.value,
+  sessionId: currSessionId.value || null,
+  currentSession: currentSession.value,
+  replyTo: chatInputReplyTarget.value,
+  sendShortcut: sendShortcut.value,
+  multiModelEnabled: multiModelEnabled.value,
+  multiModelMax: multiModelMax.value,
+  multiModelSelection: multiModelSelection.value,
+}));
+
+const chatInputListeners = {
+  send: sendCurrentMessage,
+  stop: stopCurrentSession,
+  toggleStreaming,
+  toggleReasoning: () => {
+    enableReasoning.value = !enableReasoning.value;
+  },
+  removeImage,
+  removeAudio,
+  removeFile,
+  retryFailedUpload,
+  discardFailedUpload,
+  cancelActiveUpload,
+  startRecording,
+  stopRecording,
+  pasteImage: handlePaste,
+  fileSelect: handleFilesSelected,
+  clearReply: () => {
+    replyTarget.value = null;
+  },
+  configChanged: handleChatConfigChange,
+  toggleWebChatTools,
+  'update:prompt': (value: string) => {
+    draft.value = value;
+  },
+  'update:multiModelSelection': (value: MultiModelSelection[]) => {
+    multiModelSelection.value = value;
+  },
+};
 
 function getSelectedProviderSelection() {
   const inputSelection = inputRef.value?.getCurrentSelection();
@@ -1332,18 +932,6 @@ watch(activeMessages, () => {
   }
 });
 
-watch(
-  [
-    () => sessionsPagination.loading,
-    () => sessions.value.length,
-    isSidebarCollapsed,
-  ],
-  () => {
-    void nextTick(loadMoreSessions);
-  },
-  { flush: 'post' },
-);
-
 function getRouteSessionId() {
   const raw = route.params.conversationId;
   return Array.isArray(raw) ? raw[0] : raw || '';
@@ -1408,18 +996,6 @@ async function loadTokenProviders() {
   } catch (error) {
     console.error('Failed to load provider context metadata:', error);
   }
-}
-
-function readTokenCount(value: unknown) {
-  const count = Number(value || 0);
-  return Number.isFinite(count) && count > 0 ? count : 0;
-}
-
-function formatUsagePercent(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return '0';
-  if (value >= 10) return String(Math.round(value));
-  if (value >= 1) return String(Math.round(value * 10) / 10);
-  return String(Math.round(value * 100) / 100);
 }
 
 async function startNewChat() {
@@ -1828,10 +1404,6 @@ function plainTextFromMessage(message: ChatRecord) {
     .join('\n');
 }
 
-function truncate(value: string, max: number) {
-  return value.length > max ? `${value.slice(0, max)}...` : value;
-}
-
 function scrollToMessage(messageId?: string | number) {
   if (!messageId) return;
   const index = activeMessages.value.findIndex(
@@ -2153,26 +1725,9 @@ async function retryCurrentSessionLoad() {
   await loadSessionMessages(sessionId, true, true);
 }
 
-/** Request the next sidebar page when the scroll container nears its end. */
-function loadMoreSessions() {
-  const container = sidebarContent.value;
-  if (
-    !container ||
-    container.clientHeight === 0 ||
-    isSidebarCollapsed.value ||
-    !sessionsPagination.hasMore ||
-    sessionsPagination.loading ||
-    sessionsPagination.error
-  ) {
-    return;
-  }
-  if (
-    container.scrollHeight - container.scrollTop - container.clientHeight >
-    120
-  ) {
-    return;
-  }
-  void getSessions(true);
+/** Load the next sidebar page when the sidebar requests more sessions. */
+function handleLoadSessions(append: boolean) {
+  void getSessions(append);
 }
 
 function maybeLoadEarlierOnScroll(container: HTMLElement) {
@@ -2240,221 +1795,6 @@ function toggleTheme() {
 :global(.dashboard-appearance-active .chat-ui) {
   --chat-page-bg: transparent;
   --chat-sidebar-bg: var(--dashboard-wallpaper-surface);
-}
-
-.chat-sidebar {
-  height: 100%;
-  background: var(--chat-sidebar-bg);
-}
-
-.chat-sidebar.collapsed {
-  background: transparent;
-}
-
-.chat-sidebar :deep(.v-navigation-drawer__content) {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.sidebar-top {
-  padding: 12px;
-}
-
-.brand-row {
-  display: flex;
-  align-items: center;
-}
-
-.brand-row {
-  justify-content: flex-start;
-  min-height: 36px;
-  margin-bottom: 8px;
-}
-
-.sidebar-toggle,
-.new-chat-btn,
-.settings-btn {
-  color: var(--chat-muted);
-  border-radius: 8px;
-}
-
-.sidebar-action-icon {
-  color: currentcolor;
-}
-
-.sidebar-toggle {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-}
-
-.new-chat-btn,
-.settings-btn {
-  width: 100%;
-  justify-content: flex-start;
-  border-radius: 8px;
-  text-transform: none;
-  font-weight: 500;
-}
-
-.sidebar-provider-btn {
-  margin-bottom: 8px;
-}
-
-.new-chat-btn:not(.icon-only),
-.settings-btn:not(.icon-only) {
-  padding-inline: 12px;
-}
-
-.new-chat-btn.icon-only,
-.settings-btn.icon-only {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  justify-content: center;
-}
-
-.chat-sidebar.collapsed .brand-row,
-.chat-sidebar.collapsed .sidebar-footer {
-  display: flex;
-  justify-content: center;
-}
-
-.sidebar-toggle:hover,
-.new-chat-btn:hover,
-.settings-btn:hover {
-  background: var(--chat-session-active-bg);
-}
-
-.sidebar-workspace-btn--active {
-  background: var(--chat-session-active-bg);
-  color: rgb(var(--v-theme-on-surface));
-}
-
-.chevron-collapsed {
-  transform: rotate(180deg);
-}
-
-.session-search {
-  padding: 4px 12px 0;
-}
-
-.session-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 4px 12px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.session-item {
-  width: 100%;
-  min-height: 38px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: inherit;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  padding-right: 68px;
-  position: relative;
-  box-sizing: border-box;
-  cursor: pointer;
-  text-align: left;
-}
-
-.session-item:hover,
-.session-item.active {
-  background: var(--chat-session-active-bg);
-}
-
-.session-title {
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.session-progress {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  flex-shrink: 0;
-  transition: right 0.16s ease;
-}
-
-.session-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  opacity: 0;
-  pointer-events: none;
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  visibility: hidden;
-}
-
-.session-item:hover .session-actions,
-.session-item:focus-within .session-actions {
-  opacity: 1;
-  pointer-events: auto;
-  visibility: visible;
-}
-
-.session-item:hover .session-progress,
-.session-item:focus-within .session-progress {
-  right: 62px;
-}
-
-.session-action-btn {
-  color: var(--chat-muted);
-}
-
-.session-action-btn:hover {
-  color: rgb(var(--v-theme-on-surface));
-}
-
-.empty-sessions {
-  padding: 12px;
-  color: var(--chat-muted);
-  font-size: 13px;
-}
-
-.sidebar-footer {
-  margin-top: auto;
-  padding: 10px 12px 14px;
-}
-
-.settings-menu-content {
-  min-width: 230px;
-  padding: 6px;
-}
-
-.settings-menu-value {
-  color: var(--chat-muted);
-  font-size: 12px;
-  margin-right: 4px;
-  max-width: 92px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.language-flag {
-  display: inline-block;
-  width: 20px;
-  margin-right: 8px;
 }
 
 .chat-main {
@@ -2609,65 +1949,6 @@ function toggleTheme() {
   cursor: pointer;
 }
 
-.composer-shell {
-  position: relative;
-  z-index: 1;
-  background: var(--chat-page-bg);
-  padding: 0 0 18px;
-}
-
-.scroll-to-bottom-btn {
-  position: absolute;
-  z-index: 2;
-  left: 50%;
-  top: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 1px solid rgb(var(--v-theme-outline-variant));
-  border-radius: 50%;
-  background: rgb(var(--v-theme-surface));
-  color: rgb(var(--v-theme-on-surface));
-  box-shadow: 0 2px 4px rgb(24 33 43 / 10%);
-  transform: translate(-50%, -50%);
-  cursor: pointer;
-}
-
-.scroll-to-bottom-btn:hover {
-  background: rgb(var(--v-theme-surface-variant));
-}
-
-.composer-shell::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  left: 0;
-  right: 0;
-  top: -36px;
-  height: 36px;
-  pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    rgba(var(--v-theme-background), 0),
-    var(--chat-page-bg)
-  );
-}
-
-.composer-shell :deep(.input-area) {
-  border-top: 0;
-}
-
-.empty-chat .composer-shell {
-  padding-bottom: 0;
-}
-
-.empty-chat .composer-shell::before {
-  display: none;
-}
-
 kbd {
   padding: 1px 5px;
   border-radius: 4px;
@@ -2695,11 +1976,6 @@ kbd {
 @media (max-width: 760px) {
   .messages-panel {
     padding: 18px 14px;
-  }
-
-  .composer-shell,
-  .project-composer-shell {
-    padding: 0;
   }
 }
 </style>

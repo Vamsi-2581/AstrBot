@@ -222,7 +222,11 @@
       </main>
     </v-card>
 
-    <v-dialog v-model="createDialog" max-width="460">
+    <v-dialog
+      v-model="createDialog"
+      max-width="460"
+      :aria-label="createType === 'file' ? tm('newFile') : tm('newDirectory')"
+    >
       <v-card>
         <v-card-title>{{
           createType === 'file' ? tm('newFile') : tm('newDirectory')
@@ -244,7 +248,11 @@
         >
       </v-card>
     </v-dialog>
-    <v-dialog v-model="unsavedDialog" max-width="420">
+    <v-dialog
+      v-model="unsavedDialog"
+      max-width="420"
+      :aria-label="tm('conflict')"
+    >
       <v-card
         ><v-card-title>{{ tm('conflict') }}</v-card-title
         ><v-card-text>{{
@@ -260,7 +268,7 @@
         ></v-card
       >
     </v-dialog>
-    <v-dialog v-model="deleteDialog" max-width="420">
+    <v-dialog v-model="deleteDialog" max-width="420" :aria-label="tm('delete')">
       <v-card
         ><v-card-title>{{ tm('delete') }}</v-card-title
         ><v-card-text>
@@ -282,7 +290,7 @@
         ></v-card
       >
     </v-dialog>
-    <v-dialog v-model="renameDialog" max-width="460">
+    <v-dialog v-model="renameDialog" max-width="460" :aria-label="tm('rename')">
       <v-card
         ><v-card-title>{{ tm('rename') }}</v-card-title
         ><v-card-text

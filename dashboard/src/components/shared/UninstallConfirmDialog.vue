@@ -2,6 +2,7 @@
   <v-dialog
     v-model="show"
     max-width="500"
+    :aria-label="tm('dialogs.uninstall.title')"
     @click:outside="handleCancel"
     @keydown.esc="handleCancel"
   >

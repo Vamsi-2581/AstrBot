@@ -13,7 +13,8 @@
     "clear": "Clear",
     "next": "Next",
     "editCustomName": "Edit Note",
-    "batchDelete": "Batch Delete"
+    "batchDelete": "Batch Delete",
+    "close": "Close"
   },
   "targetType": {
     "session": "Session",

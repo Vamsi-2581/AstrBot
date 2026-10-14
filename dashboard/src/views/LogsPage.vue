@@ -108,7 +108,12 @@ async function pipInstall(): Promise<void> {
         </div>
       </template>
     </ConsoleDisplayer>
-    <v-dialog v-model="pipDialog" width="440" scrollable>
+    <v-dialog
+      v-model="pipDialog"
+      width="440"
+      scrollable
+      :aria-label="tm('pipInstall.dialogTitle')"
+    >
       <v-card class="app-dialog console-pip-dialog">
         <v-card-title>
           <span class="text-h5">{{ tm('pipInstall.dialogTitle') }}</span>

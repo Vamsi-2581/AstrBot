@@ -14,7 +14,12 @@
       </span>
     </div>
 
-    <v-dialog v-model="dialog" max-width="700" scrollable>
+    <v-dialog
+      v-model="dialog"
+      max-width="700"
+      scrollable
+      :aria-label="tm('fileUpload.dialogTitle')"
+    >
       <v-card class="file-dialog-card" variant="flat">
         <v-card-title class="text-h3 pa-4 pb-0 pl-6 d-flex align-center">
           <span>{{ tm('fileUpload.dialogTitle') }}</span>
@@ -55,12 +60,14 @@
                     icon="mdi-plus"
                     size="x-small"
                     variant="text"
+                    :aria-label="tm('fileUpload.addToConfigAction')"
                     @click="addToConfig(item.path)"
                   />
                   <v-btn
                     icon="mdi-delete"
                     size="x-small"
                     variant="text"
+                    :aria-label="tm('fileUpload.deleteFileAction')"
                     @click="
                       item.status === 'unconfigured'
                         ? deletePhysicalFile(item.path)

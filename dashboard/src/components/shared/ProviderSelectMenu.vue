@@ -85,6 +85,7 @@
             <v-text-field
               v-model="searchQuery"
               :placeholder="sharedTm('providerSelector.searchPlaceholder')"
+              :aria-label="sharedTm('providerSelector.searchPlaceholder')"
               hide-details
               variant="outlined"
               density="compact"
@@ -128,6 +129,7 @@
                       icon="mdi-arrow-up"
                       size="x-small"
                       variant="text"
+                      :aria-label="sharedTm('providerSelector.moveUp')"
                       :disabled="index === 0"
                       @click.stop="moveSelected(index, -1)"
                     />
@@ -135,6 +137,7 @@
                       icon="mdi-arrow-down"
                       size="x-small"
                       variant="text"
+                      :aria-label="sharedTm('providerSelector.moveDown')"
                       :disabled="index === selectedProviderIds.length - 1"
                       @click.stop="moveSelected(index, 1)"
                     />
@@ -142,6 +145,7 @@
                       icon="mdi-close"
                       size="x-small"
                       variant="text"
+                      :aria-label="sharedTm('providerSelector.remove')"
                       @click.stop="removeSelected(providerId)"
                     />
                   </div>
@@ -291,6 +295,7 @@
                           icon="mdi-connection"
                           size="x-small"
                           variant="text"
+                          :aria-label="providerTm('models.testButton')"
                           :loading="testingProviderIds.includes(provider.id)"
                           :disabled="testingProviderIds.includes(provider.id)"
                           @click.stop="testProvider(provider)"
@@ -412,7 +417,11 @@
     </v-card>
   </v-overlay>
 
-  <v-dialog v-model="showProviderEditDialog" width="800">
+  <v-dialog
+    v-model="showProviderEditDialog"
+    width="800"
+    :aria-label="providerEditDialogTitle"
+  >
     <v-card>
       <v-card-title class="text-h3 pa-4 pb-0 pl-6">
         {{ providerEditDialogTitle }}

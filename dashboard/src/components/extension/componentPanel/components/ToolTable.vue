@@ -188,6 +188,7 @@ const enabledConfigTags = (tool: ToolItem): BuiltinToolConfigTag[] => {
             <span v-bind="tooltipProps">
               <v-switch
                 :model-value="item.parallel_enabled"
+                :aria-label="tmTool('functionTools.table.parallel')"
                 disabled
                 color="primary"
                 density="compact"
@@ -201,6 +202,7 @@ const enabledConfigTags = (tool: ToolItem): BuiltinToolConfigTag[] => {
         <v-switch
           v-else
           :model-value="item.parallel_enabled"
+          :aria-label="tmTool('functionTools.table.parallel')"
           color="primary"
           density="compact"
           hide-details
@@ -214,6 +216,7 @@ const enabledConfigTags = (tool: ToolItem): BuiltinToolConfigTag[] => {
         <v-switch
           v-else
           :model-value="item.active"
+          :aria-label="tmTool('functionTools.table.actions')"
           color="primary"
           density="compact"
           hide-details

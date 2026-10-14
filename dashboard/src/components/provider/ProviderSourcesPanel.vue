@@ -19,6 +19,7 @@
             flat
             hide-details
             :placeholder="selectHint || tm('providerSources.selectHint')"
+            :aria-label="selectHint || tm('providerSources.selectHint')"
             @update:model-value="selectSourceByValue"
           >
             <template #selection="{ item }">
@@ -147,12 +148,13 @@
       v-if="displayedProviderSources.length > 0"
       class="provider-sources-list"
     >
-      <button
+      <div
         v-for="source in displayedProviderSources"
         :key="
           source.isPlaceholder ? `template-${source.templateKey}` : source.id
         "
-        type="button"
+        role="button"
+        tabindex="0"
         :class="[
           'provider-source-item',
           {
@@ -160,6 +162,8 @@
           },
         ]"
         @click="emitSelectSource(source)"
+        @keydown.enter="emitSelectSource(source)"
+        @keydown.space.prevent="emitSelectSource(source)"
       >
         <v-avatar
           size="28"
@@ -198,7 +202,7 @@
             @click.stop="emitDeleteSource(source)"
           ></v-btn>
         </div>
-      </button>
+      </div>
     </div>
 
     <div v-else-if="!loading" class="provider-sources-empty">

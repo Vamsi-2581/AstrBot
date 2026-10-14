@@ -1,5 +1,10 @@
 <template>
-  <v-dialog v-model="showDialog" max-width="500px" persistent>
+  <v-dialog
+    v-model="showDialog"
+    max-width="500px"
+    persistent
+    :aria-label="mergedLabels.title"
+  >
     <v-card>
       <v-card-title>
         <v-icon class="mr-2">mdi-folder-move</v-icon>
