@@ -28,11 +28,13 @@ const isCurrentChatRoute = computed(
 );
 const isProviderPageRoute = computed(() => route.path === '/providers');
 const isPlatformPageRoute = computed(() => route.path === '/platforms');
+const isPromptPageRoute = computed(() => route.path === '/prompt');
 const isViewportLockedRoute = computed(
   () =>
     isCurrentChatRoute.value ||
     isProviderPageRoute.value ||
-    isPlatformPageRoute.value,
+    isPlatformPageRoute.value ||
+    isPromptPageRoute.value,
 );
 const shouldMountChat = ref(isCurrentChatRoute.value);
 
@@ -127,7 +129,7 @@ onMounted(() => {
           :class="{
             'chat-mode-container': isCurrentChatRoute,
             'viewport-locked-container':
-              isProviderPageRoute || isPlatformPageRoute,
+              isProviderPageRoute || isPlatformPageRoute || isPromptPageRoute,
           }"
         >
           <div class="chat-layout-content">

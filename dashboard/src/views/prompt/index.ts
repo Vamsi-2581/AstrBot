@@ -19,3 +19,4 @@ export { default as MoveToFolderDialog } from './MoveToFolderDialog.vue';
 
 // Prompt 相关组件
 export { default as PromptCard } from './PromptCard.vue';
+export { default as PromptPreviewDialog } from './PromptPreviewDialog.vue';

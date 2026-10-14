@@ -231,8 +231,9 @@ const { toggleFolderExpansion } = promptStore;
 
 <style scoped>
 .folder-tree {
-  height: 100%;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
+  min-height: 0;
 }
 </style>

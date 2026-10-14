@@ -3,6 +3,7 @@
     class="base-folder-card"
     :class="{ 'drag-over': isDragOver }"
     rounded="md"
+    variant="outlined"
     elevation="0"
     @click="emit('click')"
     @contextmenu.prevent="emit('contextmenu', $event)"
@@ -176,8 +177,14 @@ function handleDrop(event: DragEvent) {
 
 <style scoped>
 .base-folder-card {
+  background: rgb(var(--v-theme-surface));
   cursor: pointer;
-  transition: all 0.2s ease;
+  height: 100%;
+  transition: background-color 0.16s ease;
+}
+
+.base-folder-card:hover {
+  background: rgba(var(--v-theme-on-surface), 0.04);
 }
 
 .base-folder-card.drag-over {
