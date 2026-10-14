@@ -1,5 +1,7 @@
 from copy import deepcopy
 
+import pytest
+
 from astrbot.core.agent.tool import FunctionTool, ToolSet
 
 _OPTIONAL_PARAMETERS = {
@@ -54,6 +56,40 @@ def _optional_string_tool() -> FunctionTool:
         description="Browse.",
         parameters=deepcopy(_OPTIONAL_PARAMETERS),
     )
+
+
+def test_anthropic_schema_preserves_json_schema_constraints():
+    tool = FunctionTool(
+        name="browse",
+        description="Browse.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "item": {"$ref": "#/$defs/Item"},
+                "count": {"type": "integer", "minimum": 1},
+            },
+            "$defs": {"Item": {"type": "object"}},
+            "required": ["item"],
+        },
+    )
+
+    schema = ToolSet([tool]).anthropic_schema()[0]["input_schema"]
+
+    assert schema["type"] == "object"
+    assert schema["properties"]["count"] == {"type": "integer", "minimum": 1}
+    assert schema["$defs"] == {"Item": {"type": "object"}}
+    assert schema["required"] == ["item"]
+
+
+def test_anthropic_schema_rejects_non_object_root():
+    tool = FunctionTool(
+        name="bad",
+        description="Bad.",
+        parameters={"type": "array", "items": {"type": "string"}},
+    )
+
+    with pytest.raises(ValueError, match="object root"):
+        ToolSet([tool]).anthropic_schema()
 
 
 def test_google_schema_fills_missing_array_items_with_string_schema():
