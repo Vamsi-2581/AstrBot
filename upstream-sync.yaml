@@ -22,9 +22,11 @@ last_synced:
     now tracks upstream version 4.29.0. Skipped 2: #10519 (the fork uses
     Dashboard Extension Protocol v1 and has no legacy plugin View sidebar
     items) and #10541 (the fork already stores pnpm overrides in
-    pnpm-workspace.yaml and uses pnpm 12). A follow-up test commit
-    (f104a8bd3043e3ec90ce58aeb23d5b84f14d16e4) updated the BTW work-event test
-    double for the new scheduler log_context. Focused Python and Dashboard
-    suites, the complete blocking pytest suite (6550 passed, 25 skipped), the
-    Dashboard typecheck/Vitest/node tests/i18n/design-system guard, and the docs
-    build passed. Docker engine was unavailable, so the image build was not run.
+    pnpm-workspace.yaml and uses pnpm 12). Follow-up commits
+    (f104a8bd3043e3ec90ce58aeb23d5b84f14d16e4, 1903243e708c4acaa78c3102c00a5895e976ac7b)
+    adapted test doubles and type narrowing for the new scheduler log_context
+    and the Anthropic input schema. Focused Python and Dashboard
+    suites, the complete blocking pytest suite (6555 passed, 25 skipped), the
+    Dashboard typecheck/Vitest/node tests/i18n/design-system guard, make
+    quality, make check-md, and the docs build passed. Docker engine was
+    unavailable, so the image build was not run.
