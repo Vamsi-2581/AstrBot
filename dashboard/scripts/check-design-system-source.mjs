@@ -42,6 +42,26 @@ function vueFiles(directory) {
   });
 }
 
+function stripHtmlComments(text) {
+  let result = '';
+  let index = 0;
+  while (index < text.length) {
+    const start = text.indexOf('<!--', index);
+    if (start === -1) {
+      result += text.slice(index);
+      break;
+    }
+    result += text.slice(index, start);
+    const end = text.indexOf('-->', start + 4);
+    if (end === -1) {
+      result += text.slice(start);
+      break;
+    }
+    index = end + 3;
+  }
+  return result;
+}
+
 const violations = [];
 
 for (const filePath of vueFiles(sourceRoot)) {
@@ -51,7 +71,7 @@ for (const filePath of vueFiles(sourceRoot)) {
 
   const file = relative('.', filePath).replaceAll('\\', '/');
   const allowed = allowedDynamicStyles.get(file) ?? [];
-  const templateWithoutComments = template.replaceAll(/<!--[\s\S]*?-->/g, '');
+  const templateWithoutComments = stripHtmlComments(template);
   const lines = templateWithoutComments.split('\n');
   for (const [index, line] of lines.entries()) {
     const lineNumber = index + 1;

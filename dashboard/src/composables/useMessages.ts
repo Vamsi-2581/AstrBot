@@ -86,7 +86,7 @@ export function useMessages(options: UseMessagesOptions) {
     new Map<string, HistoryPaginationState>(),
   );
   const activeConnections = reactive<Record<string, ActiveConnection>>({});
-  const chatWebSockets: Record<string, WebSocket> = {};
+  const chatWebSockets = new Map<string, WebSocket>();
   const closingChatWebSockets = new WeakSet<WebSocket>();
   const deferredBotAnchors = new WeakMap<ChatRecord, ChatRecord>();
   const attachmentBlobCache = new Map<string, Promise<string>>();
@@ -698,13 +698,11 @@ export function useMessages(options: UseMessagesOptions) {
     Object.values(activeConnections).forEach((connection) => {
       connection.abort?.abort();
     });
-    Object.values(chatWebSockets).forEach(closeTrackedWebSocket);
+    chatWebSockets.forEach(closeTrackedWebSocket);
     Object.keys(activeConnections).forEach((messageId) => {
       delete activeConnections[messageId];
     });
-    Object.keys(chatWebSockets).forEach((sessionId) => {
-      delete chatWebSockets[sessionId];
-    });
+    chatWebSockets.clear();
     if (options.webchatStepUpTokens) {
       options.webchatStepUpTokens.value = null;
     }
@@ -958,7 +956,7 @@ export function useMessages(options: UseMessagesOptions) {
   }
 
   function getOrCreateChatWebSocket(sessionId: string) {
-    const existing = chatWebSockets[sessionId];
+    const existing = chatWebSockets.get(sessionId);
     if (
       existing &&
       (existing.readyState === WebSocket.OPEN ||
@@ -969,7 +967,7 @@ export function useMessages(options: UseMessagesOptions) {
 
     const token = localStorage.getItem('token') || '';
     const ws = new WebSocket(chatApi.unifiedWebSocketUrl(token));
-    chatWebSockets[sessionId] = ws;
+    chatWebSockets.set(sessionId, ws);
 
     ws.onmessage = (event) => {
       handleWebSocketMessage(sessionId, event);
@@ -983,8 +981,8 @@ export function useMessages(options: UseMessagesOptions) {
       }
     };
     ws.onclose = async () => {
-      if (chatWebSockets[sessionId] === ws) {
-        delete chatWebSockets[sessionId];
+      if (chatWebSockets.get(sessionId) === ws) {
+        chatWebSockets.delete(sessionId);
       }
 
       const connections = getWebSocketConnections(sessionId, ws);
