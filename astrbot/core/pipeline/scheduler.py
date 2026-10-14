@@ -4,6 +4,7 @@ from typing import Protocol, cast
 
 from astrbot import logger
 from astrbot.core.agent.btw import runtime_registry
+from astrbot.core.log import log_context
 from astrbot.core.message.message_event_result import MessageChain
 from astrbot.core.platform.astr_message_event import AstrMessageEvent
 
@@ -133,37 +134,38 @@ class PipelineScheduler:
         """
         self.ctx.execution_context.active_event_registry.register(event)
         started_at = time()
-        try:
-            await self._process_stages(event)
+        with log_context(event.get_platform_id(), event.get_platform_name()):
+            try:
+                await self._process_stages(event)
 
-            # 发送一个空消息, 以便于后续的处理
-            if (
-                event.requires_empty_completion
-                and not event.get_extra("skip_empty_completion")
-                and not event.get_extra("btw_detached_work")
-            ):
-                # Only adapters whose send implementation accepts ``None`` set this
-                # flag. The base event contract deliberately remains message-only.
-                # Coalesced fragments skip this so WebChat does not emit ``end``
-                # before the later flush event replies.
-                await cast(_EmptyCompletionEvent, event).send(None)
+                # 发送一个空消息, 以便于后续的处理
+                if (
+                    event.requires_empty_completion
+                    and not event.get_extra("skip_empty_completion")
+                    and not event.get_extra("btw_detached_work")
+                ):
+                    # Only adapters whose send implementation accepts ``None`` set this
+                    # flag. The base event contract deliberately remains message-only.
+                    # Coalesced fragments skip this so WebChat does not emit ``end``
+                    # before the later flush event replies.
+                    await cast(_EmptyCompletionEvent, event).send(None)
 
-            elapsed = time() - started_at
-            if elapsed >= self._PIPELINE_SLOW_LOG_THRESHOLD_S:
-                logger.info(
-                    "pipeline completed in %.2fs. platform=%s session=%s message=%s",
-                    elapsed,
-                    event.get_platform_id(),
-                    event.unified_msg_origin,
-                    event.get_message_outline(),
-                )
-            else:
-                logger.debug("pipeline execution completed.")
-        finally:
-            if not event.get_extra("btw_detached_work"):
-                event.cleanup_temporary_local_files()
-                self.ctx.execution_context.active_event_registry.unregister(event)
-            # A work submission acknowledges its request before the work loop
-            # registers the background run.  Ending the event is the last chance
-            # to reclaim a queued task whose request stopped in between.
-            await runtime_registry.cancel_pending_work(event)
+                elapsed = time() - started_at
+                if elapsed >= self._PIPELINE_SLOW_LOG_THRESHOLD_S:
+                    logger.info(
+                        "pipeline completed in %.2fs. platform=%s session=%s message=%s",
+                        elapsed,
+                        event.get_platform_id(),
+                        event.unified_msg_origin,
+                        event.get_message_outline(),
+                    )
+                else:
+                    logger.debug("pipeline execution completed.")
+            finally:
+                if not event.get_extra("btw_detached_work"):
+                    event.cleanup_temporary_local_files()
+                    self.ctx.execution_context.active_event_registry.unregister(event)
+                # A work submission acknowledges its request before the work loop
+                # registers the background run.  Ending the event is the last chance
+                # to reclaim a queued task whose request stopped in between.
+                await runtime_registry.cancel_pending_work(event)

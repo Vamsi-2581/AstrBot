@@ -12,6 +12,7 @@ const allowedDynamicStyles = new Map([
     ['previewImageStyle', 'previewShadeStyle', 'previewSurfaceStyle'],
   ],
   ['src/components/shared/TraceDisplayer.vue', ['tableHeight']],
+  ['src/components/shared/ConsoleDisplayer.vue', ['--console-log-font-size']],
   ['src/components/shared/PluginPlatformChip.vue', ['marginLeft']],
   ['src/components/chat/ChatInput.vue', ['--attachment-color']],
   ['src/components/chat/ChatMessageList.vue', ['--attachment-color']],

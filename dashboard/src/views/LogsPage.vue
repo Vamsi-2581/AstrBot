@@ -19,6 +19,12 @@ const autoScrollEnabled = ref(
 const hideUserChatEnabled = ref(
   localStorage.getItem('console_hide_user_chat') !== 'false',
 );
+const logFontSize = ref(
+  Math.min(
+    16,
+    Math.max(8, Number(localStorage.getItem('console_log_font_size')) || 12),
+  ),
+);
 const pipDialog = ref(false);
 const loading = ref(false);
 const pipInstallPayload = reactive({ package: '', mirror: '' });
@@ -37,6 +43,10 @@ watch(autoScrollEnabled, (value) => {
 
 watch(hideUserChatEnabled, (value) => {
   localStorage.setItem('console_hide_user_chat', String(value));
+});
+
+watch(logFontSize, (value) => {
+  localStorage.setItem('console_log_font_size', String(value));
 });
 
 async function pipInstall(): Promise<void> {
@@ -71,11 +81,43 @@ async function pipInstall(): Promise<void> {
       class="console-display"
       workspace-mode
       show-search
+      :font-size="logFontSize"
       :auto-scroll="autoScrollEnabled"
       :hide-user-chat="hideUserChatEnabled"
     >
       <template #header-actions>
         <div class="console-header-actions">
+          <div
+            class="console-font-controls"
+            role="group"
+            :aria-label="tm('fontSize.label')"
+          >
+            <v-btn
+              icon
+              size="x-small"
+              variant="text"
+              :disabled="logFontSize <= 8"
+              :aria-label="tm('fontSize.decrease')"
+              :title="tm('fontSize.decrease')"
+              @click="logFontSize -= 2"
+            >
+              <v-icon icon="mdi-minus" size="15" aria-hidden="true" />
+            </v-btn>
+            <output :aria-label="tm('fontSize.label')"
+              >{{ logFontSize }}px</output
+            >
+            <v-btn
+              icon
+              size="x-small"
+              variant="text"
+              :disabled="logFontSize >= 16"
+              :aria-label="tm('fontSize.increase')"
+              :title="tm('fontSize.increase')"
+              @click="logFontSize += 2"
+            >
+              <v-icon icon="mdi-plus" size="15" aria-hidden="true" />
+            </v-btn>
+          </div>
           <v-switch
             v-model="hideUserChatEnabled"
             :label="tm('hideUserChat.label')"
@@ -192,6 +234,20 @@ async function pipInstall(): Promise<void> {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 14px;
+}
+
+.console-font-controls {
+  align-items: center;
+  display: flex;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.console-font-controls output {
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  font-size: 0.72rem;
+  min-width: 32px;
+  text-align: center;
 }
 
 .console-header-actions :deep(.v-switch .v-selection-control) {

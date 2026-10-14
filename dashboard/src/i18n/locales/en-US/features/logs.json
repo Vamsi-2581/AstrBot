@@ -14,6 +14,26 @@
     "label": "Search logs",
     "placeholder": "Filter logs by keyword"
   },
+  "fontSize": {
+    "label": "Log font size",
+    "decrease": "Decrease font size",
+    "increase": "Increase font size"
+  },
+  "filters": {
+    "title": "Filters",
+    "button": "Filters",
+    "reset": "Reset",
+    "level": "Log level",
+    "source": "Source",
+    "allSources": "All sources",
+    "core": "System",
+    "plugins": "Plugins",
+    "plugin": "Plugin",
+    "allPlugins": "All plugins",
+    "platform": "Bot platform",
+    "allPlatforms": "All platforms",
+    "unscopedPlatform": "System / Unscoped"
+  },
   "pipInstall": {
     "button": "Install pip Package",
     "dialogTitle": "Install Pip Package",

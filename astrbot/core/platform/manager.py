@@ -6,6 +6,7 @@ from typing import TypeVar, cast
 
 from astrbot import logger
 from astrbot.core.config.astrbot_config import AstrBotConfig
+from astrbot.core.log import log_context
 from astrbot.core.platform.webchat_storage import WebChatStorageStore
 from astrbot.core.star.star import PluginRegistry
 from astrbot.core.star.star_handler import EventType, HandlerRegistry
@@ -150,7 +151,10 @@ class PlatformManager:
             )
 
     def _start_platform_task(self, task_name: str, inst: Platform) -> None:
-        run_task = asyncio.create_task(inst.run(), name=task_name)
+        run_task = asyncio.create_task(
+            self._run_platform(inst),
+            name=task_name,
+        )
         wrapper_task = asyncio.create_task(
             self._task_wrapper(run_task, platform=inst),
             name=f"{task_name}_wrapper",
@@ -160,6 +164,17 @@ class PlatformManager:
             run=run_task,
             wrapper=wrapper_task,
         )
+
+    async def _run_platform(self, inst: Platform) -> None:
+        """Run an adapter with its platform metadata bound to emitted logs.
+
+        Args:
+            inst: Platform adapter instance to run.
+        """
+        meta = inst.meta()
+        platform_id = meta.id or inst.config.get("id")
+        with log_context(platform_id, meta.name):
+            await inst.run()
 
     async def _stop_platform_task(self, inst: Platform) -> None:
         tasks = self._platform_tasks.pop(id(inst), None)
@@ -376,27 +391,31 @@ class PlatformManager:
     async def _task_wrapper(
         self, task: asyncio.Task, platform: Platform | None = None
     ) -> None:
-        # 设置平台状态为运行中
-        if platform:
-            platform.status = PlatformStatus.RUNNING
-
-        try:
-            await task
-        except asyncio.CancelledError:
+        meta = platform.meta() if platform else None
+        platform_id = (meta.id or platform.config.get("id")) if meta else None
+        platform_type = meta.name if meta else None
+        with log_context(platform_id, platform_type):
+            # 设置平台状态为运行中
             if platform:
-                platform.status = PlatformStatus.STOPPED
-            raise
-        except Exception as e:
-            error_msg = safe_error("", e)
-            tb_str = redact_sensitive_text(traceback.format_exc())
-            logger.error("------- 任务 %s 发生错误: %s", task.get_name(), error_msg)
-            for line in tb_str.split("\n"):
-                logger.error(f"|    {line}")
-            logger.error("-------")
+                platform.status = PlatformStatus.RUNNING
 
-            # 记录错误到平台实例
-            if platform:
-                platform.record_error(error_msg, tb_str)
+            try:
+                await task
+            except asyncio.CancelledError:
+                if platform:
+                    platform.status = PlatformStatus.STOPPED
+                raise
+            except Exception as e:
+                error_msg = safe_error("", e)
+                tb_str = redact_sensitive_text(traceback.format_exc())
+                logger.error("------- 任务 %s 发生错误: %s", task.get_name(), error_msg)
+                for line in tb_str.split("\n"):
+                    logger.error(f"|    {line}")
+                logger.error("-------")
+
+                # 记录错误到平台实例
+                if platform:
+                    platform.record_error(error_msg, tb_str)
 
     async def reload(self, platform_config: dict) -> None:
         async with self._platform_lifecycle_lock:
