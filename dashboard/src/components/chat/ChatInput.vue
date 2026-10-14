@@ -808,7 +808,7 @@ function handleCommandSuggestionKey(e: KeyboardEvent): boolean {
 }
 
 function handleRecordingShortcut(e: KeyboardEvent) {
-  if (!e.ctrlKey || e.key.toLowerCase() !== 'b') return;
+  if (!e.ctrlKey || e.code !== 'KeyB') return;
   e.preventDefault();
   if (ctrlKeyDown.value) return;
   ctrlKeyDown.value = true;
@@ -944,7 +944,7 @@ function clearCompositionState({ keepLastEndAt = false } = {}) {
 }
 
 function handleKeyUp(e: KeyboardEvent) {
-  if (e.key.toLowerCase() === 'b') {
+  if (e.code === 'KeyB') {
     ctrlKeyDown.value = false;
 
     if (ctrlKeyTimer.value) {

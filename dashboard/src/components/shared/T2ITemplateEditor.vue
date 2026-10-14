@@ -397,7 +397,7 @@ const getShikiRuntimeScript = () =>
   `<script id="astrbot-t2i-shiki-runtime" src="/t2i/shiki_runtime.iife.js"></scr${'ipt>'}`;
 
 const hasMarkdownSource = (content: string) =>
-  /<[^<>]*id=["']markdown-source["']/i.test(content);
+  /<[^<>]*\bid=["']markdown-source["']/i.test(content);
 
 const insertMarkdownSource = (content: string) => {
   const sourceElement =

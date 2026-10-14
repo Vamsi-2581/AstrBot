@@ -721,6 +721,7 @@ async function uploadFile(event: Event) {
 function onBeforeUnload(event: BeforeUnloadEvent) {
   if (!dirty.value) return;
   event.preventDefault();
+  event.returnValue = '';
 }
 
 onBeforeRouteLeave((to) => {
