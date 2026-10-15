@@ -259,7 +259,7 @@ import {
 import { useRoute, useRouter } from 'vue-router';
 import { useDisplay } from 'vuetify';
 import { isAxiosError } from 'axios';
-import { chatApi, providerApi } from '@/api/v1';
+import { chatApi } from '@/api/v1';
 import ProjectDialog, {
   type ProjectFormData,
 } from '@/components/chat/ProjectDialog.vue';
@@ -269,9 +269,7 @@ import ChatSidebar from '@/components/chat/ChatSidebar.vue';
 import ChatComposer from '@/components/chat/ChatComposer.vue';
 import SessionTitleDialog from '@/components/chat/SessionTitleDialog.vue';
 import {
-  formatUsagePercent,
   readStoredValue,
-  readTokenCount,
   writeStoredValue,
 } from '@/components/chat/chatHelpers';
 import DashboardStepUpDialog from '@/components/shared/DashboardStepUpDialog.vue';
@@ -295,16 +293,11 @@ import { useRecording } from '@/composables/useRecording';
 import { useProjects } from '@/composables/useProjects';
 import { useDragUpload } from '@/composables/useDragUpload';
 import { useProviderModelSelection } from '@/composables/useProviderModelSelection';
+import { useTokenUsage } from '@/components/chat/useTokenUsage';
 import { useCustomizerStore } from '@/stores/customizer';
 import ProviderChatCompletionPanel from '@/components/provider/ProviderChatCompletionPanel.vue';
 import { useLanguageSwitcher, useModuleI18n } from '@/i18n/composables';
 import { askForConfirmation, useConfirmDialog } from '@/utils/confirmDialog';
-import {
-  contextLimit,
-  formatTokenCount,
-  type ProviderModelMetadata,
-  type ProviderMetadataSource,
-} from '@/utils/providerMetadata';
 import { useToast } from '@/utils/toast';
 import { truncate } from '@/utils/text';
 import { readChatDraft, writeChatDraft } from '@/utils/chatDraftStorage';
@@ -379,10 +372,6 @@ const {
 type WorkspaceView = 'chat' | 'providers';
 
 const sidebarCollapsed = ref(false);
-interface TokenProviderConfig extends ProviderMetadataSource {
-  id: string;
-  enable?: boolean;
-}
 
 const activeWorkspace = ref<WorkspaceView>('chat');
 const projectDialogOpen = ref(false);
@@ -400,9 +389,6 @@ const projectSessions = ref<Session[]>([]);
 const loadingSessions = ref(false);
 const draftOwner = readStoredValue('user');
 const draft = ref(readChatDraft(draftOwner, currSessionId.value));
-const tokenProviderConfigs = ref<TokenProviderConfig[]>([]);
-const tokenModelMetadata = ref<Record<string, ProviderModelMetadata>>({});
-const selectedTokenProviderId = ref('');
 const messagesContainer = ref<HTMLElement | null>(null);
 const inputRef = ref<InstanceType<typeof ChatComposer> | null>(null);
 const shouldStickToBottom = ref(true);
@@ -561,6 +547,13 @@ const {
   },
 });
 
+const {
+  selectedTokenProviderId,
+  tokenUsageIndicator,
+  syncSelectedTokenProvider,
+  loadTokenProviders,
+} = useTokenUsage({ tm, activeMessages, isUserMessage });
+
 const multiModelEnabled = ref(false);
 const multiModelMax = ref(3);
 const multiModelSelection = ref<MultiModelSelection[]>([]);
@@ -695,58 +688,6 @@ const chatInputReplyTarget = computed(() =>
         selectedText: replyPreview(replyTarget.value.id, ''),
       },
 );
-const currentTokenProvider = computed(() => {
-  const selectedProvider = tokenProviderConfigs.value.find(
-    (provider) => provider.id === selectedTokenProviderId.value,
-  );
-  return selectedProvider || tokenProviderConfigs.value[0] || null;
-});
-const currentTokenMetadata = computed(() => {
-  const model = currentTokenProvider.value?.model;
-  return model ? tokenModelMetadata.value[model] || null : null;
-});
-const latestContextTokens = computed(() => {
-  for (let index = activeMessages.value.length - 1; index >= 0; index -= 1) {
-    const message = activeMessages.value[index];
-    if (isUserMessage(message)) continue;
-    const stats = message.content?.agentStats;
-    if (!stats) continue;
-    if (
-      stats.current_context_tokens !== undefined &&
-      stats.current_context_tokens !== null
-    ) {
-      return readTokenCount(stats.current_context_tokens);
-    }
-    const usage = stats.token_usage;
-    if (!usage) continue;
-    return (
-      readTokenCount(usage.input_other) +
-      readTokenCount(usage.input_cached) +
-      readTokenCount(usage.output)
-    );
-  }
-  return 0;
-});
-const tokenUsageIndicator = computed(() => {
-  const used = latestContextTokens.value;
-  const limit = contextLimit(
-    currentTokenProvider.value,
-    currentTokenMetadata.value,
-  );
-  if (used <= 0 || limit <= 0) return null;
-
-  const percent = (used / limit) * 100;
-  return {
-    used,
-    limit,
-    percent: Math.min(100, Math.max(0, percent)),
-    tooltip: tm('tokenUsage.tooltip', {
-      used: formatTokenCount(used),
-      limit: formatTokenCount(limit),
-      percent: formatUsagePercent(percent),
-    }),
-  };
-});
 
 const chatInputProps = computed(() => ({
   prompt: draft.value,
@@ -973,29 +914,6 @@ async function openProviderWorkspace() {
 
 function sessionTitle(session: Session) {
   return session.display_name?.trim() || tm('conversation.newConversation');
-}
-
-function syncSelectedTokenProvider() {
-  if (typeof window === 'undefined') return;
-  selectedTokenProviderId.value = readStoredValue('selectedProvider');
-}
-
-async function loadTokenProviders() {
-  syncSelectedTokenProvider();
-  try {
-    const response = await providerApi.listByProviderType('chat_completion');
-    if (response.data.status === 'ok') {
-      tokenModelMetadata.value = (response.data.model_metadata || {}) as Record<
-        string,
-        ProviderModelMetadata
-      >;
-      tokenProviderConfigs.value = (
-        (response.data.data || []) as unknown as TokenProviderConfig[]
-      ).filter((provider) => provider.enable !== false);
-    }
-  } catch (error) {
-    console.error('Failed to load provider context metadata:', error);
-  }
 }
 
 async function startNewChat() {

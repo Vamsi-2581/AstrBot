@@ -240,7 +240,7 @@ describe('BtwPage', () => {
     releaseSave?.({ data: { status: 'ok', message: 'saved' } });
     await flushPromises();
 
-    expect(wrapper.find('.btw-page__unsaved').exists()).toBe(true);
+    expect(wrapper.find('.unsaved-banner').exists()).toBe(true);
     wrapper.unmount();
   });
 
@@ -288,7 +288,7 @@ describe('BtwPage', () => {
     await flushPromises();
 
     // The finished save must not mark the loaded profile as dirty.
-    expect(wrapper.find('.btw-page__unsaved').exists()).toBe(false);
+    expect(wrapper.find('.unsaved-banner').exists()).toBe(false);
     wrapper.unmount();
   });
 

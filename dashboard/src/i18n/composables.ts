@@ -219,6 +219,13 @@ export function mergeDynamicTranslations(
   const pathParts = modulePath.split('.');
   let target: TranslationTree = translations.value;
   for (const part of pathParts) {
+    if (
+      part === '__proto__' ||
+      part === 'constructor' ||
+      part === 'prototype'
+    ) {
+      return;
+    }
     if (!(part in target) || typeof target[part] !== 'object') {
       target[part] = {};
     }
@@ -233,6 +240,9 @@ export function mergeDynamicTranslations(
 
 function deepMerge(target: TranslationTree, source: TranslationTree) {
   for (const key of Object.keys(source)) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      continue;
+    }
     if (
       source[key] &&
       typeof source[key] === 'object' &&

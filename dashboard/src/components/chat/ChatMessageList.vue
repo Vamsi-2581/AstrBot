@@ -196,7 +196,9 @@
                   :has-non-reasoning-content="
                     hasFollowingContentBlock(msg, blockIndex)
                   "
-                  :show-sidebar-action="variant === 'main'"
+                  :show-sidebar-action="
+                    variant === 'main' && enableReasoningSidebar
+                  "
                   :sidebar-active="isSidebarReasoningBlock(msg, blockIndex)"
                   @open="emit('openReasoning', { message: msg, blockIndex })"
                 />
@@ -566,6 +568,7 @@ const props = withDefaults(
     isTouchDevice?: boolean;
     sidebarReasoningMessageId?: string | number | null;
     sidebarReasoningBlockIndex?: number | null;
+    enableReasoningSidebar?: boolean;
     manageRefsSidebar?: boolean;
     editingMessageId?: string | number | null;
     editDraft?: string;
@@ -583,6 +586,7 @@ const props = withDefaults(
     isTouchDevice: false,
     sidebarReasoningMessageId: null,
     sidebarReasoningBlockIndex: null,
+    enableReasoningSidebar: true,
     manageRefsSidebar: true,
     editingMessageId: null,
     editDraft: '',

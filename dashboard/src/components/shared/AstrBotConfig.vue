@@ -598,7 +598,11 @@ function hasVisibleItemsAfter(
   </div>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
+@use './config-editor' as config-editor;
+
+@include config-editor.config-editor-shared;
+
 .config-fullscreen-editor {
   height: calc(100dvh - 64px);
 }
@@ -627,31 +631,8 @@ function hasVisibleItemsAfter(
   display: none;
 }
 
-.important-hint {
-  opacity: 1;
-  margin-right: 4px;
-}
-
-.object-config,
-.simple-config {
-  width: 100%;
-}
-
 .config-item {
   margin-bottom: 2px;
-}
-
-.nested-object {
-  padding-left: 16px;
-}
-
-.nested-container {
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  padding: 12px;
-  margin: 12px 0;
-  background-color: rgba(0, 0, 0, 0.02);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .config-row {
@@ -659,14 +640,6 @@ function hasVisibleItemsAfter(
   align-items: center;
   padding: 4px 8px;
   border-radius: 4px;
-}
-
-.config-row:hover {
-  background-color: rgba(0, 0, 0, 0.03);
-}
-
-.property-info {
-  padding: 0;
 }
 
 .property-name {
@@ -694,47 +667,9 @@ function hasVisibleItemsAfter(
   white-space: nowrap;
 }
 
-.property-hint {
-  font-size: 0.75rem;
-  color: var(--v-theme-on-surface-variant);
-  margin-top: 2px;
-}
-
-.type-indicator {
-  display: flex;
-  justify-content: center;
-}
-
-.config-input {
-  padding: 4px 8px;
-}
-
-.config-field {
-  margin-bottom: 0;
-}
-
 .config-divider {
   border-color: rgba(0, 0, 0, 0.05);
   margin: 0px 16px;
-}
-
-.editor-container {
-  position: relative;
-  display: flex;
-  width: 100%;
-}
-
-.editor-fullscreen-btn {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  z-index: 10;
-  background-color: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-}
-
-.editor-fullscreen-btn:hover {
-  background-color: rgba(0, 0, 0, 0.5);
 }
 
 @media (max-width: 600px) {

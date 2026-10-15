@@ -5,6 +5,7 @@ import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import { pluginApi, statsApi } from '@/api/v1';
 import { useI18n } from '@/i18n/composables';
+import { scrollToAnchorWithin } from '@/utils/anchorScroll';
 import { copyToClipboard } from '@/utils/clipboard';
 import {
   escapeHtml,
@@ -399,20 +400,7 @@ async function handleContainerClick(event: MouseEvent) {
     return;
   }
 
-  const anchor = eventTarget.closest('a[href^="#"]');
-  if (!anchor) return;
-
-  const rawHref = anchor.getAttribute('href');
-  const targetId = rawHref ? decodeURIComponent(rawHref.slice(1)) : '';
-  if (!targetId) return;
-
-  const target = scrollContainer.value?.querySelector(
-    `#${CSS.escape(targetId)}`,
-  );
-  if (!target) return;
-
-  event.preventDefault();
-  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  scrollToAnchorWithin(event, scrollContainer.value);
 }
 
 function showCopyFeedback(btn: HTMLElement, success: boolean) {

@@ -86,100 +86,35 @@
 
           <div class="provider-workbench__main">
             <template v-if="selectedProviderType === 'chat_completion'">
-              <div v-if="selectedProviderSource" class="provider-config-shell">
-                <div class="provider-config-header">
-                  <div class="provider-config-headline">
-                    <div class="provider-config-title">
-                      {{ selectedProviderSource.id }}
-                    </div>
-                    <div class="provider-config-subtitle">
-                      {{ selectedProviderSource.api_base || 'N/A' }}
-                    </div>
-                  </div>
-
-                  <div class="provider-config-actions">
-                    <v-btn
-                      color="primary"
-                      prepend-icon="mdi-content-save-outline"
-                      :loading="savingSource"
-                      :disabled="!isSourceModified"
-                      variant="tonal"
-                      rounded="md"
-                      @click="saveProviderSource"
-                    >
-                      {{ tm('providerSources.save') }}
-                    </v-btn>
-                  </div>
-                </div>
-
-                <v-divider></v-divider>
-
-                <div class="provider-config-body">
-                  <section class="provider-section">
-                    <div class="provider-section-head">
-                      <div class="provider-section-title">
-                        {{ tm('providers.settings') }}
-                      </div>
-                    </div>
-                    <AstrBotConfig
-                      v-if="basicSourceConfig"
-                      :iterable="basicSourceConfig"
-                      :metadata="providerSourceSchema"
-                      metadata-key="provider"
-                      :is-editing="true"
-                    />
-                  </section>
-
-                  <v-divider v-if="advancedSourceConfig"></v-divider>
-
-                  <section v-if="advancedSourceConfig" class="provider-section">
-                    <div class="provider-section-head">
-                      <div class="provider-section-title">
-                        {{ tm('providerSources.advancedConfig') }}
-                      </div>
-                    </div>
-                    <AstrBotConfig
-                      :iterable="advancedSourceConfig"
-                      :metadata="providerSourceSchema"
-                      metadata-key="provider"
-                      :is-editing="true"
-                    />
-                  </section>
-
-                  <v-divider></v-divider>
-
-                  <section class="provider-section provider-section--models">
-                    <ProviderModelsPanel
-                      v-model:model-search="modelSearch"
-                      :entries="filteredMergedModelEntries"
-                      :available-count="availableModels.length"
-                      :loading-models="loadingModels"
-                      :is-source-modified="isSourceModified"
-                      :supports-image-input="supportsImageInput"
-                      :supports-audio-input="supportsAudioInput"
-                      :supports-tool-call="supportsToolCall"
-                      :supports-reasoning="supportsReasoning"
-                      :format-context-limit="formatContextLimit"
-                      :testing-providers="testingProviders"
-                      :tm="tm"
-                      @fetch-models="fetchAvailableModels"
-                      @open-manual-model="openManualModelDialog"
-                      @open-provider-edit="openProviderEdit"
-                      @toggle-provider-enable="toggleProviderEnable"
-                      @test-provider="testProvider"
-                      @delete-provider="deleteProvider"
-                      @add-model-provider="openModelAddDialog"
-                    />
-                  </section>
-                </div>
-              </div>
-
-              <div v-else class="provider-empty-state">
-                <v-icon size="48" color="on-surface-variant"
-                  >mdi-cursor-default-click</v-icon
-                >
-                <p class="mt-2">{{ tm('providerSources.selectHint') }}</p>
-              </div>
+              <ProviderChatCompletionBody
+                v-model:model-search="modelSearch"
+                :selected-provider-source="selectedProviderSource"
+                :title="selectedProviderSource?.id || ''"
+                :subtitle="selectedProviderSource?.api_base || ''"
+                :basic-source-config="basicSourceConfig"
+                :advanced-source-config="advancedSourceConfig"
+                :provider-source-schema="providerSourceSchema"
+                :entries="filteredMergedModelEntries"
+                :available-count="availableModels.length"
+                :loading-models="loadingModels"
+                :saving-source="savingSource"
+                :is-source-modified="isSourceModified"
+                :supports-image-input="supportsImageInput"
+                :supports-audio-input="supportsAudioInput"
+                :supports-tool-call="supportsToolCall"
+                :supports-reasoning="supportsReasoning"
+                :format-context-limit="formatContextLimit"
+                :testing-providers="testingProviders"
+                :tm="tm"
+                @save="saveProviderSource"
+                @fetch-models="fetchAvailableModels"
+                @open-manual-model="openManualModelDialog"
+                @open-provider-edit="openProviderEdit"
+                @toggle-provider-enable="toggleProviderEnable"
+                @test-provider="testProvider"
+                @delete-provider="deleteProvider"
+                @add-model-provider="openModelAddDialog"
+              />
             </template>
 
             <template v-else>
@@ -263,78 +198,23 @@
       </div>
     </v-container>
 
-    <v-dialog
+    <ProviderManualModelDialog
       v-model="showManualModelDialog"
-      max-width="400"
-      :aria-label="tm('models.manualDialogTitle')"
-    >
-      <v-card class="app-dialog" :title="tm('models.manualDialogTitle')">
-        <v-card-text class="py-4">
-          <v-text-field
-            v-model="manualModelId"
-            :label="tm('models.manualDialogModelLabel')"
-            flat
-            variant="solo-filled"
-            autofocus
-            clearable
-          ></v-text-field>
-          <v-text-field
-            :model-value="manualProviderId"
-            flat
-            variant="solo-filled"
-            :label="tm('models.manualDialogPreviewLabel')"
-            persistent-hint
-            :hint="tm('models.manualDialogPreviewHint')"
-          ></v-text-field>
-        </v-card-text>
-        <v-card-actions class="pa-4">
-          <v-spacer></v-spacer>
-          <v-btn variant="text" @click="showManualModelDialog = false"
-            >取消</v-btn
-          >
-          <v-btn color="primary" @click="confirmManualModel">添加</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      v-model:manual-model-id="manualModelId"
+      :manual-provider-id="manualProviderId"
+      :tm="tm"
+      @confirm="confirmManualModel"
+    />
 
-    <v-dialog
+    <ProviderEditDialog
       v-model="showProviderEditDialog"
-      width="800"
-      scrollable
-      :aria-label="providerEditDialogTitle"
-    >
-      <v-card
-        class="app-dialog provider-form-dialog__card"
-        :title="providerEditDialogTitle"
-      >
-        <v-card-text class="py-4 provider-form-dialog__content">
-          <AstrBotConfig
-            v-if="providerEditData"
-            :iterable="providerEditData"
-            :metadata="providerModelConfigSchema"
-            metadata-key="provider"
-            :is-editing="true"
-          />
-        </v-card-text>
-        <v-card-actions class="pa-4 provider-form-dialog__actions">
-          <v-spacer></v-spacer>
-          <v-btn
-            variant="text"
-            :disabled="savingProviders.includes(providerEditData?.id ?? '')"
-            @click="showProviderEditDialog = false"
-          >
-            {{ tm('dialogs.config.cancel') }}
-          </v-btn>
-          <v-btn
-            color="primary"
-            :loading="savingProviders.includes(providerEditData?.id ?? '')"
-            @click="saveEditedProvider"
-          >
-            {{ tm('dialogs.config.save') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      :provider-edit-data="providerEditData"
+      :provider-model-config-schema="providerModelConfigSchema"
+      :saving-providers="savingProviders"
+      :title="providerEditDialogTitle"
+      :tm="tm"
+      @save="saveEditedProvider"
+    />
 
     <DashboardStepUpDialog
       v-model="stepUpDialogOpen"
@@ -361,11 +241,14 @@ import { providerApi } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
 import ConfigDocsLink from '@/components/shared/ConfigDocsLink.vue';
 import AstrBotConfig from '@/components/shared/AstrBotConfig.vue';
-import ProviderModelsPanel from '@/components/provider/ProviderModelsPanel.vue';
+import ProviderChatCompletionBody from '@/components/provider/ProviderChatCompletionBody.vue';
+import ProviderEditDialog from '@/components/provider/ProviderEditDialog.vue';
+import ProviderManualModelDialog from '@/components/provider/ProviderManualModelDialog.vue';
 import ProviderSourcesPanel from '@/components/provider/ProviderSourcesPanel.vue';
 import DashboardStepUpDialog from '@/components/shared/DashboardStepUpDialog.vue';
 import { useProviderModelConfigDialog } from '@/composables/useProviderModelConfigDialog';
 import { useDashboardStepUp } from '@/composables/useDashboardStepUp';
+import { useManualModelDialog } from '@/composables/useManualModelDialog';
 import { useProviderSources } from '@/composables/useProviderSources';
 import { runProviderMutationWithStepUp } from '@/utils/stepUp';
 import { resolveErrorMessage } from '@/utils/errorUtils';
@@ -481,7 +364,6 @@ const newProviderOriginalId = ref('');
 const updatingMode = ref(false);
 const loading = ref(false);
 const isLegacyProviderModified = ref(false);
-const showManualModelDialog = ref(false);
 let suppressLegacyProviderWatch = false;
 
 const displayedLegacyProviders = computed(() => [
@@ -511,32 +393,15 @@ const {
   requestStepUp,
 });
 
-function openManualModelDialog() {
-  if (!selectedProviderSource.value) {
-    showMessage(tm('providerSources.selectHint'), 'error');
-    return;
-  }
-  manualModelId.value = '';
-  showManualModelDialog.value = true;
-}
-
-async function confirmManualModel() {
-  const modelId = manualModelId.value.trim();
-  if (!selectedProviderSource.value) {
-    showMessage(tm('providerSources.selectHint'), 'error');
-    return;
-  }
-  if (!modelId) {
-    showMessage(tm('models.manualModelRequired'), 'error');
-    return;
-  }
-  if (modelAlreadyConfigured(modelId)) {
-    showMessage(tm('models.manualModelExists'), 'error');
-    return;
-  }
-  showManualModelDialog.value = false;
-  openModelAddDialog(modelId);
-}
+const { showManualModelDialog, openManualModelDialog, confirmManualModel } =
+  useManualModelDialog({
+    selectedProviderSource,
+    manualModelId,
+    modelAlreadyConfigured,
+    openModelAddDialog,
+    tm,
+    showMessage,
+  });
 
 watch(
   () => props.defaultTab,
@@ -913,106 +778,6 @@ async function testSingleProvider(provider: LegacyProvider) {
   height: 100%;
 }
 
-.provider-config-shell {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.provider-config-header {
-  background: var(--provider-surface);
-  display: flex;
-  flex: 0 0 auto;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--astrbot-space-4);
-  padding: var(--astrbot-space-4) var(--astrbot-space-6);
-  position: relative;
-  z-index: 1;
-}
-
-.provider-config-shell > :deep(.v-divider) {
-  flex: 0 0 auto;
-}
-
-.provider-config-headline {
-  min-width: 0;
-}
-
-.provider-config-title {
-  font-size: 24px;
-  line-height: 32px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-
-.provider-config-subtitle {
-  margin-top: var(--astrbot-space-2);
-  color: rgb(var(--v-theme-on-surface-variant));
-  font-size: 13px;
-  line-height: 18px;
-  overflow-wrap: anywhere;
-}
-
-.provider-config-actions {
-  flex-shrink: 0;
-}
-
-.provider-config-body {
-  flex: 1;
-  min-height: 0;
-  overscroll-behavior: contain;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
-}
-
-.provider-form-dialog__card {
-  display: flex;
-  flex-direction: column;
-  max-height: min(88dvh, 960px);
-}
-
-.provider-form-dialog__content {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.provider-form-dialog__actions {
-  flex-shrink: 0;
-}
-
-.provider-section {
-  padding: var(--astrbot-space-4) var(--astrbot-space-6);
-}
-
-.provider-section--models {
-  padding-top: var(--astrbot-space-4);
-}
-
-.provider-section-head {
-  margin-bottom: var(--astrbot-space-2);
-}
-
-.provider-section-title {
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 24px;
-}
-
-.provider-empty-state {
-  flex: 1;
-  min-height: 420px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: rgb(var(--v-theme-on-surface-variant));
-}
-
 @media (max-width: 960px) {
   .provider-workbench {
     grid-template-columns: 1fr;
@@ -1021,26 +786,6 @@ async function testSingleProvider(provider: LegacyProvider) {
 
   .provider-workbench__divider {
     height: 1px;
-  }
-
-  .provider-config-header {
-    flex-direction: column;
-    align-items: stretch;
-    padding: var(--astrbot-space-4);
-  }
-
-  .provider-config-actions :deep(.v-btn) {
-    width: 100%;
-  }
-
-  .provider-config-actions {
-    align-items: stretch !important;
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .provider-section {
-    padding: var(--astrbot-space-4);
   }
 }
 
@@ -1055,15 +800,6 @@ async function testSingleProvider(provider: LegacyProvider) {
 
   .provider-tab {
     padding-inline: 11px;
-  }
-
-  .provider-config-title {
-    font-size: 18px;
-  }
-
-  .provider-empty-state {
-    min-height: 260px;
-    padding: var(--astrbot-space-6);
   }
 }
 </style>

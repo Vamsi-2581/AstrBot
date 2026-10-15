@@ -279,42 +279,11 @@ import { computed, ref, watch } from 'vue';
 import ConfigItemRenderer from './ConfigItemRenderer.vue';
 import { useI18n } from '@/i18n/composables';
 import { useConfigTextResolver } from '@/composables/useConfigTextResolver';
-
-interface TemplateItemMeta {
-  type?: string;
-  default?: unknown;
-  invisible?: boolean;
-  description?: string;
-  hint?: string;
-  condition?: Record<string, unknown>;
-  items: Record<string, TemplateItemMeta>;
-  [key: string]: unknown;
-}
-
-interface TemplateMeta {
-  name?: string;
-  hint?: string;
-  description?: string;
-  hide_hint_in_list?: boolean;
-  display_item?: string;
-  items: Record<string, TemplateItemMeta>;
-  [key: string]: unknown;
-}
-
-type TemplateValue =
-  | string
-  | number
-  | boolean
-  | TemplateValue[]
-  | { [key: string]: TemplateValue };
-
-type TemplateEntryValue = TemplateValue & { [key: string]: TemplateValue };
-
-type TemplateEntry = {
-  __template_key?: string;
-} & {
-  [key: string]: TemplateEntryValue;
-};
+import type {
+  TemplateEntry,
+  TemplateItemMeta,
+  TemplateMeta,
+} from './configTemplateTypes';
 
 interface TemplateListEditorProps {
   modelValue: TemplateEntry[];

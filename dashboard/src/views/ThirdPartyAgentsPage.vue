@@ -94,9 +94,9 @@ import ConfigDocsLink from '@/components/shared/ConfigDocsLink.vue';
 import DashboardStepUpDialog from '@/components/shared/DashboardStepUpDialog.vue';
 import DashboardTwoFactorDialog from '@/components/shared/DashboardTwoFactorDialog.vue';
 import FloatingActionStack from '@/components/ui/FloatingActionStack.vue';
+import { useConfigProfileSave } from '@/composables/useConfigProfileSave';
 import { useDashboardStepUp } from '@/composables/useDashboardStepUp';
 import { useModuleI18n } from '@/i18n/composables';
-import { runConfigMutationWithStepUp, stepUpHeaders } from '@/utils/stepUp';
 import { askForConfirmation, useConfirmDialog } from '@/utils/confirmDialog';
 
 defineOptions({ name: 'ThirdPartyAgentsPage' });
@@ -117,16 +117,32 @@ const {
 } = useDashboardStepUp();
 
 const configData = ref<OpenConfig>({});
-const loaded = ref(false);
-const loadFailed = ref(false);
-const savedSnapshot = ref('');
 
-const saving = ref(false);
-const twoFactorOpen = ref(false);
-const twoFactorError = ref('');
-const snackbar = ref(false);
-const snackMessage = ref('');
-const snackColor = ref<'success' | 'error'>('success');
+const {
+  loaded,
+  loadFailed,
+  saving,
+  twoFactorOpen,
+  twoFactorError,
+  snackbar,
+  snackMessage,
+  snackColor,
+  markLoaded,
+  markLoadFailed,
+  hasUnsavedChanges,
+  saveProfile,
+  confirmTwoFactor,
+} = useConfigProfileSave({
+  tm,
+  requestStepUp,
+  getConfigData: () => configData.value,
+  getCurrentScope: () => SYSTEM_SCOPE,
+  messages: {
+    success: 'thirdPartyAgentsPage.saveSuccess',
+    error: 'thirdPartyAgentsPage.saveError',
+    twoFactorRejected: 'thirdPartyAgentsPage.twoFactorRejected',
+  },
+});
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -150,16 +166,6 @@ const REDACTED_SECRET_PLACEHOLDER = '__ASTRBOT_REDACTED__';
 function typedKey(value: unknown): string {
   const key = text(value);
   return key === REDACTED_SECRET_PLACEHOLDER ? '' : key;
-}
-
-function showSnack(message: string, color: 'success' | 'error') {
-  snackMessage.value = message;
-  snackColor.value = color;
-  snackbar.value = true;
-}
-
-function snapshot(value: OpenConfig) {
-  return JSON.stringify(value ?? {});
 }
 
 /** The raw stored list, so an entry keeps any field this page does not edit. */
@@ -237,17 +243,21 @@ async function load() {
     const response = await configProfileApi.get(SYSTEM_SCOPE);
     const payload = asRecord(response.data?.data);
     configData.value = asRecord(payload?.config) ?? {};
-    savedSnapshot.value = snapshot(configData.value);
-    loaded.value = true;
+    markLoaded();
   } catch {
-    loaded.value = false;
-    loadFailed.value = true;
+    markLoadFailed();
   }
 }
 
-const hasUnsavedChanges = computed(
-  () => loaded.value && snapshot(configData.value) !== savedSnapshot.value,
-);
+/**
+ * Save the page's configuration, returning whether it was persisted.
+ *
+ * The request body is an immutable snapshot, so edits made while the save is
+ * in flight stay unsaved and are never reported as persisted.
+ */
+function save(twoFactorCode = ''): Promise<boolean> {
+  return saveProfile(SYSTEM_SCOPE, twoFactorCode);
+}
 
 /**
  * Persist pending provider edits so a switch can resolve a provider by id.
@@ -260,76 +270,6 @@ async function ensureProvidersSaved(): Promise<boolean> {
   if (saving.value) return false;
   if (hasUnsavedChanges.value && !(await save())) return false;
   return !hasUnsavedChanges.value;
-}
-
-/**
- * Save the page's configuration, returning whether it was persisted.
- *
- * The request body is an immutable snapshot, so edits made while the save is
- * in flight stay unsaved and are never reported as persisted.
- */
-async function save(twoFactorCode = ''): Promise<boolean> {
-  if (saving.value) return false;
-  saving.value = true;
-  const submittedSnapshot = snapshot(configData.value);
-  const submittedConfig = JSON.parse(submittedSnapshot) as OpenConfig;
-  const headers: Record<string, string> = {};
-  if (twoFactorCode) headers['X-2FA-Code'] = twoFactorCode;
-
-  try {
-    const response = await runConfigMutationWithStepUp(
-      (stepUp) => {
-        if (stepUp) Object.assign(headers, stepUpHeaders(stepUp));
-        const requestConfig = {
-          headers,
-          validateStatus: (status: number) =>
-            (status >= 200 && status < 300) || status === 401,
-        };
-        return configProfileApi.update(
-          SYSTEM_SCOPE,
-          submittedConfig,
-          requestConfig,
-        );
-      },
-      SYSTEM_SCOPE,
-      requestStepUp,
-    );
-    if (!response) return false;
-
-    const payload = asRecord(response.data?.data);
-    if (response.status === 401 && payload?.totp_required === true) {
-      twoFactorError.value = twoFactorCode
-        ? tm('thirdPartyAgentsPage.twoFactorRejected')
-        : '';
-      twoFactorOpen.value = true;
-      return false;
-    }
-
-    if (response.data?.status === 'ok') {
-      twoFactorOpen.value = false;
-      twoFactorError.value = '';
-      savedSnapshot.value = submittedSnapshot;
-      showSnack(
-        response.data?.message || tm('thirdPartyAgentsPage.saveSuccess'),
-        'success',
-      );
-      return true;
-    }
-    showSnack(
-      response.data?.message || tm('thirdPartyAgentsPage.saveError'),
-      'error',
-    );
-  } catch {
-    showSnack(tm('thirdPartyAgentsPage.saveError'), 'error');
-  } finally {
-    saving.value = false;
-  }
-  return false;
-}
-
-function confirmTwoFactor(code: string) {
-  twoFactorError.value = '';
-  void save(code);
 }
 
 onBeforeRouteLeave(async () => {

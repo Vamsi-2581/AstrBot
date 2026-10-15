@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue';
 import { useDisplay } from 'vuetify';
 import { changelogApi, statsApi } from '@/api/v1';
 import { useI18n } from '@/i18n/composables';
+import { scrollToAnchorWithin } from '@/utils/anchorScroll';
 import { MarkdownRender, enableKatex, enableMermaid } from 'markstream-vue';
 import 'markstream-vue/index.css';
 import 'katex/dist/katex.min.css';
@@ -116,21 +117,7 @@ function onVersionChange() {
 }
 
 function handleChangelogClick(event: MouseEvent) {
-  const targetElement = event.target instanceof Element ? event.target : null;
-  const anchor = targetElement?.closest('a[href^="#"]');
-  if (!anchor) return;
-
-  const rawHref = anchor.getAttribute('href');
-  const targetId = rawHref ? decodeURIComponent(rawHref.slice(1)) : '';
-  if (!targetId) return;
-
-  const target = scrollContainer.value?.querySelector(
-    `#${CSS.escape(targetId)}`,
-  );
-  if (!target) return;
-
-  event.preventDefault();
-  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  scrollToAnchorWithin(event, scrollContainer.value);
 }
 
 // 监听对话框打开，初始化数据

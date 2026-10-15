@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { initI18n, useI18n } from '@/i18n/composables';
+import {
+  initI18n,
+  mergeDynamicTranslations,
+  useI18n,
+} from '@/i18n/composables';
 import { localeLoaders } from '@/i18n/localeLoader';
 
 function deferred<T>() {
@@ -68,5 +72,26 @@ describe('i18n locale loading', () => {
     await expect(initI18n('en-US')).rejects.toThrow(
       'Chinese chunk unavailable',
     );
+  });
+});
+
+describe('dynamic translation merging', () => {
+  it('ignores prototype-polluting keys from a locale payload', async () => {
+    await initI18n('zh-CN');
+    const payload = JSON.parse('{"__proto__":{"polluted":true}}');
+
+    mergeDynamicTranslations('features.pollution', { 'zh-CN': payload });
+
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it('rejects a prototype-polluting module path', async () => {
+    await initI18n('zh-CN');
+
+    mergeDynamicTranslations('__proto__.polluted', {
+      'zh-CN': { polluted: true },
+    });
+
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 });
