@@ -1,48 +1,30 @@
 <template>
-  <v-dialog
+  <SessionDeleteDialogShell
     v-model="visible"
-    max-width="500"
-    :aria-label="tm('batchDeleteConfirm.title')"
+    :title="tm('batchDeleteConfirm.title')"
+    :max-width="500"
+    :deleting="deleting"
+    @confirm="emit('confirm')"
   >
-    <v-card>
-      <v-card-title class="text-h6">{{
-        tm('batchDeleteConfirm.title')
-      }}</v-card-title>
-      <v-card-text>
-        {{ tm('batchDeleteConfirm.message', { count: selectedItems.length }) }}
-        <div class="session-selection-list mt-3">
-          <v-chip
-            v-for="item in selectedItems"
-            :key="item.umo"
-            size="small"
-            class="ma-1"
-            variant="outlined"
-          >
-            {{ getUmoDisplayText(item, umoInfoMap) }}
-          </v-chip>
-        </div>
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn variant="text" @click="visible = false">{{
-          tm('buttons.cancel')
-        }}</v-btn>
-        <v-btn
-          color="error"
-          variant="tonal"
-          :loading="deleting"
-          @click="emit('confirm')"
-        >
-          {{ tm('buttons.delete') }}
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+    {{ tm('batchDeleteConfirm.message', { count: selectedItems.length }) }}
+    <div class="session-selection-list mt-3">
+      <v-chip
+        v-for="item in selectedItems"
+        :key="item.umo"
+        size="small"
+        class="ma-1"
+        variant="outlined"
+      >
+        {{ getUmoDisplayText(item, umoInfoMap) }}
+      </v-chip>
+    </div>
+  </SessionDeleteDialogShell>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useModuleI18n } from '@/i18n/composables';
+import SessionDeleteDialogShell from './SessionDeleteDialogShell.vue';
 import { getUmoDisplayText } from './sessionRuleNormalizers';
 import type { SessionRuleItem, UmoDisplayInfo } from './sessionRuleHelpers';
 

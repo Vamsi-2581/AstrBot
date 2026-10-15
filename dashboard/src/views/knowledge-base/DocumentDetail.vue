@@ -33,26 +33,15 @@
     </div>
 
     <!-- 加载状态 -->
-    <div v-if="loading" class="loading-container">
-      <v-progress-circular indeterminate color="primary" size="64" />
-    </div>
-
-    <div v-else-if="loadError" class="loading-container">
-      <v-icon size="72" color="error">mdi-alert-circle-outline</v-icon>
-      <p class="mt-4 text-medium-emphasis">{{ t('states.loadError') }}</p>
-      <v-btn
-        class="mt-4"
-        prepend-icon="mdi-refresh"
-        color="primary"
-        variant="tonal"
-        @click="loadDocument"
-      >
-        {{ t('states.retry') }}
-      </v-btn>
-    </div>
+    <KnowledgeBaseLoadState
+      :loading="loading"
+      :load-error="loadError"
+      :t="t"
+      @retry="loadDocument"
+    />
 
     <!-- 主内容 -->
-    <div v-else class="document-content">
+    <div v-if="!loading && !loadError" class="document-content">
       <!-- 文档信息卡片 -->
       <v-card variant="outlined" class="mb-6">
         <v-card-title>{{ t('info.title') }}</v-card-title>
@@ -315,6 +304,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { knowledgeApi } from '@/api/v1';
+import KnowledgeBaseLoadState from '@/views/knowledge-base/components/KnowledgeBaseLoadState.vue';
 import { useModuleI18n } from '@/i18n/composables';
 import { askForConfirmation, useConfirmDialog } from '@/utils/confirmDialog';
 import { useToast } from '@/utils/toast';
@@ -565,14 +555,6 @@ onMounted(() => {
 
 .header-content {
   flex: 1;
-}
-
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
 }
 
 .info-item {

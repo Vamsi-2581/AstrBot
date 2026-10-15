@@ -9,42 +9,7 @@ import PromptQuickPreview from './PromptQuickPreview.vue';
 import ConfigDocsLink from './ConfigDocsLink.vue';
 import { useI18n, useModuleI18n } from '@/i18n/composables';
 import { useConfigTextResolver } from '@/composables/useConfigTextResolver';
-
-interface TemplateItemMeta {
-  type?: string;
-  default?: unknown;
-  invisible?: boolean;
-  description?: string;
-  hint?: string;
-  condition?: Record<string, unknown>;
-  items: Record<string, TemplateItemMeta>;
-  [key: string]: unknown;
-}
-
-interface TemplateMeta {
-  name?: string;
-  hint?: string;
-  description?: string;
-  hide_hint_in_list?: boolean;
-  display_item?: string;
-  items: Record<string, TemplateItemMeta>;
-  [key: string]: unknown;
-}
-
-type TemplateValue =
-  | string
-  | number
-  | boolean
-  | TemplateValue[]
-  | { [key: string]: TemplateValue };
-
-type TemplateEntryValue = TemplateValue & { [key: string]: TemplateValue };
-
-type TemplateEntry = {
-  __template_key?: string;
-} & {
-  [key: string]: TemplateEntryValue;
-};
+import type { TemplateEntry, TemplateMeta } from './configTemplateTypes';
 
 interface ConfigItemMeta {
   type?: string;
@@ -631,7 +596,11 @@ function shouldShowSection(): boolean {
   </v-dialog>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
+@use './config-editor' as config-editor;
+
+@include config-editor.config-editor-shared;
+
 .config-section-card {
   margin-bottom: var(--astrbot-space-4);
   padding-bottom: var(--astrbot-space-2);
@@ -678,42 +647,11 @@ function shouldShowSection(): boolean {
   display: none;
 }
 
-.important-hint {
-  opacity: 1;
-  margin-right: 4px;
-}
-
-.object-config,
-.simple-config {
-  width: 100%;
-}
-
-.nested-object {
-  padding-left: 16px;
-}
-
-.nested-container {
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  padding: 12px;
-  margin: 12px 0;
-  background-color: rgba(0, 0, 0, 0.02);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
 .config-row {
   margin: 0;
   align-items: center;
   padding: 8px 8px;
   border-radius: 4px;
-}
-
-.config-row:hover {
-  background-color: rgba(0, 0, 0, 0.03);
-}
-
-.property-info {
-  padding: 0;
 }
 
 .property-name {
@@ -724,47 +662,9 @@ function shouldShowSection(): boolean {
   color: var(--v-theme-on-surface);
 }
 
-.property-hint {
-  font-size: 0.75rem;
-  color: var(--v-theme-on-surface-variant);
-  margin-top: 2px;
-}
-
-.type-indicator {
-  display: flex;
-  justify-content: center;
-}
-
-.config-input {
-  padding: 4px 8px;
-}
-
-.config-field {
-  margin-bottom: 0;
-}
-
 .config-divider {
   border-color: rgba(0, 0, 0, 0.1);
   margin-left: 24px;
-}
-
-.editor-container {
-  position: relative;
-  display: flex;
-  width: 100%;
-}
-
-.editor-fullscreen-btn {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  z-index: 10;
-  background-color: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-}
-
-.editor-fullscreen-btn:hover {
-  background-color: rgba(0, 0, 0, 0.5);
 }
 
 .plugin-set-display-row {

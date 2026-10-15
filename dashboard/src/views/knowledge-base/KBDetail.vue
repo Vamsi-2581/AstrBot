@@ -1,26 +1,15 @@
 <template>
   <div class="kb-detail-page">
     <!-- 加载状态 -->
-    <div v-if="loading" class="loading-container">
-      <v-progress-circular indeterminate color="primary" size="64" />
-    </div>
-
-    <div v-else-if="loadError" class="loading-container">
-      <v-icon size="72" color="error">mdi-alert-circle-outline</v-icon>
-      <p class="mt-4 text-medium-emphasis">{{ t('states.loadError') }}</p>
-      <v-btn
-        class="mt-4"
-        prepend-icon="mdi-refresh"
-        color="primary"
-        variant="tonal"
-        @click="loadKB"
-      >
-        {{ t('states.retry') }}
-      </v-btn>
-    </div>
+    <KnowledgeBaseLoadState
+      :loading="loading"
+      :load-error="loadError"
+      :t="t"
+      @retry="loadKB"
+    />
 
     <!-- 主内容 -->
-    <div v-else class="kb-content">
+    <div v-if="!loading && !loadError" class="kb-content">
       <!-- 标签页 -->
       <v-tabs v-model="activeTab" class="mb-6" color="primary">
         <v-tab value="overview">
@@ -210,6 +199,7 @@ import { useModuleI18n } from '@/i18n/composables';
 import { useToast } from '@/utils/toast';
 import type { ToastColor } from '@/stores/toast';
 import DocumentsTab from './components/DocumentsTab.vue';
+import KnowledgeBaseLoadState from './components/KnowledgeBaseLoadState.vue';
 import RetrievalTab from './components/RetrievalTab.vue';
 import SettingsTab from './components/SettingsTab.vue';
 
@@ -295,14 +285,6 @@ watch(
 <style scoped>
 .kb-detail-page {
   width: 100%;
-}
-
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
 }
 
 .stat-box {

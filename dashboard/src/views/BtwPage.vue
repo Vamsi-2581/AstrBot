@@ -53,12 +53,12 @@
       <template v-else>
         <div
           v-if="hasUnsavedChanges"
-          class="btw-page__unsaved"
+          class="unsaved-banner"
           role="status"
           aria-live="polite"
         >
           <v-icon size="18" color="warning">mdi-alert-circle-outline</v-icon>
-          <span class="btw-page__unsaved-text">
+          <span class="unsaved-banner-text">
             {{ tm('btwPage.unsavedNotice') }}
           </span>
           <v-btn
@@ -130,9 +130,9 @@ import ConfigDocsLink from '@/components/shared/ConfigDocsLink.vue';
 import DashboardStepUpDialog from '@/components/shared/DashboardStepUpDialog.vue';
 import DashboardTwoFactorDialog from '@/components/shared/DashboardTwoFactorDialog.vue';
 import UnsavedChangesConfirmDialog from '@/components/config/UnsavedChangesConfirmDialog.vue';
+import { useConfigProfileSave } from '@/composables/useConfigProfileSave';
 import { useDashboardStepUp } from '@/composables/useDashboardStepUp';
 import { useModuleI18n } from '@/i18n/composables';
-import { runConfigMutationWithStepUp, stepUpHeaders } from '@/utils/stepUp';
 import { askForConfirmation, useConfirmDialog } from '@/utils/confirmDialog';
 
 defineOptions({ name: 'BtwPage' });
@@ -171,18 +171,35 @@ const scopeOptions = ref<{ title: string; value: string }[]>([
 
 const configData = ref<OpenConfig>({});
 const metadata = ref<OpenConfig>({});
-const loaded = ref(false);
-const loadFailed = ref(false);
 /** Remounts the editor after a reload so it re-reads the new value. */
 const configKey = ref(0);
-const savedSnapshot = ref('');
 
-const saving = ref(false);
-const twoFactorOpen = ref(false);
-const twoFactorError = ref('');
-const snackbar = ref(false);
-const snackMessage = ref('');
-const snackColor = ref<'success' | 'error'>('success');
+const {
+  loaded,
+  loadFailed,
+  savedSnapshot,
+  saving,
+  twoFactorOpen,
+  twoFactorError,
+  snackbar,
+  snackMessage,
+  snackColor,
+  markLoaded,
+  markLoadFailed,
+  hasUnsavedChanges,
+  saveProfile,
+  confirmTwoFactor,
+} = useConfigProfileSave({
+  tm,
+  requestStepUp,
+  getConfigData: () => configData.value,
+  getCurrentScope: () => scope.value,
+  messages: {
+    success: 'btwPage.saveSuccess',
+    error: 'btwPage.saveError',
+    twoFactorRejected: 'btwPage.twoFactorRejected',
+  },
+});
 
 const btwMetadata = computed(
   () => asRecord(asRecord(metadata.value?.ai_group)?.metadata)?.btw,
@@ -289,16 +306,6 @@ const hasBtwSections = computed(
   () => Object.keys(btwSections.value).length > 0,
 );
 
-function showSnack(message: string, color: 'success' | 'error') {
-  snackMessage.value = message;
-  snackColor.value = color;
-  snackbar.value = true;
-}
-
-function snapshot(value: OpenConfig) {
-  return JSON.stringify(value ?? {});
-}
-
 async function loadProfiles() {
   try {
     const response = await configProfileApi.list();
@@ -332,12 +339,10 @@ async function loadConfig() {
     const payload = asRecord(response.data?.data);
     configData.value = asRecord(payload?.config) ?? {};
     metadata.value = asRecord(payload?.metadata) ?? {};
-    savedSnapshot.value = snapshot(configData.value);
     configKey.value += 1;
-    loaded.value = true;
+    markLoaded();
   } catch {
-    loaded.value = false;
-    loadFailed.value = true;
+    markLoadFailed();
   }
 }
 
@@ -345,10 +350,6 @@ async function loadAll() {
   await loadProfiles();
   await loadConfig();
 }
-
-const hasUnsavedChanges = computed(
-  () => loaded.value && snapshot(configData.value) !== savedSnapshot.value,
-);
 
 /** Restore the last saved profile, dropping edits made since. */
 function discardChanges() {
@@ -360,79 +361,6 @@ function discardChanges() {
 async function save(twoFactorCode = '') {
   if (saving.value) return;
   await saveProfile(scope.value, twoFactorCode);
-}
-
-/**
- * Save the settings currently in hand into ``target``.
- *
- * Separate from ``save`` because switching profiles has to write the profile
- * the operator is leaving, which is no longer the one the select shows.
- *
- * Returns:
- *   Whether the profile now holds what the page was showing.
- */
-async function saveProfile(target: string, twoFactorCode = '') {
-  if (saving.value) return false;
-  saving.value = true;
-  const submittedSnapshot = snapshot(configData.value);
-  const submittedConfig = JSON.parse(submittedSnapshot) as OpenConfig;
-  const headers: Record<string, string> = {};
-  if (twoFactorCode) headers['X-2FA-Code'] = twoFactorCode;
-
-  try {
-    const response = await runConfigMutationWithStepUp(
-      (stepUp) => {
-        if (stepUp) Object.assign(headers, stepUpHeaders(stepUp));
-        const requestConfig = {
-          headers,
-          validateStatus: (status: number) =>
-            (status >= 200 && status < 300) || status === 401,
-        };
-        return configProfileApi.update(target, submittedConfig, requestConfig);
-      },
-      target,
-      requestStepUp,
-    );
-    if (!response) {
-      saving.value = false;
-      return false;
-    }
-
-    const payload = asRecord(response.data?.data);
-    if (response.status === 401 && payload?.totp_required === true) {
-      twoFactorError.value = twoFactorCode
-        ? tm('btwPage.twoFactorRejected')
-        : '';
-      twoFactorOpen.value = true;
-      saving.value = false;
-      return false;
-    }
-
-    if (response.data?.status === 'ok') {
-      twoFactorOpen.value = false;
-      twoFactorError.value = '';
-      // Only adopt the submitted snapshot while the page still edits that
-      // profile: the operator may have discarded the edit and switched away
-      // mid-save, and the loaded profile's snapshot must not be overwritten.
-      if (target === scope.value) {
-        savedSnapshot.value = submittedSnapshot;
-      }
-      showSnack(response.data?.message || tm('btwPage.saveSuccess'), 'success');
-      return true;
-    }
-    showSnack(response.data?.message || tm('btwPage.saveError'), 'error');
-    return false;
-  } catch {
-    showSnack(tm('btwPage.saveError'), 'error');
-    return false;
-  } finally {
-    saving.value = false;
-  }
-}
-
-function confirmTwoFactor(code: string) {
-  twoFactorError.value = '';
-  void save(code);
 }
 
 function createUnsavedChangesDialogOptions(message: string) {
@@ -494,24 +422,6 @@ onMounted(loadAll);
 
 <style scoped>
 @import '@/styles/dashboard-shell.css';
-
-.btw-page__unsaved {
-  display: flex;
-  align-items: center;
-  gap: var(--astrbot-space-2);
-  padding: var(--astrbot-space-3);
-  margin-bottom: var(--astrbot-space-4);
-  border: 1px solid rgb(var(--v-theme-warning));
-  border-radius: 8px;
-  background: rgb(var(--v-theme-surface-variant));
-  color: var(--dashboard-text);
-  font-size: 13px;
-  line-height: 18px;
-}
-
-.btw-page__unsaved-text {
-  flex: 1;
-}
 
 .btw-page__scope {
   max-width: 420px;

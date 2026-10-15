@@ -571,20 +571,6 @@ onBeforeRouteLeave(async () => {
   gap: var(--astrbot-space-2);
 }
 
-.unsaved-banner {
-  display: flex;
-  align-items: center;
-  gap: var(--astrbot-space-2);
-  padding: var(--astrbot-space-3);
-  margin-bottom: var(--astrbot-space-4);
-  border: 1px solid rgb(var(--v-theme-warning));
-  border-radius: 8px;
-  background: rgb(var(--v-theme-surface-variant));
-  color: var(--dashboard-text);
-  font-size: 13px;
-  line-height: 18px;
-}
-
 .setting-card {
   border: 1px solid var(--dashboard-border);
   border-radius: 8px;

@@ -1,126 +1,102 @@
 <template>
-  <v-dialog
+  <DashboardTotpDialogShell
     :model-value="modelValue"
-    max-width="520"
-    :aria-label="cardTitle"
+    :title="cardTitle"
     @update:model-value="onVisibilityChange"
-    @click:outside="onCancel"
+    @cancel="onCancel"
   >
-    <v-card>
-      <v-card-title class="text-h3 pa-4 pb-0 pl-6 d-flex align-center">
-        {{ cardTitle }}
-        <v-spacer></v-spacer>
-        <v-btn
-          icon
-          variant="text"
-          size="small"
-          :aria-label="
-            tm('system_group.system.dashboard.totp.configSaveCancel')
-          "
-          @click="onCancel"
-        >
-          <v-icon>mdi-close</v-icon>
+    <template v-if="step === 'verify'">
+      <div class="totp-dialog-subtitle mb-3">
+        输入当前认证器应用中的验证码以验证身份。
+      </div>
+      <div class="text-center">
+        <v-text-field
+          v-model="verifyCode"
+          label="当前验证码"
+          variant="outlined"
+          density="compact"
+          class="totp-code-input"
+          maxlength="6"
+          :error-messages="verifyError"
+          :loading="verifyingIdentity"
+          hide-details="auto"
+          prepend-inner-icon="mdi-shield-key"
+          @keyup.enter="verifyIdentity"
+        ></v-text-field>
+      </div>
+      <div class="d-flex justify-end ga-2 mt-4">
+        <v-btn variant="text" :disabled="verifyingIdentity" @click="onCancel">
+          取消
         </v-btn>
-      </v-card-title>
-      <v-divider></v-divider>
-      <v-card-text class="pa-4">
-        <template v-if="step === 'verify'">
-          <div class="totp-dialog-subtitle mb-3">
-            输入当前认证器应用中的验证码以验证身份。
-          </div>
-          <div class="text-center">
-            <v-text-field
-              v-model="verifyCode"
-              label="当前验证码"
-              variant="outlined"
-              density="compact"
-              class="totp-code-input"
-              maxlength="6"
-              :error-messages="verifyError"
-              :loading="verifyingIdentity"
-              hide-details="auto"
-              prepend-inner-icon="mdi-shield-key"
-              @keyup.enter="verifyIdentity"
-            ></v-text-field>
-          </div>
-          <div class="d-flex justify-end ga-2 mt-4">
-            <v-btn
-              variant="text"
-              :disabled="verifyingIdentity"
-              @click="onCancel"
-            >
-              取消
-            </v-btn>
-            <v-btn
-              color="primary"
-              variant="tonal"
-              :loading="verifyingIdentity"
-              :disabled="!verifyCode || verifyCode.length < 6"
-              @click="verifyIdentity"
-            >
-              验证
-            </v-btn>
-          </div>
-        </template>
-        <template v-else>
-          <div class="totp-dialog-subtitle mb-3">
-            {{ dialogSubtitle }}
-          </div>
-          <div class="text-center">
-            <v-alert
-              type="info"
-              variant="tonal"
-              density="compact"
-              class="mb-3 text-start"
-              :text="tm('system_group.system.dashboard.totp.rotateCodeHint')"
-              hide-details
-            ></v-alert>
-            <QrCodeViewer
-              v-if="totpProvisioningUri"
-              :value="totpProvisioningUri"
-              alt="TOTP QR Code"
-              :size="220"
-            />
-            <div class="totp-new-secret-wrap mt-3">
-              <code class="totp-secret">{{ newSecret }}</code>
-            </div>
-            <v-text-field
-              v-model="code"
-              :label="tm('system_group.system.dashboard.totp.rotateCode')"
-              variant="outlined"
-              density="compact"
-              class="totp-code-input mt-3"
-              maxlength="6"
-              :error-messages="codeError"
-              :loading="verifying"
-              hide-details="auto"
-              prepend-inner-icon="mdi-shield-key"
-              @keyup.enter="confirmSetup"
-            ></v-text-field>
-          </div>
-          <div class="d-flex justify-end ga-2 mt-4">
-            <v-btn variant="text" :disabled="verifying" @click="onCancel">
-              {{ tm('system_group.system.dashboard.totp.rotateCancel') }}
-            </v-btn>
-            <v-btn
-              color="primary"
-              variant="tonal"
-              :loading="verifying"
-              :disabled="!code || code.length < 6"
-              @click="confirmSetup"
-            >
-              {{ confirmLabel }}
-            </v-btn>
-          </div>
-        </template>
-      </v-card-text>
-    </v-card>
-  </v-dialog>
+        <v-btn
+          color="primary"
+          variant="tonal"
+          :loading="verifyingIdentity"
+          :disabled="!verifyCode || verifyCode.length < 6"
+          @click="verifyIdentity"
+        >
+          验证
+        </v-btn>
+      </div>
+    </template>
+    <template v-else>
+      <div class="totp-dialog-subtitle mb-3">
+        {{ dialogSubtitle }}
+      </div>
+      <div class="text-center">
+        <v-alert
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-3 text-start"
+          :text="tm('system_group.system.dashboard.totp.rotateCodeHint')"
+          hide-details
+        ></v-alert>
+        <QrCodeViewer
+          v-if="totpProvisioningUri"
+          :value="totpProvisioningUri"
+          alt="TOTP QR Code"
+          :size="220"
+        />
+        <div class="totp-new-secret-wrap mt-3">
+          <code class="totp-secret">{{ newSecret }}</code>
+        </div>
+        <v-text-field
+          v-model="code"
+          :label="tm('system_group.system.dashboard.totp.rotateCode')"
+          variant="outlined"
+          density="compact"
+          class="totp-code-input mt-3"
+          maxlength="6"
+          :error-messages="codeError"
+          :loading="verifying"
+          hide-details="auto"
+          prepend-inner-icon="mdi-shield-key"
+          @keyup.enter="confirmSetup"
+        ></v-text-field>
+      </div>
+      <div class="d-flex justify-end ga-2 mt-4">
+        <v-btn variant="text" :disabled="verifying" @click="onCancel">
+          {{ tm('system_group.system.dashboard.totp.rotateCancel') }}
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="tonal"
+          :loading="verifying"
+          :disabled="!code || code.length < 6"
+          @click="confirmSetup"
+        >
+          {{ confirmLabel }}
+        </v-btn>
+      </div>
+    </template>
+  </DashboardTotpDialogShell>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { authApi } from '@/api/v1';
+import DashboardTotpDialogShell from './DashboardTotpDialogShell.vue';
 import QrCodeViewer from './QrCodeViewer.vue';
 import { useModuleI18n } from '@/i18n/composables';
 
@@ -293,11 +269,6 @@ async function confirmSetup() {
 </script>
 
 <style scoped>
-.totp-dialog-subtitle {
-  font-size: 0.9rem;
-  color: rgba(var(--v-theme-on-surface), 0.68);
-}
-
 .totp-new-secret-wrap {
   background: rgba(var(--v-theme-on-surface), 0.04);
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
@@ -309,10 +280,5 @@ async function confirmSetup() {
   word-break: break-all;
   font-size: 0.8rem;
   font-weight: 500;
-}
-
-.totp-code-input {
-  max-width: 240px;
-  margin: 0 auto;
 }
 </style>

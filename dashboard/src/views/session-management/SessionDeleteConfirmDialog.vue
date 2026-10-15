@@ -1,44 +1,27 @@
 <template>
-  <v-dialog
+  <SessionDeleteDialogShell
     v-model="visible"
-    max-width="400"
-    :aria-label="tm('deleteConfirm.title')"
+    :title="tm('deleteConfirm.title')"
+    app-dialog
+    :deleting="deleting"
+    @confirm="emit('confirm')"
   >
-    <v-card class="app-dialog">
-      <v-card-title class="text-h6">{{
-        tm('deleteConfirm.title')
-      }}</v-card-title>
-      <v-card-text>
-        {{
-          target && isSenderRule(target)
-            ? tm('deleteConfirm.senderMessage')
-            : tm('deleteConfirm.message')
-        }}
-        <br /><br />
-        <code>{{
-          target && isSenderRule(target) ? target.sender_id : target?.umo
-        }}</code>
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn variant="text" @click="visible = false">{{
-          tm('buttons.cancel')
-        }}</v-btn>
-        <v-btn
-          color="error"
-          variant="tonal"
-          :loading="deleting"
-          @click="emit('confirm')"
-          >{{ tm('buttons.delete') }}</v-btn
-        >
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+    {{
+      target && isSenderRule(target)
+        ? tm('deleteConfirm.senderMessage')
+        : tm('deleteConfirm.message')
+    }}
+    <br /><br />
+    <code>{{
+      target && isSenderRule(target) ? target.sender_id : target?.umo
+    }}</code>
+  </SessionDeleteDialogShell>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useModuleI18n } from '@/i18n/composables';
+import SessionDeleteDialogShell from './SessionDeleteDialogShell.vue';
 import { isSenderRule } from './sessionRuleNormalizers';
 import type { SessionRuleItem } from './sessionRuleHelpers';
 

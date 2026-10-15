@@ -571,10 +571,10 @@ function getSelectItems(itemMeta?: ConfigItemMeta): unknown[] {
 }
 </script>
 
-<style scoped>
-.config-field {
-  margin-bottom: 0;
-}
+<style lang="scss" scoped>
+@use './config-editor' as config-editor;
+
+@include config-editor.config-editor-shared;
 
 .config-editor {
   min-height: 100px;
@@ -607,25 +607,6 @@ function getSelectItems(itemMeta?: ConfigItemMeta): unknown[] {
 
 .config-number-field {
   flex: 2;
-}
-
-.editor-container {
-  position: relative;
-  display: flex;
-  width: 100%;
-}
-
-.editor-fullscreen-btn {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  z-index: 10;
-  background-color: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-}
-
-.editor-fullscreen-btn:hover {
-  background-color: rgba(0, 0, 0, 0.5);
 }
 
 .checkbox-group {

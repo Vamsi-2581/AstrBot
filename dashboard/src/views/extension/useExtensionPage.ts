@@ -6,11 +6,12 @@ import type {
   FailedPluginDetail,
   InstalledPlugin,
   PluginMarketItem,
-  PluginSourceItem,
 } from '@/types/extensions';
+import { usePluginSources } from './usePluginSources';
 import { resolveErrorMessage } from '@/utils/errorUtils';
 import { getValidHashTab, replaceTabRoute } from '@/utils/hashRouteTabs';
 import { getPlatformDisplayName } from '@/utils/platformUtils';
+import { checkAstrBotVersionSupport } from '@/utils/pluginVersion';
 import { useDashboardStepUp } from '@/composables/useDashboardStepUp';
 import {
   getMarketPluginId,
@@ -100,12 +101,6 @@ interface PluginConfigState {
 }
 
 interface InstallSupportState {
-  checked: boolean;
-  supported: boolean;
-  message: string;
-}
-
-interface VersionSupportResult {
   checked: boolean;
   supported: boolean;
   message: string;
@@ -303,18 +298,6 @@ export const useExtensionPage = () => {
   // 卸载插件确认对话框（列表模式用）
   const showUninstallDialog = ref(false);
   const uninstallTarget = ref<UninstallTarget | null>(null);
-
-  // 自定义插件源相关
-  const showSourceDialog = ref(false);
-  const showSourceManagerDialog = ref(false);
-  const sourceName = ref('');
-  const sourceUrl = ref('');
-  const customSources = ref<PluginSourceItem[]>([]);
-  const selectedSource = ref<string | null>(null);
-  const showRemoveSourceDialog = ref(false);
-  const sourceToRemove = ref<PluginSourceItem | null>(null);
-  const editingSource = ref(false);
-  const originalSourceUrl = ref('');
 
   // 插件市场相关
   const extension_url = ref('');
@@ -1315,177 +1298,6 @@ export const useExtensionPage = () => {
     selectedDangerPlugin.value = null;
   };
 
-  // 自定义插件源管理方法
-  const loadCustomSources = async () => {
-    try {
-      const res = await pluginApi.sources();
-      if (res.data.status === 'ok') {
-        customSources.value = Array.isArray(res.data.data) ? res.data.data : [];
-      } else {
-        toast(res.data.message, 'error');
-      }
-    } catch (error) {
-      console.warn('Failed to load custom sources:', error);
-      customSources.value = [];
-    }
-
-    // 加载当前选中的插件源
-    const currentSource = localStorage.getItem('selectedPluginSource');
-    if (currentSource) {
-      selectedSource.value = currentSource;
-    }
-  };
-
-  const saveCustomSources = async () => {
-    try {
-      const res = await pluginApi.replaceSources(customSources.value);
-      if (res.data.status !== 'ok') {
-        toast(res.data.message, 'error');
-      }
-    } catch (error) {
-      toast(
-        resolveErrorMessage(error, tm('messages.operationFailed')),
-        'error',
-      );
-    }
-  };
-
-  const addCustomSource = () => {
-    showSourceManagerDialog.value = false;
-    editingSource.value = false;
-    originalSourceUrl.value = '';
-    sourceName.value = '';
-    sourceUrl.value = '';
-    showSourceDialog.value = true;
-  };
-
-  const openSourceManagerDialog = async () => {
-    await loadCustomSources();
-    showSourceManagerDialog.value = true;
-  };
-
-  const selectPluginSource = (sourceUrl: string | null) => {
-    selectedSource.value = sourceUrl;
-    if (sourceUrl) {
-      localStorage.setItem('selectedPluginSource', sourceUrl);
-    } else {
-      localStorage.removeItem('selectedPluginSource');
-    }
-    // 重新加载插件市场数据
-    void refreshPluginMarket();
-  };
-
-  const sourceSelectItems = computed(() => [
-    { title: tm('market.defaultSource'), value: '__default__' },
-    ...customSources.value.map((source) => ({
-      title: source.name,
-      value: source.url,
-    })),
-  ]);
-
-  const editCustomSource = (source: PluginSourceItem | null) => {
-    if (!source) return;
-    showSourceManagerDialog.value = false;
-    editingSource.value = true;
-    originalSourceUrl.value = source.url;
-    sourceName.value = source.name ?? '';
-    sourceUrl.value = source.url;
-    showSourceDialog.value = true;
-  };
-
-  const removeCustomSource = (source: PluginSourceItem | null) => {
-    if (!source) return;
-    showSourceManagerDialog.value = false;
-    sourceToRemove.value = source;
-    showRemoveSourceDialog.value = true;
-  };
-
-  const confirmRemoveSource = () => {
-    const source = sourceToRemove.value;
-    if (source) {
-      customSources.value = customSources.value.filter(
-        (s) => s.url !== source.url,
-      );
-      void saveCustomSources();
-
-      // 如果删除的是当前选中的源，切换到默认源
-      if (selectedSource.value === source.url) {
-        selectedSource.value = null;
-        localStorage.removeItem('selectedPluginSource');
-        // 重新加载插件市场数据
-        void refreshPluginMarket();
-      }
-
-      toast(tm('market.sourceRemoved'), 'success');
-      showRemoveSourceDialog.value = false;
-      sourceToRemove.value = null;
-    }
-  };
-
-  const saveCustomSource = () => {
-    const normalizedUrl = sourceUrl.value.trim();
-
-    if (!sourceName.value.trim() || !normalizedUrl) {
-      toast(tm('messages.fillSourceNameAndUrl'), 'error');
-      return;
-    }
-
-    // 检查URL格式
-    try {
-      new URL(normalizedUrl);
-    } catch (_error) {
-      toast(tm('messages.invalidUrl'), 'error');
-      return;
-    }
-
-    if (editingSource.value) {
-      // 编辑模式：更新现有源
-      const index = customSources.value.findIndex(
-        (s) => s.url === originalSourceUrl.value,
-      );
-      if (index !== -1) {
-        customSources.value[index] = {
-          name: sourceName.value.trim(),
-          url: normalizedUrl,
-        };
-
-        // 如果编辑的是当前选中的源，更新选中源
-        if (selectedSource.value === originalSourceUrl.value) {
-          selectedSource.value = normalizedUrl;
-          localStorage.setItem('selectedPluginSource', selectedSource.value);
-          // 重新加载插件市场数据
-          void refreshPluginMarket();
-        }
-      }
-    } else {
-      // 添加模式：检查是否已存在
-      if (customSources.value.some((source) => source.url === normalizedUrl)) {
-        toast(tm('market.sourceExists'), 'error');
-        return;
-      }
-
-      customSources.value.push({
-        name: sourceName.value.trim(),
-        url: normalizedUrl,
-      });
-    }
-
-    void saveCustomSources();
-    toast(
-      editingSource.value
-        ? tm('market.sourceUpdated')
-        : tm('market.sourceAdded'),
-      'success',
-    );
-
-    // 重置表单
-    sourceName.value = '';
-    sourceUrl.value = '';
-    editingSource.value = false;
-    originalSourceUrl.value = '';
-    showSourceDialog.value = false;
-  };
-
   // 插件市场显示完整插件名称
   const trimExtensionName = () => {
     pluginMarketData.value.forEach((plugin) => {
@@ -1555,117 +1367,6 @@ export const useExtensionPage = () => {
       (plugin) => !plugin.installed,
     );
     pluginMarketData.value = notInstalled.concat(installed);
-  };
-
-  const normalizeAstrBotVersionSpec = (value: unknown) =>
-    String(value || '').trim();
-
-  const normalizeVersionParts = (value: unknown): number[] => {
-    const version = String(value || '')
-      .trim()
-      .replace(/^v/i, '')
-      .split(/[+-]/)[0];
-    const parts = version.split('.').map((part) => {
-      const match = /^\d+/.exec(part);
-      return match ? Number.parseInt(match[0], 10) : 0;
-    });
-    return parts.length ? parts : [0];
-  };
-
-  const compareVersions = (left: unknown, right: unknown): number => {
-    const leftParts = normalizeVersionParts(left);
-    const rightParts = normalizeVersionParts(right);
-    const length = Math.max(leftParts.length, rightParts.length, 3);
-    for (let i = 0; i < length; i += 1) {
-      const leftPart = leftParts[i] || 0;
-      const rightPart = rightParts[i] || 0;
-      if (leftPart > rightPart) return 1;
-      if (leftPart < rightPart) return -1;
-    }
-    return 0;
-  };
-
-  const getSupportedReleaseUpperBound = (version: unknown): string => {
-    const parts = normalizeVersionParts(version);
-    if (parts.length <= 2) {
-      return `${(parts[0] || 0) + 1}.0`;
-    }
-    return `${parts[0] || 0}.${(parts[1] || 0) + 1}.0`;
-  };
-
-  const checkVersionConstraint = (
-    currentVersion: string,
-    constraint: string,
-  ): boolean | null => {
-    const match = /^(<=|>=|==|!=|~=|<|>|=)\s*(\S.*)$/.exec(constraint);
-    if (!match) return null;
-
-    const [, operator, targetVersion] = match;
-    const normalizedTarget = targetVersion.trim();
-    if (!normalizedTarget) return null;
-    if (!/^v?\d+/.test(normalizedTarget)) return null;
-
-    if (operator === '~=') {
-      return (
-        compareVersions(currentVersion, normalizedTarget) >= 0 &&
-        compareVersions(
-          currentVersion,
-          getSupportedReleaseUpperBound(normalizedTarget),
-        ) < 0
-      );
-    }
-
-    const comparison = compareVersions(currentVersion, normalizedTarget);
-    if (operator === '>' || operator === '>=') {
-      return operator === '>' ? comparison > 0 : comparison >= 0;
-    }
-    if (operator === '<' || operator === '<=') {
-      return operator === '<' ? comparison < 0 : comparison <= 0;
-    }
-    if (operator === '!=') return comparison !== 0;
-    return comparison === 0;
-  };
-
-  const checkAstrBotVersionSupport = (
-    versionSpec: unknown,
-    currentVersion: string,
-  ): VersionSupportResult => {
-    const normalizedSpec = normalizeAstrBotVersionSpec(versionSpec);
-    if (!normalizedSpec) {
-      return { checked: false, supported: true, message: '' };
-    }
-    if (!currentVersion) {
-      return { checked: false, supported: true, message: '' };
-    }
-
-    const constraints = normalizedSpec
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean);
-    if (!constraints.length) {
-      return { checked: false, supported: true, message: '' };
-    }
-
-    for (const constraint of constraints) {
-      const supported = checkVersionConstraint(currentVersion, constraint);
-      if (supported === null) {
-        return {
-          checked: true,
-          supported: false,
-          message:
-            'Invalid astrbot_version. Use a PEP 440 range, e.g. >=4.16,<5.',
-        };
-      }
-      if (!supported) {
-        return {
-          checked: true,
-          supported: false,
-          message: `AstrBot ${currentVersion} does not satisfy plugin astrbot_version: ${normalizedSpec}`,
-        };
-      }
-    }
-
-    return { checked: true, supported: true, message: '' };
   };
 
   const annotateMarketVersionSupport = async () => {
@@ -1928,6 +1629,30 @@ export const useExtensionPage = () => {
       loading_.value = false;
     }
   };
+
+  // 自定义插件源
+  const {
+    showSourceDialog,
+    showSourceManagerDialog,
+    sourceName,
+    sourceUrl,
+    customSources,
+    selectedSource,
+    showRemoveSourceDialog,
+    sourceToRemove,
+    editingSource,
+    originalSourceUrl,
+    loadCustomSources,
+    saveCustomSources,
+    addCustomSource,
+    openSourceManagerDialog,
+    selectPluginSource,
+    sourceSelectItems,
+    editCustomSource,
+    removeCustomSource,
+    confirmRemoveSource,
+    saveCustomSource,
+  } = usePluginSources({ tm, toast, refreshPluginMarket });
 
   // 生命周期
   onMounted(async () => {
