@@ -103,6 +103,9 @@ function setValueBySelector(
   // 创建嵌套对象路径
   for (let i = 0; i < keys.length - 1; i++) {
     const key = keys[i];
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      return;
+    }
     const next = current[key];
     if (!next || typeof next !== 'object') {
       current[key] = {};
@@ -111,7 +114,15 @@ function setValueBySelector(
   }
 
   // 设置最终值
-  current[keys[keys.length - 1]] = value;
+  const finalKey = keys[keys.length - 1];
+  if (
+    finalKey === '__proto__' ||
+    finalKey === 'constructor' ||
+    finalKey === 'prototype'
+  ) {
+    return;
+  }
+  current[finalKey] = value;
 }
 
 // 创建一个计算属性来处理 JSON selector 的获取和设置

@@ -21,6 +21,7 @@
         v-else
         :messages="activeMessages"
         :is-dark="isDark"
+        :enable-reasoning-sidebar="false"
         :is-streaming="
           Boolean(currSessionId && isSessionRunning(currSessionId))
         "
