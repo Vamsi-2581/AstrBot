@@ -17,6 +17,7 @@ from telegram import (
     Message,
     MessageEntity,
     PhotoSize,
+    TextQuote,
     Update,
     User,
     Video,
@@ -381,6 +382,137 @@ async def test_telegram_reply_without_quote_text_uses_full_message(quote_text):
     assert len(reply.chain) == 1
     assert isinstance(reply.chain[0], Comp.Plain)
     assert reply.chain[0].text == "Use the complete replied message"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("in_caption", [False, True], ids=["text", "caption"])
+async def test_telegram_hidden_links_survive_conversion_and_reply(in_caption):
+    """Preserve linked text and URLs in messages and full replies."""
+    adapter = _load_telegram_adapter()(
+        make_platform_config("telegram"), {}, asyncio.Queue()
+    )
+    text = "😀 查看文档 和 示例"
+    entities = [
+        MessageEntity("bold", 3, 4),
+        MessageEntity("text_link", 3, 4, url="https://example.com/docs"),
+        MessageEntity("text_link", 10, 2, url="https://example.com/demo"),
+    ]
+    content = {"text": text, "entities": entities}
+    if in_caption:
+        content = {
+            "caption": text,
+            "caption_entities": entities,
+            "photo": [PhotoSize("file", "unique", 1, 1)],
+        }
+    original = Message(
+        message_id=41,
+        date=datetime.now(),
+        chat=Chat(-10001, "group"),
+        from_user=User(1001, "original_sender", False),
+        **content,
+    )
+    expected = (
+        "😀 查看文档 (https://example.com/docs) 和 示例 (https://example.com/demo)"
+    )
+
+    result = await adapter.convert_message(
+        Update(1, message=original), _build_context()
+    )
+
+    assert result is not None
+    assert result.message_str == expected
+    assert [part.text for part in result.message if isinstance(part, Comp.Plain)] == [
+        expected
+    ]
+
+    reply = Message(
+        message_id=42,
+        date=datetime.now(),
+        chat=Chat(-10001, "group"),
+        from_user=User(1002, "replier", False),
+        text="Which link?",
+        reply_to_message=original,
+    )
+    result = await adapter.convert_message(Update(2, message=reply), _build_context())
+
+    assert result is not None
+    reply_component = result.message[0]
+    assert isinstance(reply_component, Comp.Reply)
+    assert reply_component.message_str == reply_component.text == expected
+    assert [
+        part.text for part in reply_component.chain if isinstance(part, Comp.Plain)
+    ] == [expected]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("position", [5, 0], ids=["matched", "stale"])
+async def test_telegram_partial_quote_preserves_only_overlapping_links(position):
+    """Recover a quoted link without including links outside the selected text."""
+    adapter = _load_telegram_adapter()(
+        make_platform_config("telegram"), {}, asyncio.Queue()
+    )
+    original = Message(
+        message_id=43,
+        date=datetime.now(),
+        chat=Chat(-10001, "group"),
+        from_user=User(1001, "original_sender", False),
+        text="😀 查看文档 和 示例",
+        entities=[
+            MessageEntity("text_link", 3, 4, url="https://example.com/docs"),
+            MessageEntity("text_link", 10, 2, url="https://example.com/demo"),
+        ],
+    )
+    reply = Message(
+        message_id=44,
+        date=datetime.now(),
+        chat=Chat(-10001, "group"),
+        from_user=User(1002, "replier", False),
+        text="Which?",
+        reply_to_message=original,
+        quote=TextQuote(text="文档", position=position),
+    )
+
+    result = await adapter.convert_message(Update(1, message=reply), _build_context())
+
+    assert result is not None
+    expected = "文档 (https://example.com/docs)" if position == 5 else "文档"
+    reply_component = result.message[0]
+    assert isinstance(reply_component, Comp.Reply)
+    assert reply_component.message_str == reply_component.text == expected
+    assert reply_component.chain == [Comp.Plain(expected)]
+
+
+@pytest.mark.asyncio
+async def test_telegram_hidden_links_and_mentions_use_original_offsets():
+    """Keep link positions intact when self mentions are removed."""
+    adapter = _load_telegram_adapter()(
+        make_platform_config("telegram"), {}, asyncio.Queue()
+    )
+    text = "😀 @test_bot 文档 @test_bot https://example.com"
+    message = Message(
+        message_id=45,
+        date=datetime.now(),
+        chat=Chat(-10001, "group"),
+        from_user=User(42, "Alice", False),
+        text=text,
+        entities=[
+            MessageEntity("mention", 3, 9),
+            MessageEntity("text_link", 13, 2, url="https://example.com/docs"),
+            MessageEntity("mention", 16, 9),
+            MessageEntity("url", 26, 19),
+        ],
+    )
+    context = _build_context()
+
+    result = await adapter.convert_message(Update(1, message=message), context)
+
+    assert result is not None
+    assert result.message_str == (
+        "😀  文档 (https://example.com/docs)  https://example.com"
+    )
+    assert [
+        part.target for part in result.message if isinstance(part, Comp.Mention)
+    ] == [str(context.bot.id), str(context.bot.id)]
 
 
 @pytest.mark.asyncio
