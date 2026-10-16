@@ -5,28 +5,23 @@ upstream:
   branch: master
 
 last_synced:
-  commit: db4ce0c4b0ae94f443c641f0f78cc9228ddabbeb
-  synced_at_utc: 2026-10-14T14:55:46Z
+  commit: de898afe7588e1f153beec06e24f03f6ddeae2e4
+  synced_at_utc: 2026-10-16T12:21:30Z
   sync_method: adapt
   source_pr: >-
-    10549, 10543, 10514, 10552, 10520, 10523, 10545, 10560
+    10557, 10563, 10562, 10581
   note: >-
-    Reviewed 48ba71ad7477fc81c8aa99ad241f41ef5b1c0bfe..db4ce0c4b0ae94f443c641f0f78cc9228ddabbeb
-    (10 commits). Cherry-picked 2 and adapted 6: #10549, #10543, #10514,
-    #10552, #10520, #10523, #10545, and #10560. Adaptations preserved the fork
-    interpolate_placeholders cron prompts, Mention-based Lark components with
-    lazy media resolvers and the QuotedMessageExtractor, the sanitized log
-    pipeline and script-setup ConsoleDisplayer/LogsPage with the fork
-    auto-scroll and hide-user-chat switches, the SHA-pinned CodeQL action, the
-    MediaResolver Coze stream helper, and the bilingual fork changelog. The fork
-    now tracks upstream version 4.29.0. Skipped 2: #10519 (the fork uses
-    Dashboard Extension Protocol v1 and has no legacy plugin View sidebar
-    items) and #10541 (the fork already stores pnpm overrides in
-    pnpm-workspace.yaml and uses pnpm 12). Follow-up commits
-    (f104a8bd3043e3ec90ce58aeb23d5b84f14d16e4, 1903243e708c4acaa78c3102c00a5895e976ac7b)
-    adapted test doubles and type narrowing for the new scheduler log_context
-    and the Anthropic input schema. Focused Python and Dashboard
-    suites, the complete blocking pytest suite (6555 passed, 25 skipped), the
-    Dashboard typecheck/Vitest/node tests/i18n/design-system guard, make
-    quality, make check-md, and the docs build passed. Docker engine was
-    unavailable, so the image build was not run.
+    Reviewed db4ce0c4b0ae94f443c641f0f78cc9228ddabbeb..de898afe7588e1f153beec06e24f03f6ddeae2e4
+    (4 commits). Adapted 2 and skipped 2. #10557 adapted: extended
+    _normalize_telegram_mentions to insert text_link URLs with UTF-16 boundaries
+    and added _apply_quote_hidden_links for partial quotes, with tests in the
+    fork test tree using Comp.Mention. #10581 adapted: moved
+    UNIQUE_SESSION_ID_BUILDERS and session isolation from WakingCheckStage into
+    EventBus so the unified message origin used for ActiveEventRegistry
+    registration matches stop lookup and unregistration; kept the fork onebot
+    notice/request group-session exception and did not add the unused
+    _session_isolated extra. Skipped #10563 (the fork already maps MentionAll to
+    @everyone and deliberately refuses to map Mention target=all) and #10562
+    (the fork NavItem.vue has no plugin view info button, same as the recorded
+    #10519 skip). No upstream version change in this interval. Focused Python
+    suites for the touched modules passed; repository-wide gates run separately.
