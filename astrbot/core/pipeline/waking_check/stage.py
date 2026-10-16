@@ -1,5 +1,4 @@
 import hashlib
-from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 
@@ -47,18 +46,6 @@ from ..turn_router import (
 )
 from .umo_auto_name import UmoAutoNameRecorder
 
-UNIQUE_SESSION_ID_BUILDERS: dict[str, Callable[[AstrMessageEvent], str | None]] = {
-    "aiocqhttp": lambda e: f"{e.get_sender_id()}_{e.get_group_id()}",
-    "napcat": lambda e: f"{e.get_sender_id()}_{e.get_group_id()}",
-    "slack": lambda e: f"{e.get_sender_id()}_{e.get_group_id()}",
-    "dingtalk": lambda e: e.get_sender_id(),
-    "qq_official": lambda e: f"{e.get_sender_id()}_{e.get_group_id()}",
-    "qq_official_webhook": lambda e: f"{e.get_sender_id()}_{e.get_group_id()}",
-    "lark": lambda e: f"{e.get_sender_id()}%{e.get_group_id()}",
-    "misskey": lambda e: f"{e.get_session_id()}_{e.get_sender_id()}",
-    "matrix": lambda e: f"{e.get_sender_id()}_{e.get_group_id() or e.get_session_id()}",
-}
-
 
 class WakeReason(Enum):
     COMMAND = "command"
@@ -74,12 +61,6 @@ class WakeReason(Enum):
 class WakeDecision:
     should_wake: bool
     reasons: set[WakeReason]
-
-
-def build_unique_session_id(event: AstrMessageEvent) -> str | None:
-    platform = event.get_platform_name()
-    builder = UNIQUE_SESSION_ID_BUILDERS.get(platform)
-    return builder(event) if builder else None
 
 
 def _raw_message_type_value(raw: object) -> str | None:
@@ -137,8 +118,6 @@ class WakingCheckStage(Stage):
             "ignore_bot_self_message",
             False,
         )
-        platform_settings = self.ctx.astrbot_config.get("platform_settings", {})
-        self.unique_session = platform_settings.get("unique_session", False)
         self.command_prefixes = command_prefixes_from_config(self.ctx.astrbot_config)
         self.llm_access = llm_access_from_config(self.ctx.astrbot_config)
         enabled_plugins = self.ctx.astrbot_config.get("plugin_set", ["*"])
@@ -170,7 +149,6 @@ class WakingCheckStage(Stage):
         self,
         event: AstrMessageEvent,
     ) -> None:
-        self._apply_unique_session(event)
         await self._attach_authorization(event)
         if self._is_bot_self_message(event):
             event.stop_event()
@@ -292,18 +270,6 @@ class WakingCheckStage(Stage):
             event.set_extra("wake_reasons", wake_reasons)
         if event.is_wake:
             self._umo_auto_name_recorder.schedule(event)
-
-    def _apply_unique_session(self, event: AstrMessageEvent) -> None:
-        onebot_post_type = event.get_extra("onebot_post_type")
-        should_keep_group_session = onebot_post_type in {"notice", "request"}
-        if (
-            self.unique_session
-            and event.message_obj.type == MessageType.GROUP_MESSAGE
-            and not should_keep_group_session
-        ):
-            sid = build_unique_session_id(event)
-            if sid:
-                event.session_id = sid
 
     def _is_bot_self_message(self, event: AstrMessageEvent) -> bool:
         return self.ignore_bot_self_message and (

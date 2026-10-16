@@ -1127,7 +1127,7 @@ class TelegramPlatformAdapter(Platform):
         bot_username: str,
         bot_id: int,
     ) -> tuple[str, list[Comp.Mention]]:
-        """Extract mentions in entity order and remove own mentions from text."""
+        """Extract mentions, remove own mentions, and keep hidden link URLs."""
         # Telegram offsets count UTF-16 code units, not Python code points.
         boundaries = {0: 0}
         offset = 0
@@ -1136,10 +1136,9 @@ class TelegramPlatformAdapter(Platform):
             boundaries[offset] = index + 1
 
         mentions: list[Comp.Mention] = []
-        removals: set[tuple[int, int]] = set()
+        removals: list[tuple[int, int]] = []
+        insertions: dict[int, list[str]] = {}
         for entity in entities or ():
-            if entity.type not in {"mention", "text_mention"}:
-                continue
             if (
                 type(entity.offset) is not int
                 or type(entity.length) is not int
@@ -1149,6 +1148,14 @@ class TelegramPlatformAdapter(Platform):
             start = boundaries.get(entity.offset)
             end = boundaries.get(entity.offset + entity.length)
             if start is None or end is None:
+                continue
+            if entity.type == "text_link":
+                # Telegram hides the URL behind the linked text; keep it visible.
+                url = getattr(entity, "url", None)
+                if isinstance(url, str) and url:
+                    insertions.setdefault(end, []).append(f" ({url})")
+                continue
+            if entity.type not in {"mention", "text_mention"}:
                 continue
             value = text[start:end]
             if entity.type == "mention":
@@ -1169,16 +1176,68 @@ class TelegramPlatformAdapter(Platform):
                 target = str(bot_id)
             mentions.append(Comp.Mention(target=target, name=name))
             if is_self_mention:
-                removals.add((start, end))
+                removals.append((start, end))
 
-        parts = []
-        cursor = 0
+        merged: list[tuple[int, int]] = []
         for start, end in sorted(removals):
-            if start >= cursor:
-                parts.append(text[cursor:start])
-            cursor = max(cursor, end)
-        parts.append(text[cursor:])
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+
+        parts: list[str] = []
+        removal = 0
+        index = 0
+        length = len(text)
+        while index <= length:
+            parts.extend(insertions.get(index, ()))
+            if removal < len(merged) and index == merged[removal][0]:
+                skip_end = merged[removal][1]
+                # A link may end inside the removed self mention; keep its URL.
+                for skipped in range(index + 1, skip_end):
+                    parts.extend(insertions.get(skipped, ()))
+                index = skip_end
+                removal += 1
+                continue
+            if index < length:
+                parts.append(text[index])
+            index += 1
         return "".join(parts), mentions
+
+    @staticmethod
+    def _apply_quote_hidden_links(telegram_message, quote_text: str) -> str:
+        """Recover link URLs inside a Telegram partial quote.
+
+        Telegram omits ``text_link`` entities from the quote payload, so the
+        URLs are re-inserted by matching the quote against its source message
+        using UTF-16 offsets.
+        """
+        original = telegram_message.reply_to_message
+        position = getattr(getattr(telegram_message, "quote", None), "position", None)
+        if original is None or type(position) is not int:
+            return quote_text
+        quote_utf16 = quote_text.encode("utf-16-le")
+        original_utf16 = (original.text or original.caption or "").encode("utf-16-le")
+        start = position * 2
+        end = start + len(quote_utf16)
+        if original_utf16[start:end] != quote_utf16:
+            return quote_text
+        for entity in reversed(original.entities or original.caption_entities or ()):
+            link_start = entity.offset * 2
+            link_end = (entity.offset + entity.length) * 2
+            if (
+                entity.type == "text_link"
+                and entity.url
+                and link_start < end
+                and link_end > start
+            ):
+                offset = min(link_end, end) - start
+                quote_utf16 = (
+                    quote_utf16[:offset]
+                    + f" ({entity.url})".encode("utf-16-le")
+                    + quote_utf16[offset:]
+                )
+        return quote_utf16.decode("utf-16-le")
 
     @staticmethod
     def _telegram_media_metadata(
@@ -1497,6 +1556,9 @@ class TelegramPlatformAdapter(Platform):
                 reply_chain = reply_abm.message
                 reply_message_str = reply_abm.message_str
                 if isinstance(quote_text, str) and quote_text:
+                    quote_text = self._apply_quote_hidden_links(
+                        telegram_message, quote_text
+                    )
                     reply_chain = [Comp.Plain(quote_text)]
                     reply_message_str = quote_text
                 message.message.append(

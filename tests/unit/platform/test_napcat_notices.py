@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from astrbot.core.event_bus import EventBus
 from tests.unit.platform.napcat_adapter_support import *  # noqa: F403
 
 pytestmark = pytest.mark.platform
@@ -148,37 +149,9 @@ async def test_napcat_group_notice_keeps_group_session_when_unique_session_enabl
     await adapter.handle_forward_ws_event(event)
     queued = queue.get_nowait()
 
-    stage = WakingCheckStage()
-    catalogs = RuntimeCatalogs()
-    await stage.initialize(
-        SimpleNamespace(
-            astrbot_config={
-                "command_prefixes": ["/"],
-                "llm_access": {
-                    "prefixes": ["/"],
-                    "private": "open",
-                    "group": "prefix",
-                    "reply_to_bot": False,
-                },
-                "platform_settings": {
-                    "no_permission_reply": True,
-                    "ignore_bot_self_message": False,
-                    "ignore_at_all": False,
-                    "unique_session": True,
-                },
-                "plugin_set": ["*"],
-            },
-            astrbot_config_id="default",
-            plugin_catalog=SimpleNamespace(
-                get_command_catalog=lambda *_args: CommandCatalogStore(),
-            ),
-            preferences=SimpleNamespace(get_async=AsyncMock(return_value={})),
-            handlers=catalogs.handlers,
-            plugins=catalogs.plugins,
-        )
+    EventBus._apply_session_isolation(
+        queued, {"platform_settings": {"unique_session": True}}
     )
-
-    await stage.process(queued)
 
     assert queued.session.session_id == "654321"
 
@@ -198,39 +171,11 @@ async def test_napcat_group_message_route_identity_keeps_original_group_target_a
     )
     queued.message_str = "hello"
 
-    stage = WakingCheckStage()
-    catalogs = RuntimeCatalogs()
-    await stage.initialize(
-        SimpleNamespace(
-            astrbot_config={
-                "command_prefixes": ["/"],
-                "llm_access": {
-                    "prefixes": ["/"],
-                    "private": "open",
-                    "group": "prefix",
-                    "reply_to_bot": False,
-                },
-                "platform_settings": {
-                    "no_permission_reply": True,
-                    "ignore_bot_self_message": False,
-                    "ignore_at_all": False,
-                    "unique_session": True,
-                },
-                "plugin_set": ["*"],
-            },
-            astrbot_config_id="default",
-            plugin_catalog=SimpleNamespace(
-                get_command_catalog=lambda *_args: CommandCatalogStore(),
-            ),
-            preferences=SimpleNamespace(get_async=AsyncMock(return_value={})),
-            handlers=catalogs.handlers,
-            plugins=catalogs.plugins,
-        )
-    )
-
     assert queued.route_origin == "napcat-test:GroupMessage:654321"
 
-    await stage.process(queued)
+    EventBus._apply_session_isolation(
+        queued, {"platform_settings": {"unique_session": True}}
+    )
 
     assert queued.session.session_id == "111222_654321"
     assert queued.route_identity.target_id == "654321"
