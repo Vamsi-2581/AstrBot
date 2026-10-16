@@ -1192,7 +1192,11 @@ class TelegramPlatformAdapter(Platform):
         while index <= length:
             parts.extend(insertions.get(index, ()))
             if removal < len(merged) and index == merged[removal][0]:
-                index = merged[removal][1]
+                skip_end = merged[removal][1]
+                # A link may end inside the removed self mention; keep its URL.
+                for skipped in range(index + 1, skip_end):
+                    parts.extend(insertions.get(skipped, ()))
+                index = skip_end
                 removal += 1
                 continue
             if index < length:

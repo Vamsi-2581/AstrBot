@@ -23,5 +23,8 @@ last_synced:
     _session_isolated extra. Skipped #10563 (the fork already maps MentionAll to
     @everyone and deliberately refuses to map Mention target=all) and #10562
     (the fork NavItem.vue has no plugin view info button, same as the recorded
-    #10519 skip). No upstream version change in this interval. Focused Python
-    suites for the touched modules passed; repository-wide gates run separately.
+    #10519 skip). No upstream version change in this interval. Review hardening
+    beyond upstream: EventBus isolation now also refreshes the event trace UMO to
+    the isolated session, and the Telegram normalizer keeps a text_link URL whose
+    offset falls inside a removed self mention. Focused Python suites for the
+    touched modules passed; repository-wide gates run separately.

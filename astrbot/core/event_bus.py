@@ -118,6 +118,7 @@ class EventBus:
         sid = build_unique_session_id(event)
         if sid:
             event.session_id = sid
+            event.trace.umo = event.unified_msg_origin
 
     @staticmethod
     def _routing_umo(event: AstrMessageEvent) -> str:

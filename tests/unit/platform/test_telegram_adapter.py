@@ -515,6 +515,24 @@ async def test_telegram_hidden_links_and_mentions_use_original_offsets():
     ] == [str(context.bot.id), str(context.bot.id)]
 
 
+def test_telegram_normalize_keeps_link_ending_inside_removed_mention():
+    """A link ending inside a removed self mention still keeps its URL."""
+    adapter = _load_telegram_adapter()
+    text = "hi @test_bot there"
+    entities = [
+        MessageEntity("mention", 3, 9),
+        MessageEntity("text_link", 5, 4, url="https://example.com/x"),
+    ]
+
+    normalized, mentions = adapter._normalize_telegram_mentions(
+        text, entities, "test_bot", 42
+    )
+
+    assert "https://example.com/x" in normalized
+    assert "@test_bot" not in normalized
+    assert [mention.target for mention in mentions] == ["42"]
+
+
 @pytest.mark.asyncio
 async def test_telegram_document_caption_populates_message_text_and_plain():
     TelegramPlatformAdapter = _load_telegram_adapter()

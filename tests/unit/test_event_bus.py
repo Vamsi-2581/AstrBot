@@ -274,10 +274,15 @@ class _FakeSessionEvent:
     ) -> None:
         self.message_obj = SimpleNamespace(type=message_type)
         self.session_id = session_id
-        self.unified_msg_origin = f"{platform}:{message_type.value}:{session_id}"
         self._platform = platform
+        self._message_type = message_type
         self._group_id = group_id
         self._extras = dict(extras or {})
+        self.trace = SimpleNamespace(umo=self.unified_msg_origin)
+
+    @property
+    def unified_msg_origin(self) -> str:
+        return f"{self._platform}:{self._message_type.value}:{self.session_id}"
 
     def get_platform_name(self) -> str:
         return self._platform
@@ -338,6 +343,29 @@ class TestSessionIsolation:
         )
 
         assert event.session_id == expected_sid
+
+    def test_apply_session_isolation_updates_trace_umo(self):
+        event = _FakeSessionEvent(
+            "aiocqhttp", MessageType.GROUP_MESSAGE, group_id="group", session_id="group"
+        )
+
+        EventBus._apply_session_isolation(
+            event, {"platform_settings": {"unique_session": True}}
+        )
+
+        assert event.session_id == "alice_group"
+        assert event.trace.umo == "aiocqhttp:GroupMessage:alice_group"
+
+    def test_apply_session_isolation_keeps_trace_umo_without_isolation(self):
+        event = _FakeSessionEvent(
+            "aiocqhttp", MessageType.GROUP_MESSAGE, group_id="group", session_id="group"
+        )
+
+        EventBus._apply_session_isolation(
+            event, {"platform_settings": {"unique_session": False}}
+        )
+
+        assert event.trace.umo == "aiocqhttp:GroupMessage:group"
 
     @pytest.mark.parametrize("post_type", ["notice", "request"])
     def test_notice_and_request_keep_group_session(self, post_type):
