@@ -2,11 +2,13 @@
 
 import asyncio
 from contextlib import suppress
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from astrbot.core.event_bus import EventBus
+from astrbot.core.event_bus import EventBus, build_unique_session_id
+from astrbot.core.platform.message_type import MessageType
 
 
 @pytest.fixture
@@ -20,6 +22,7 @@ def mock_pipeline_scheduler():
     """Create a mock pipeline scheduler."""
     scheduler = MagicMock()
     scheduler.execute = AsyncMock()
+    scheduler.ctx.astrbot_config = {"platform_settings": {}}
     return scheduler
 
 
@@ -255,6 +258,140 @@ class TestEventBusDispatch:
 
         mock_print_event.assert_called_once_with(mock_event, "test-conf-id")
         mock_pipeline_scheduler.execute.assert_called_once_with(mock_event)
+
+
+class _FakeSessionEvent:
+    """Minimal event exposing the accessors used by session isolation."""
+
+    def __init__(
+        self,
+        platform: str,
+        message_type: MessageType,
+        *,
+        group_id: str = "group",
+        session_id: str = "group",
+        extras: dict | None = None,
+    ) -> None:
+        self.message_obj = SimpleNamespace(type=message_type)
+        self.session_id = session_id
+        self.unified_msg_origin = f"{platform}:{message_type.value}:{session_id}"
+        self._platform = platform
+        self._group_id = group_id
+        self._extras = dict(extras or {})
+
+    def get_platform_name(self) -> str:
+        return self._platform
+
+    def get_platform_id(self) -> str:
+        return self._platform
+
+    def get_sender_id(self) -> str:
+        return "alice"
+
+    def get_sender_name(self) -> str:
+        return "alice"
+
+    def get_group_id(self) -> str:
+        return self._group_id
+
+    def get_session_id(self) -> str:
+        return self.session_id
+
+    def get_message_outline(self) -> str:
+        return "hello"
+
+    def get_extra(self, key, default=None):
+        return self._extras.get(key, default)
+
+    def set_extra(self, key, value):
+        self._extras[key] = value
+
+
+class TestSessionIsolation:
+    """Tests for EventBus session isolation."""
+
+    @pytest.mark.parametrize(
+        ("platform", "message_type", "enabled", "group_id", "expected_sid"),
+        [
+            ("aiocqhttp", MessageType.GROUP_MESSAGE, True, "group", "alice_group"),
+            ("napcat", MessageType.GROUP_MESSAGE, True, "group", "alice_group"),
+            ("slack", MessageType.GROUP_MESSAGE, True, "group", "alice_group"),
+            ("dingtalk", MessageType.GROUP_MESSAGE, True, "group", "alice"),
+            ("qq_official", MessageType.GROUP_MESSAGE, True, "group", "alice_group"),
+            ("lark", MessageType.GROUP_MESSAGE, True, "group", "alice%group"),
+            ("misskey", MessageType.GROUP_MESSAGE, True, "group", "group_alice"),
+            ("matrix", MessageType.GROUP_MESSAGE, True, "", "alice_group"),
+            ("telegram", MessageType.GROUP_MESSAGE, True, "group", "group"),
+            ("aiocqhttp", MessageType.FRIEND_MESSAGE, True, "", "group"),
+            ("aiocqhttp", MessageType.GROUP_MESSAGE, False, "group", "group"),
+        ],
+    )
+    def test_apply_session_isolation(
+        self, platform, message_type, enabled, group_id, expected_sid
+    ):
+        event = _FakeSessionEvent(
+            platform, message_type, group_id=group_id, session_id="group"
+        )
+
+        EventBus._apply_session_isolation(
+            event, {"platform_settings": {"unique_session": enabled}}
+        )
+
+        assert event.session_id == expected_sid
+
+    @pytest.mark.parametrize("post_type", ["notice", "request"])
+    def test_notice_and_request_keep_group_session(self, post_type):
+        event = _FakeSessionEvent(
+            "aiocqhttp",
+            MessageType.GROUP_MESSAGE,
+            group_id="group",
+            extras={"onebot_post_type": post_type},
+        )
+
+        EventBus._apply_session_isolation(
+            event, {"platform_settings": {"unique_session": True}}
+        )
+
+        assert event.session_id == "group"
+
+    def test_build_unique_session_id_unknown_platform(self):
+        event = _FakeSessionEvent("telegram", MessageType.GROUP_MESSAGE)
+        assert build_unique_session_id(event) is None
+
+    @pytest.mark.asyncio
+    async def test_dispatch_isolates_before_execute(
+        self, event_queue, mock_config_manager
+    ):
+        observed = []
+        done = asyncio.Event()
+
+        def record(event):
+            observed.append(event.session_id)
+            done.set()
+
+        scheduler = SimpleNamespace(
+            ctx=SimpleNamespace(
+                astrbot_config={"platform_settings": {"unique_session": True}}
+            ),
+            execute=AsyncMock(side_effect=record),
+        )
+        bus = EventBus(event_queue, {"test-conf-id": scheduler}, mock_config_manager)
+        event = _FakeSessionEvent("aiocqhttp", MessageType.GROUP_MESSAGE)
+
+        await event_queue.put(event)
+        task = asyncio.create_task(bus.dispatch())
+        try:
+            await asyncio.wait_for(done.wait(), timeout=2.0)
+        finally:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+            await asyncio.gather(*bus._pending_tasks, return_exceptions=True)
+
+        assert observed == ["alice_group"]
+        mock_config_manager.get_conf_info.assert_called_once_with(
+            "aiocqhttp:GroupMessage:group"
+        )
 
 
 class TestPrintEvent:

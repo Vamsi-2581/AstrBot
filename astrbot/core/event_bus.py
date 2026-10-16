@@ -12,15 +12,36 @@ class:
 
 import asyncio
 import time
+from collections.abc import Callable
 from contextlib import nullcontext
 
 from astrbot import logger
 from astrbot.core.astrbot_config_mgr import AstrBotConfigManager
+from astrbot.core.config import AstrBotConfig
 from astrbot.core.observability import get_observability
 from astrbot.core.pipeline.scheduler import PipelineScheduler
+from astrbot.core.platform.message_type import MessageType
 from astrbot.core.utils.error_redaction import redact_sensitive_text
 
 from .platform import AstrMessageEvent
+
+UNIQUE_SESSION_ID_BUILDERS: dict[str, Callable[[AstrMessageEvent], str | None]] = {
+    "aiocqhttp": lambda e: f"{e.get_sender_id()}_{e.get_group_id()}",
+    "napcat": lambda e: f"{e.get_sender_id()}_{e.get_group_id()}",
+    "slack": lambda e: f"{e.get_sender_id()}_{e.get_group_id()}",
+    "dingtalk": lambda e: e.get_sender_id(),
+    "qq_official": lambda e: f"{e.get_sender_id()}_{e.get_group_id()}",
+    "qq_official_webhook": lambda e: f"{e.get_sender_id()}_{e.get_group_id()}",
+    "lark": lambda e: f"{e.get_sender_id()}%{e.get_group_id()}",
+    "misskey": lambda e: f"{e.get_session_id()}_{e.get_sender_id()}",
+    "matrix": lambda e: f"{e.get_sender_id()}_{e.get_group_id() or e.get_session_id()}",
+}
+
+
+def build_unique_session_id(event: AstrMessageEvent) -> str | None:
+    """Build the per-member session ID for the event's platform, if any."""
+    builder = UNIQUE_SESSION_ID_BUILDERS.get(event.get_platform_name())
+    return builder(event) if builder else None
 
 
 class EventBus:
@@ -59,6 +80,7 @@ class EventBus:
                         f"PipelineScheduler not found for id: {conf_id}, event ignored."
                     )
                     continue
+                self._apply_session_isolation(event, scheduler.ctx.astrbot_config)
                 await self._semaphore.acquire()
                 task = asyncio.create_task(
                     self._execute_scheduler(scheduler, event),
@@ -70,6 +92,32 @@ class EventBus:
                 raise
             except Exception:
                 logger.error("事件总线分发异常", exc_info=True)
+
+    @staticmethod
+    def _apply_session_isolation(
+        event: AstrMessageEvent,
+        config: AstrBotConfig,
+    ) -> None:
+        """Finalize the session before pipeline registration and stop lookup.
+
+        Isolating here, rather than in a pipeline stage, keeps the unified
+        message origin used to register the event in ``ActiveEventRegistry``
+        identical to the one used for stop lookup and unregistration.
+
+        Args:
+            event: Incoming event whose original UMO selected the profile.
+            config: Selected profile's configuration controlling isolation.
+        """
+        platform_settings = config.get("platform_settings", {})
+        if not platform_settings.get("unique_session", False):
+            return
+        if event.message_obj.type != MessageType.GROUP_MESSAGE:
+            return
+        if event.get_extra("onebot_post_type") in {"notice", "request"}:
+            return
+        sid = build_unique_session_id(event)
+        if sid:
+            event.session_id = sid
 
     @staticmethod
     def _routing_umo(event: AstrMessageEvent) -> str:

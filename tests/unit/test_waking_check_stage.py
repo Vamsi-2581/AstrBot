@@ -649,8 +649,8 @@ async def test_telegram_callback_only_activates_callback_handlers(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_process_applies_admin_self_message_and_unique_session_rules(monkeypatch):
-    stage = await make_stage(unique_session=True, ignore_bot_self_message=True)
+async def test_process_applies_admin_self_message_rules(monkeypatch):
+    stage = await make_stage(ignore_bot_self_message=True)
     install_handlers(stage, monkeypatch, [])
 
     self_event = FakeEvent([Plain("hello")], sender_id="bot")
@@ -661,13 +661,6 @@ async def test_process_applies_admin_self_message_and_unique_session_rules(monke
     await stage.process(admin_event)
     assert admin_event.role == "member"
     assert admin_event.get_extra("auth_context").subject.kind == "im"
-    assert admin_event.session_id == "admin_group"
-
-    notice_event = FakeEvent(
-        [Plain("hello")], extras={"onebot_post_type": "notice"}, sender_id="admin"
-    )
-    await stage.process(notice_event)
-    assert notice_event.session_id == "group"
 
 
 @pytest.mark.asyncio
@@ -1164,6 +1157,8 @@ async def test_catalog_snapshot_replacement_handles_rename_alias_and_disable():
 
 
 def test_qq_official_unique_session_keeps_group_id():
+    from astrbot.core.event_bus import build_unique_session_id
+
     event = FakeEvent(
         [],
         platform="qq_official",
@@ -1171,11 +1166,12 @@ def test_qq_official_unique_session_keeps_group_id():
         group_id="group-1",
     )
 
-    assert waking.build_unique_session_id(event) == "user-1_group-1"
+    assert build_unique_session_id(event) == "user-1_group-1"
 
 
 def test_unique_session_does_not_change_session_admission_key():
     from astrbot.core.auth.admission import session_admission_key_from_event
+    from astrbot.core.event_bus import EventBus
 
     off_event = make_real_event(
         message_type=MessageType.GROUP_MESSAGE,
@@ -1187,12 +1183,12 @@ def test_unique_session_does_not_change_session_admission_key():
         group_id="room-a",
         session_id="room-a",
     )
-    off_stage = waking.WakingCheckStage()
-    on_stage = waking.WakingCheckStage()
-    off_stage.unique_session = False
-    on_stage.unique_session = True
-    off_stage._apply_unique_session(off_event)
-    on_stage._apply_unique_session(on_event)
+    EventBus._apply_session_isolation(
+        off_event, {"platform_settings": {"unique_session": False}}
+    )
+    EventBus._apply_session_isolation(
+        on_event, {"platform_settings": {"unique_session": True}}
+    )
 
     assert off_event.session_id == "room-a"
     assert on_event.session_id == "user-1_room-a"

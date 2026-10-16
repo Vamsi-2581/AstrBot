@@ -26,10 +26,7 @@ from astrbot.core.auth.admission import (
     unwritten_service_enabled,
 )
 from astrbot.core.auth.models import Subject
-from astrbot.core.pipeline.waking_check.stage import (
-    WakingCheckStage,
-    build_unique_session_id,
-)
+from astrbot.core.event_bus import EventBus, build_unique_session_id
 from astrbot.core.platform.message_type import MessageType
 from tests.unit.test_waking_check_stage import make_real_event
 
@@ -80,13 +77,12 @@ def test_unique_session_on_or_off_yields_the_same_group_session_key():
         group_id="room-a",
         session_id="room-a",
     )
-    off_stage = WakingCheckStage()
-    on_stage = WakingCheckStage()
-    off_stage.unique_session = False
-    on_stage.unique_session = True
-
-    off_stage._apply_unique_session(off_event)
-    on_stage._apply_unique_session(on_event)
+    EventBus._apply_session_isolation(
+        off_event, {"platform_settings": {"unique_session": False}}
+    )
+    EventBus._apply_session_isolation(
+        on_event, {"platform_settings": {"unique_session": True}}
+    )
 
     assert off_event.session_id == "room-a"
     assert on_event.session_id == "user-1_room-a"
