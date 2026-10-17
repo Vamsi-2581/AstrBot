@@ -137,6 +137,11 @@ const MainRoutes = {
       component: () => import('@/views/BtwPage.vue'),
     },
     {
+      name: 'BtwRuns',
+      path: '/btw/runs',
+      component: () => import('@/views/BtwRunsPage.vue'),
+    },
+    {
       name: 'ThirdPartyAgents',
       path: '/third-party-agents',
       component: () => import('@/views/ThirdPartyAgentsPage.vue'),

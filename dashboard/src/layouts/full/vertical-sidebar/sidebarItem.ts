@@ -118,6 +118,11 @@ const sidebarItem: Menu[] = [
         to: '/btw',
       },
       {
+        title: 'core.navigation.btwRuns',
+        icon: 'mdi-console-line',
+        to: '/btw/runs',
+      },
+      {
         title: 'core.navigation.thirdPartyAgents',
         icon: 'mdi-console-line',
         to: '/third-party-agents',

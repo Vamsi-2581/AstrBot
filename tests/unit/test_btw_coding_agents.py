@@ -469,3 +469,173 @@ def test_truncation_marks_what_it_cut():
     truncated = ca.truncate_output("abcdefghij", 4)
     assert truncated.startswith("abcd")
     assert "6 characters truncated" in truncated
+
+
+def test_opencode_is_a_first_class_agent_type(tmp_path):
+    agent = ca.normalize_coding_agents(
+        [{"id": "oc", "type": "opencode", "enabled": True}]
+    )[0]
+    assert agent["command"] == "opencode"
+    invocation = ca.build_invocation(agent, workspace=tmp_path)
+    assert invocation.argv[:4] == ("opencode", "run", "--format", "json")
+    assert invocation.cwd == tmp_path
+    payload = json.loads(invocation.env["OPENCODE_CONFIG_CONTENT"])
+    assert payload["permission"] == {"doom_loop": "deny"}
+
+
+def test_opencode_provider_is_an_inline_environment_layer(tmp_path):
+    agent = ca.normalize_coding_agents(
+        [
+            {
+                "id": "oc",
+                "type": "opencode",
+                "enabled": True,
+                "providers": [
+                    {
+                        "id": "gw",
+                        "name": "Gateway",
+                        "base_url": "https://gw.example/v1",
+                        "api_key": "sk-secret",
+                        "model": "glm-5",
+                    }
+                ],
+                "active_provider": "gw",
+            }
+        ]
+    )[0]
+    invocation = ca.build_invocation(agent, workspace=tmp_path)
+
+    assert invocation.settings_path is None
+    payload = json.loads(invocation.env["OPENCODE_CONFIG_CONTENT"])
+    provider = payload["provider"]["astrbot-btw-oc"]
+    assert provider["options"]["baseURL"] == "https://gw.example/v1"
+    assert provider["options"]["apiKey"] == "sk-secret"
+    assert payload["model"] == "astrbot-btw-oc/glm-5"
+    # Repeat the namespaced model last so an extra ``--model`` cannot override
+    # the provider that was just configured.
+    assert invocation.argv[-2:] == ("--model", "astrbot-btw-oc/glm-5")
+    assert not (tmp_path / "coding-agents").exists()
+
+
+def test_opencode_agent_model_is_namespaced_into_the_provider_layer(tmp_path):
+    agent = ca.normalize_coding_agents(
+        [
+            {
+                "id": "oc",
+                "type": "opencode",
+                "enabled": True,
+                "model": "claude-sonnet-4",
+                "providers": [
+                    {
+                        "id": "gw",
+                        "base_url": "https://gw.example/v1",
+                        "api_key": "sk-secret",
+                    }
+                ],
+                "active_provider": "gw",
+            }
+        ]
+    )[0]
+    invocation = ca.build_invocation(agent, workspace=tmp_path)
+
+    payload = json.loads(invocation.env["OPENCODE_CONFIG_CONTENT"])
+    assert payload["model"] == "astrbot-btw-oc/claude-sonnet-4"
+    assert invocation.argv[-2:] == ("--model", "astrbot-btw-oc/claude-sonnet-4")
+
+
+def test_opencode_model_is_still_a_flag_without_a_provider_layer(tmp_path):
+    agent = ca.normalize_coding_agents(
+        [{"id": "oc", "type": "opencode", "enabled": True, "model": "gw/glm-5"}]
+    )[0]
+    invocation = ca.build_invocation(agent, workspace=tmp_path)
+
+    payload = json.loads(invocation.env["OPENCODE_CONFIG_CONTENT"])
+    assert "model" not in payload
+    assert invocation.argv[invocation.argv.index("--model") + 1] == "gw/glm-5"
+
+
+def test_opencode_managed_flags_win_over_extra_args(tmp_path):
+    agent = ca.normalize_coding_agents(
+        [
+            {
+                "id": "oc",
+                "type": "opencode",
+                "enabled": True,
+                "model": "gateway/model-a",
+                "extra_args": [
+                    "--auto",
+                    "--format",
+                    "default",
+                    "--model",
+                    "other/model",
+                ],
+            }
+        ]
+    )[0]
+    invocation = ca.build_invocation(agent, workspace=tmp_path)
+
+    assert invocation.argv[:7] == (
+        "opencode",
+        "run",
+        "--auto",
+        "--format",
+        "default",
+        "--model",
+        "other/model",
+    )
+    assert invocation.argv[-4:] == (
+        "--format",
+        "json",
+        "--model",
+        "gateway/model-a",
+    )
+
+
+def test_opencode_project_dir_is_granted_through_external_directory(tmp_path):
+    project = tmp_path / "project"
+    agent = ca.normalize_coding_agents(
+        [
+            {
+                "id": "oc",
+                "type": "opencode",
+                "enabled": True,
+                "project_dir": str(project),
+            }
+        ]
+    )[0]
+    invocation = ca.build_invocation(agent, workspace=tmp_path)
+
+    payload = json.loads(invocation.env["OPENCODE_CONFIG_CONTENT"])
+    assert payload["permission"]["external_directory"] == {
+        f"{project.resolve().as_posix()}/**": "allow"
+    }
+
+
+def test_a_relative_opencode_project_dir_is_resolved_against_the_workspace(
+    tmp_path,
+):
+    agent = ca.normalize_coding_agents(
+        [
+            {
+                "id": "oc",
+                "type": "opencode",
+                "enabled": True,
+                "project_dir": "project",
+            }
+        ]
+    )[0]
+    invocation = ca.build_invocation(agent, workspace=tmp_path)
+
+    payload = json.loads(invocation.env["OPENCODE_CONFIG_CONTENT"])
+    expected = (tmp_path / "project").resolve().as_posix()
+    assert payload["permission"]["external_directory"] == {f"{expected}/**": "allow"}
+
+
+def test_the_opencode_result_line_is_read_from_the_stream():
+    stdout = "\n".join(
+        [
+            '{"type":"text","part":{"messageID":"m1","text":"first"}}',
+            '{"type":"text","part":{"messageID":"m1","text":"final answer"}}',
+        ]
+    )
+    assert ca.agent_result_text({"type": "opencode"}, stdout) == "final answer"
