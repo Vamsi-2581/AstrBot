@@ -8,7 +8,7 @@ import pytest
 from astrbot.core.tools import function_tool_manager as ftm
 from astrbot.core.tools.computer_tools.shell import ExecuteShellTool
 from astrbot.core.tools.function_tool_manager import FunctionToolManager
-from astrbot.core.tools.message_tools import SendMessageToUserTool, SendPokeToUserTool
+from astrbot.core.tools.message_tools import SendMessageToUserTool
 from astrbot.core.tools.web_search_router import WebSearchTool
 from astrbot.core.tools.web_search_tools import FirecrawlExtractWebPageTool
 from tests.fixtures.auth import attach_authorized_tool_context
@@ -79,17 +79,6 @@ def test_builtin_tool_discovery_is_scoped_to_each_manager_instance():
 
     assert second_tool is not first.get_builtin_tool("send_message_to_user")
     assert second_tool.name == "send_message_to_user"
-
-
-def test_get_builtin_poke_tool_by_class_returns_cached_instance():
-    manager = FunctionToolManager()
-
-    tool_by_class = manager.get_builtin_tool(SendPokeToUserTool)
-    tool_by_name = manager.get_builtin_tool("send_poke_to_user")
-
-    assert tool_by_class is tool_by_name
-    assert manager.get_tool("send_poke_to_user") is tool_by_class
-    assert tool_by_class.name == "send_poke_to_user"
 
 
 def test_builtin_tool_ignores_inactivated_llm_tools():

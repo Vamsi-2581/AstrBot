@@ -122,7 +122,7 @@ Built-in commands now use full CLI paths such as `/plugin list` and `/conversati
 
 ### How do I enable Computer Use?
 
-Under **Config → Agent Computer Use**, select:
+Under **Config → select a profile → AI → Capabilities → Agent Computer Use**, select:
 
 - `local` to operate directly on the AstrBot host, only in a trusted environment;
 - `sandbox` to use the configured Shipyard Neo or CUA sandbox;

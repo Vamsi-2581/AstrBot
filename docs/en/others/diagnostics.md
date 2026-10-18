@@ -89,8 +89,8 @@ Before sharing logs, still review and redact API keys, tokens, cookies, private 
 ## Operational Metrics and Tracing
 
 AstrBot can expose operational metrics and OpenTelemetry traces. Both are off by
-default so the standard install is unchanged. Configure them in the WebUI under
-`Settings → System`, or in `data/cmd_config.json`:
+default so the standard install is unchanged. Configure them in
+`data/cmd_config.json`:
 
 ```json
 "observability": {

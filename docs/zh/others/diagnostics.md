@@ -89,7 +89,7 @@ data/logs/event_loop_watchdog.log
 ## 运行指标与追踪
 
 AstrBot 可以暴露运行指标和 OpenTelemetry 追踪，二者默认关闭，不影响标准安装。
-可在 WebUI 的 `设置 → 系统` 中配置，或编辑 `data/cmd_config.json`：
+请在 `data/cmd_config.json` 中配置：
 
 ```json
 "observability": {

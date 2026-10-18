@@ -12,7 +12,7 @@ Open **Knowledge Base**. Profile binding is **Config → AI → Knowledge Base**
 2. Optionally add a **Rerank** source. Built-in types include vLLM-compatible, Xinference, Bailian, and NVIDIA.
 3. Save, then open **Knowledge Base**, create a base, and pick the embedding model (rerank is optional).
 
-After you choose an embedding model, do not change that provider's **model name** or **vector dimension**. Existing FAISS indexes are not migrated. Recall will fail or error. If built-in NVIDIA defaults change, saved Provider rows and existing indexes are not migrated either.
+After you choose an embedding model, do not change that provider's **model name** or **vector dimension**. Existing vector indexes are not migrated. Recall will fail or error. If built-in NVIDIA defaults change, saved Provider rows and existing indexes are not migrated either.
 
 ## Upload and chunking
 
@@ -33,7 +33,7 @@ When URL content cleaning is enabled, concurrent chunk requests are released at 
 
 Markdown is split on headings. Uploading the same file identity or the same canonical URL **replaces** the existing document instead of appending a snapshot. An unchanged SHA-256 skips embedding (`unchanged`). URL identity is the SHA-256 of the canonical URL; `http` and `https` are distinct. Changing `chunk_size` / `chunk_overlap` does not change the hash; use **Reindex** on the document list or document detail to rebuild chunks. Documents without a stored source cannot be reindexed. Changing the embedding model or dimension is not migrated; reindex returns 400. Create a new knowledge base or re-upload. FAISS is the default vector store, and an optional NumPy-backed exact backend is also available (see below). There is no directory watch or automatic sync. Older URL imports have no recoverable source URL; delete and import again. Original files and extracted URL text are stored under `data/knowledge_base/` and included in backup.
 
-An upload writes the document store, metadata, and local vectors together. Any step that fails runs compensating cleanup: after the API reports failure, that document must not stay queryable. Storage is SQLite in the runtime directory plus FAISS indexes under `data/knowledge_base/`. It is a single-process, single-node deployment. Runtime startup enforces that with `data/astrbot.lock`; on POSIX it also locks the `data/` directory, so deleting the lock file cannot bypass the singleton. SQLite WAL and `busy_timeout` are not an instance lock. The operating system releases this advisory lock when the process exits, and a leftover lock file does not mean an instance is still running. If Compose mounts the same `./data` into a second full instance, the later container is expected to fail.
+An upload writes the document store, metadata, and local vectors together. Any step that fails runs compensating cleanup: after the API reports failure, that document must not stay queryable. Storage is SQLite in the runtime directory plus backend-specific vector indexes under `data/knowledge_base/`. It is a single-process, single-node deployment. Runtime startup enforces that with `data/astrbot.lock`; on POSIX it also locks the `data/` directory, so deleting the lock file cannot bypass the singleton. SQLite WAL and `busy_timeout` are not an instance lock. The operating system releases this advisory lock when the process exits, and a leftover lock file does not mean an instance is still running. If Compose mounts the same `./data` into a second full instance, the later container is expected to fail.
 
 The Dashboard task id returned by a file upload, pre-chunk import, or URL import can be queried after a normal restart. Task progress and results are retained for seven days, with at most 1,000 completed, failed, or interrupted task records kept. Work that was pending or processing when AstrBot stops is reported as `interrupted`; it is not resumed automatically. Its task slot and upload staging directory are released during cancellation. The document list remains the source of truth for material that completed before the interruption.
 
@@ -42,7 +42,7 @@ The Dashboard task id returned by a file upload, pre-chunk import, or URL import
 The default parsers only extract text that is already present in the file, so
 scanned PDFs and images yield nothing. To ingest them, enable OCR or point
 AstrBot at an external extraction service. Configure both under
-`Config → Knowledge Base` or in `data/cmd_config.json`:
+`Config → select a profile → AI → Knowledge Base` or in `data/cmd_config.json`:
 
 | Key                                       | Default | Role                                                                              |
 | ----------------------------------------- | ------- | --------------------------------------------------------------------------------- |
@@ -83,7 +83,7 @@ Chat does not search every knowledge base you created. You must name them on the
 
 ### Profile
 
-**Config → Knowledge Base**:
+**Config → select a profile → AI → Knowledge Base**:
 
 | Field                         | Default | Notes                                                       |
 | ----------------------------- | ------- | ----------------------------------------------------------- |
@@ -121,4 +121,4 @@ If this happens, do not upload the same file again immediately:
 1. Open the knowledge-base document list and delete the residual document;
 2. Check the AstrBot startup log and errors around the upload time;
 3. Use the **Retrieval** tab to confirm that the residual content is gone;
-4. Upload the file again. If deletion fails or the index is inconsistent, back up `data/knowledge_base/` and the runtime directory, stop AstrBot, and contact the maintainer. Do not edit FAISS files by hand.
+4. Upload the file again. If deletion fails or the index is inconsistent, back up `data/knowledge_base/` and the runtime directory, stop AstrBot, and contact the maintainer. Do not edit vector index files by hand.

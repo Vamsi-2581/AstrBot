@@ -57,7 +57,7 @@ outline: deep
 
 `AstrBotCoreLifecycle` 在这些基础服务之上按依赖顺序创建 Provider、Platform、Conversation、Prompt、Memory、Knowledge Base、Cron、Plugin、SubAgent 和 Pipeline 等管理器。需要共享这些能力时，应通过现有所有者注入，不要恢复进程级全局单例。
 
-主 SQLite 库以 SQLModel 表为 schema 真源，访问口是域存储协议，`SQLiteDatabase` 只是组合实现。细节见下文[主 SQLite 库](#主-sqlite-库)。知识库 SQLite 与 FAISS 文档库仍独立于主库。
+主 SQLite 库以 SQLModel 表为 schema 真源，访问口是域存储协议，`SQLiteDatabase` 只是组合实现。细节见下文[主 SQLite 库](#主-sqlite-库)。知识库 SQLite 与向量索引存储仍独立于主库。
 
 ## 主 SQLite 库
 
@@ -363,7 +363,7 @@ Dashboard 在 `/data` 提供原生运行时 `data/` 文件管理器，不是 ifr
 
 `AstrBotConfig.save_config_async()` 在离开事件循环前深拷贝稳定快照，并使用单调递增 revision 提交；较旧但完成较晚的写入不能覆盖较新的配置。异步调用方应使用该接口，保留临时文件、`fsync` 和原子替换语义，不要自行用 `to_thread(save_config)` 拼装并发保存。
 
-知识库上传会跨越媒体文件、文档 metadata、分块存储和 FAISS 向量。向量形状与维度必须在本地写入前校验；metadata 提交前任一步骤失败，都要对已经写入的各存储执行补偿清理，不能让 API 报错后仍留下可检索的半成品文档。
+知识库上传会跨越媒体文件、文档 metadata、分块存储和后端相关的向量（FAISS 或 NumPy 精确后端）。向量形状与维度必须在本地写入前校验；metadata 提交前任一步骤失败，都要对已经写入的各存储执行补偿清理，不能让 API 报错后仍留下可检索的半成品文档。
 
 ## 运行目录
 

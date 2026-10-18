@@ -61,7 +61,7 @@ Currently, AstrBot provides two execution environments:
 - Local — The Agent runs in your AstrBot runtime environment. **Use with caution: this allows the Agent to execute arbitrary code in your environment, which may pose security risks.**
 - Sandbox — The Agent runs inside an isolated sandbox environment. **You must enable AstrBot sandbox mode first.** See [Agent Sandbox Environment](/en/use/astrbot-agent-sandbox).
 
-You can select the default execution environment on the `Config` page under "Computer Use". Memory and retrieval Skills can still load their manuals through `read_skill` when Computer Use is off.
+You can select the default execution environment under **Config → select a profile → AI → Capabilities → Agent Computer Use**. Memory and retrieval Skills can still load their manuals through `read_skill` when Computer Use is off.
 
 > [!NOTE]
 > If you select `Local` as the execution environment, Shell, Python, and local file writes are authorized as `tool.local_exec`, `tool.python_exec`, and `tool.file_write`. An authenticated Dashboard-driven WebChat may use these high-risk actions in its current session/config after WebChat step-up. An IM sender bound as `instance_operator` on that config may use the same set without step-up. Global control-plane actions remain Dashboard-only, and anonymous WebChat, plugins, agents, API keys, and unbound IM members do not inherit Dashboard roles. A Skill frontmatter declaration cannot bypass these limits.

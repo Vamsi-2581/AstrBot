@@ -16,7 +16,7 @@ AstrBot currently supports the following sandbox drivers:
 
 The legacy `Shipyard` driver has been removed and is no longer supported for deployment, configuration, or runtime compatibility.
 
-In the current AstrBot console, go to **AI Settings** -> **Agent Computer Use** and select:
+In the current AstrBot console, go to **Config -> select a profile -> AI -> Capabilities -> Agent Computer Use** and select:
 
 - `Computer Use Runtime` = `sandbox`
 - `Sandbox Driver` = `Shipyard Neo` or `CUA`
@@ -76,7 +76,7 @@ For detailed host requirements, image support, and local runtime installation, s
 
 Open the WebUI:
 
-- `Config -> General Config -> Agent Computer Use`
+- `Config -> select a profile -> AI -> Capabilities -> Agent Computer Use`
 
 Then set:
 
@@ -378,7 +378,7 @@ For more detailed explanations of TTL and persistence behavior, see the later se
 > [!TIP]
 > Use the current branch builds documented in this repository. Earlier legacy builds do not include the sandbox runtime described here.
 
-In the AstrBot console, go to **AI Settings** -> **Agent Computer Use**.
+In the AstrBot console, go to **Config -> select a profile -> AI -> Capabilities -> Agent Computer Use**.
 
 1. Set `Computer Use Runtime` to `sandbox`
 2. Select `Shipyard Neo` or `CUA` as the sandbox driver

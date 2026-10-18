@@ -2,11 +2,13 @@
 
 All notable changes to this fork are documented as **one file per version**
 under [`changelogs/`](./changelogs/). This root file is an index only; it does
-not duplicate the per-version notes. The repository currently publishes no
-PyPI package or GitHub release assets, so the `changelogs/` directory is the
-authoritative release record for this branch.
+not duplicate the per-version notes. The repository publishes no PyPI package
+or versioned release assets. The optional nightly workflow may publish GHCR
+`nightly` images and GitHub prereleases, but those are not stable releases, so
+the `changelogs/` directory remains the authoritative release record for this
+branch.
 
-> 本仓库的所有变更以**每个版本一个文件**的形式记录在 [`changelogs/`](./changelogs/) 下。本文件仅作索引，不重复各版本的完整说明。新版本从 [`changelogs/TEMPLATE.md`](./changelogs/TEMPLATE.md) 复制为 `changelogs/vX.Y.Z.md`；未发布前日期写 `[WIP]`。当前 fork 不发布 PyPI 包或 GitHub Release 资产，`changelogs/` 目录是本分支权威的版本记录。
+> 本仓库的所有变更以**每个版本一个文件**的形式记录在 [`changelogs/`](./changelogs/) 下。本文件仅作索引，不重复各版本的完整说明。新版本从 [`changelogs/TEMPLATE.md`](./changelogs/TEMPLATE.md) 复制为 `changelogs/vX.Y.Z.md`；未发布前日期写 `[WIP]`。当前 fork 不发布 PyPI 包或带版本号的发行资产；可选的 nightly 工作流会发布 GHCR `nightly` 镜像和 GitHub 预发布，但它们不是稳定发行版，`changelogs/` 目录仍是本分支权威的版本记录。
 
 ## Where the notes live / 说明文件位置
 
@@ -36,6 +38,7 @@ fork behavior apart from upstream merges:
 
 ### v4.29.x
 
+- [v4.29.1](./changelogs/v4.29.1.md) — 2026-10-17
 - [v4.29.0](./changelogs/v4.29.0.md) — 2026-10-14
 - [v4.29.0-beta.2](./changelogs/v4.29.0-beta.2.md) — 2026-10-11
 

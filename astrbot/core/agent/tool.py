@@ -50,7 +50,7 @@ def get_parallel_blocked_reason(tool: Any) -> str | None:
         return "Handoff tools manage nested agent state and remain serial."
     if getattr(tool, "is_background_task", False):
         return "Background tools outlive the current call and remain serial."
-    if getattr(tool, "name", None) in {"send_message_to_user", "send_poke_to_user"}:
+    if getattr(tool, "name", None) == "send_message_to_user":
         return "Direct-send tools have side effects and remain serial."
     if (
         not getattr(tool, "handler_module_path", None)

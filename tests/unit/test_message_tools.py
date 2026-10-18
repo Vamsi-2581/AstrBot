@@ -13,7 +13,7 @@ from astrbot.core.message.message_event_result import (
 from astrbot.core.pipeline.respond.stage import RespondStage
 from astrbot.core.platform.send_result import PlatformSendResult
 from astrbot.core.tools.computer_tools.util import session_temp_roots
-from astrbot.core.tools.message_tools import SendMessageToUserTool, SendPokeToUserTool
+from astrbot.core.tools.message_tools import SendMessageToUserTool
 
 
 def _make_context(
@@ -39,8 +39,6 @@ def _make_context(
         _has_send_oper=False,
         get_sender_id=lambda: "user-1",
         get_self_id=lambda: "bot-1",
-        supports_platform_action=lambda action_name: action_name == "send_poke",
-        send_poke=AsyncMock(),
     )
     event.set_extra = lambda key, value: extras.__setitem__(key, value)
     event.get_extra = lambda key, default=None: extras.get(key, default)
@@ -245,62 +243,6 @@ async def test_send_message_returns_error_when_delivery_fails():
         )
         is None
     )
-
-
-@pytest.mark.asyncio
-async def test_send_poke_defaults_to_current_sender():
-    tool = SendPokeToUserTool()
-    ctx = _make_context()
-
-    result = await tool.call(ctx)
-
-    assert result == "Poked user user-1 1 time(s)."
-    ctx.context.event.send_poke.assert_awaited_once_with(user_id="user-1")
-
-
-@pytest.mark.asyncio
-async def test_send_poke_clamps_times_and_reuses_current_sender():
-    tool = SendPokeToUserTool()
-    ctx = _make_context()
-
-    result = await tool.call(ctx, times=9)
-
-    assert result == "Poked user user-1 3 time(s)."
-    assert ctx.context.event.send_poke.await_count == 3
-
-
-@pytest.mark.asyncio
-async def test_send_poke_requires_admin_for_other_user():
-    tool = SendPokeToUserTool()
-    ctx = _make_context(role="member", require_admin=True)
-
-    result = await tool.call(ctx, user_id="user-2")
-
-    assert "Permission denied" in result
-    ctx.context.event.send_poke.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_send_poke_rejects_self_target():
-    tool = SendPokeToUserTool()
-    ctx = _make_context()
-
-    result = await tool.call(ctx, user_id="bot-1")
-
-    assert result == "error: cannot poke the bot itself."
-    ctx.context.event.send_poke.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_send_poke_requires_platform_support():
-    tool = SendPokeToUserTool()
-    ctx = _make_context()
-    ctx.context.event.supports_platform_action = lambda _name: False
-
-    result = await tool.call(ctx)
-
-    assert result == "error: current platform does not support send_poke."
-    ctx.context.event.send_poke.assert_not_awaited()
 
 
 @pytest.mark.asyncio

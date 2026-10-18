@@ -2,11 +2,11 @@
 
 AstrBot calls plugins Stars. A Star can register commands, tools, event listeners, and optional Dashboard pages.
 
-Open **Plugins**. The per-profile plugin set is under **Config → Plugins**. Development is in the [plugin guide](/en/dev/star/plugin-new).
+Open **Extensions → AstrBot Plugins**. The per-profile plugin set is under **Config → select a profile → Plugin**. Development is in the [plugin guide](/en/dev/star/plugin-new).
 
 ## Manage in WebUI
 
-The **Installed** tab enables, disables, reloads, and uninstalls plugins, and shows load errors.
+The **AstrBot Plugins** tab enables, disables, reloads, and uninstalls plugins, and shows load errors.
 
 After load, unload, reload, enable, or disable, AstrBot immediately rebuilds the command catalog and refreshes enabled Telegram / Discord native command surfaces. You do not wait for the next message.
 
@@ -18,7 +18,7 @@ Enable and disable require `extension.manage`. URL installs require `extension.p
 
 ## Marketplace
 
-The **Marketplace** tab uses an upstream compatibility source, not an official market for this fork:
+The **AstrBot Plugin Market** tab uses an upstream compatibility source, not an official market for this fork:
 
 1. It requests the upstream `cloud.astrbot.app` market JSON first;
 2. On failure it falls back to `AstrBotDevs/AstrBot_Plugins_Collection` and its CDN.

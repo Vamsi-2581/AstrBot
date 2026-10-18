@@ -1,6 +1,6 @@
 # 内置 Agent 执行器
 
-默认情况下，AstrBot 内置 Agent 执行器为默认执行器，您不用进行任何配置，即可使用 AstrBot 的内置 Agent 执行器。模型服务本身请在 `模型提供商` 与 `服务提供商` 页面中配置。
+默认情况下，AstrBot 内置 Agent 执行器为默认执行器，您不用进行任何配置，即可使用 AstrBot 的内置 Agent 执行器。模型服务本身请在 **模型提供商** 页面中配置。
 
 ![image](https://files.astrbot.app/docs/source/images/astrbot-agent-runner/image.png)
 

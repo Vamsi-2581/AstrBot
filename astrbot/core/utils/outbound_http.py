@@ -56,8 +56,11 @@ _METADATA_ADDRESSES = frozenset(
     }
 )
 _LOCAL_HOSTNAMES = frozenset({"localhost", "localhost.localdomain", "ip6-localhost"})
-# fake-ip.
-_PROXY_FAKE_IP_NETWORKS = (ipaddress.ip_network("198.18.0.0/15"),)
+# fake-ip. Clash/Mihomo defaults: IPv4 198.18.0.0/15, IPv6 2001:2::/48.
+_PROXY_FAKE_IP_NETWORKS = (
+    ipaddress.ip_network("198.18.0.0/15"),
+    ipaddress.ip_network("2001:2::/48"),
+)
 GITHUB_RELATED_HOSTS = frozenset(
     {
         "github.com",

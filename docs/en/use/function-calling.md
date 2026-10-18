@@ -6,15 +6,15 @@ outline: deep
 
 Function calling lets the model invoke external tools in the same turn: web search, reminders, knowledge-base retrieval, sandbox tools, or plugin tools.
 
-Open **Plugins → Manage behavior → Function tools**. MCP and Skills are adjacent tabs. See [MCP](./mcp) and [Skills](./skills).
+Open **Extensions → Manage Handlers → Function Tools**. MCP and Skills are adjacent tabs. See [MCP](./mcp) and [Skills](./skills).
 
 ## Tools versus commands
 
-|                    | Tool                                           | Command                                                                                                  |
-| ------------------ | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Who triggers it    | The model picks from a schema                  | The user types a `command_prefixes` command                                                              |
-| Where to manage it | **Plugins → Manage behavior → Function tools** | **Command management**                                                                                   |
-| Stable ID          | Tool name (plugin and MCP tools add prefixes)  | `command_id`, `{plugin}:{original path}` with spaces as dots, for example `builtin_commands:plugin.list` |
+|                    | Tool                                              | Command                                                                                                  |
+| ------------------ | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Who triggers it    | The model picks from a schema                     | The user types a `command_prefixes` command                                                              |
+| Where to manage it | **Extensions → Manage Handlers → Function Tools** | **Command management**                                                                                   |
+| Stable ID          | Tool name (plugin and MCP tools add prefixes)     | `command_id`, `{plugin}:{original path}` with spaces as dots, for example `builtin_commands:plugin.list` |
 
 `command_id` is only for enabling, renaming, and permission overrides on **commands**. It is **not** a tool switch. Do not look for `command_id` on the tool panel. See [Built-in commands](./command) and [WebUI command management](./webui#command-management).
 
