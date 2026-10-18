@@ -70,6 +70,61 @@ def _is_safe_command(command: str) -> bool:
     )
 
 
+def _multi_link_search_error(
+    rg_path: str,
+    search_path: Path,
+    pattern: str,
+    glob: str | None,
+) -> str | None:
+    """Return a security error for matched files that escape the search root."""
+
+    command = [
+        rg_path,
+        "--color=never",
+        "--files-with-matches",
+        "--null",
+        "-e",
+        pattern,
+    ]
+    if glob:
+        command.extend(["-g", glob])
+    command.extend(["--", str(search_path)])
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            cwd=get_astrbot_root(),
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return "File search timed out after 30 seconds."
+    if result.returncode not in (0, 1):
+        return _decode_shell_output(result.stderr) or (
+            f"command exited with code {result.returncode}"
+        )
+    for raw_path in result.stdout.split(b"\0"):
+        if not raw_path:
+            continue
+        matched_path = Path(os.fsdecode(raw_path))
+        try:
+            matched_stat = matched_path.lstat()
+        except OSError:
+            continue
+        if stat.S_ISLNK(matched_stat.st_mode) or (
+            os.name == "nt" and matched_path.is_junction()
+        ):
+            return (
+                "Access denied: file search matched a symbolic link or junction: "
+                f"{matched_path}."
+            )
+        if stat.S_ISREG(matched_stat.st_mode) and matched_stat.st_nlink > 1:
+            return (
+                "Access denied: file has multiple hard links and may alias content "
+                f"outside allowed directories. Blocked path: {matched_path}."
+            )
+    return None
+
+
 def resolve_windows_shell() -> str:
     """Resolve PowerShell 7 when available, with the inbox fallback."""
     for candidate in ("pwsh", "powershell.exe"):
@@ -938,6 +993,7 @@ class LocalFileSystemComponent(FileSystemComponent):
         before_context: int | None = None,
         sandboxed: bool = False,
         sandbox_root: str | None = None,
+        reject_multi_link_files: bool = False,
     ) -> dict[str, Any]:
         def _run() -> dict[str, Any]:
             search_path = Path(path or get_astrbot_root()).resolve(strict=False)
@@ -1007,6 +1063,19 @@ class LocalFileSystemComponent(FileSystemComponent):
                 }
             rg_path = shutil.which("rg")
             if rg_path:
+                if reject_multi_link_files:
+                    security_error = _multi_link_search_error(
+                        rg_path,
+                        search_path,
+                        pattern,
+                        glob,
+                    )
+                    if security_error is not None:
+                        return {
+                            "success": False,
+                            "content": "",
+                            "error": security_error,
+                        }
                 command = [
                     rg_path,
                     "--color=never",
@@ -1096,6 +1165,16 @@ class LocalFileSystemComponent(FileSystemComponent):
                 ]
                 if not matching_indexes:
                     continue
+                if reject_multi_link_files and info.st_nlink > 1:
+                    return {
+                        "success": False,
+                        "content": "",
+                        "error": (
+                            "Access denied: file has multiple hard links and may "
+                            "alias content outside allowed directories. "
+                            f"Blocked path: {file_path}."
+                        ),
+                    }
 
                 if after_context is None and before_context is None:
                     for index in matching_indexes:

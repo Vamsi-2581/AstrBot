@@ -1400,6 +1400,15 @@ def _registered_tools_table(
     return registered
 
 
+def _configured_web_search_providers(provider_settings: dict) -> tuple[str, ...]:
+    serpapi_keys = provider_settings.get("websearch_serpapi_key")
+    if isinstance(serpapi_keys, list | tuple) and any(
+        str(key).strip() for key in serpapi_keys
+    ):
+        return ("serpapi",)
+    return ()
+
+
 def _assemble_request_tool_catalog(
     event: AstrMessageEvent,
     req: ProviderRequest,
@@ -1470,6 +1479,9 @@ def _assemble_request_tool_catalog(
         memory_enabled=memory_manager is not None,
         web_search_enabled=bool(provider_settings.get("web_search", False)),
         web_search_route=normalize_route(provider_settings.get("websearch_route")),
+        web_search_configured_providers=_configured_web_search_providers(
+            provider_settings
+        ),
         group_history_enabled=bool(
             event.get_message_type() == MessageType.GROUP_MESSAGE
             and ltm_settings.get("group_message_history_enable", False)

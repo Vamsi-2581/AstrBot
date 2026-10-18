@@ -1544,6 +1544,71 @@ class TestBuiltinToolInjection:
         assert req.func_tool.get_tool("web_search") is search_tool
         assert req.func_tool.get_tool("exa_get_contents") is None
 
+    def test_catalog_includes_deepseek_extract_tool_for_route(
+        self, mock_event, mock_context
+    ):
+        search_tool = _named_tool("web_search")
+        extract_tool = _named_tool("deepseek_fetch_web_page")
+        tmgr = mock_context.get_llm_tool_manager.return_value
+        tmgr.get_full_tool_set.return_value = ToolSet()
+        tmgr.iter_builtin_tools.return_value = [search_tool, extract_tool]
+        mock_context.get_config.return_value = {
+            "provider_settings": {
+                "web_search": True,
+                "websearch_route": ["deepseek"],
+            }
+        }
+        req = ProviderRequest()
+        ama._assemble_request_tool_catalog(
+            mock_event, req, mock_context, _catalog_config()
+        )
+        assert req.func_tool is not None
+        assert req.func_tool.get_tool("deepseek_fetch_web_page") is extract_tool
+
+    def test_catalog_includes_configured_serpapi_tools(self, mock_event, mock_context):
+        serpapi_tools = [
+            _named_tool("web_search_serpapi"),
+            _named_tool("image_search_serpapi"),
+            _named_tool("finance_search_serpapi"),
+            _named_tool("scholar_search_serpapi"),
+        ]
+        tmgr = mock_context.get_llm_tool_manager.return_value
+        tmgr.get_full_tool_set.return_value = ToolSet()
+        tmgr.iter_builtin_tools.return_value = serpapi_tools
+        mock_context.get_config.return_value = {
+            "provider_settings": {
+                "web_search": True,
+                "websearch_route": ["duckduckgo"],
+                "websearch_serpapi_key": ["serpapi-key"],
+            }
+        }
+        req = ProviderRequest()
+        ama._assemble_request_tool_catalog(
+            mock_event, req, mock_context, _catalog_config()
+        )
+        assert req.func_tool is not None
+        for tool in serpapi_tools:
+            assert req.func_tool.get_tool(tool.name) is tool
+
+    def test_catalog_omits_serpapi_tools_without_key(self, mock_event, mock_context):
+        serpapi_tools = [_named_tool("web_search_serpapi")]
+        tmgr = mock_context.get_llm_tool_manager.return_value
+        tmgr.get_full_tool_set.return_value = ToolSet()
+        tmgr.iter_builtin_tools.return_value = serpapi_tools
+        mock_context.get_config.return_value = {
+            "provider_settings": {
+                "web_search": True,
+                "websearch_route": ["duckduckgo"],
+                "websearch_serpapi_key": [],
+            }
+        }
+        req = ProviderRequest()
+        ama._assemble_request_tool_catalog(
+            mock_event, req, mock_context, _catalog_config()
+        )
+        assert req.func_tool is not None
+        assert req.func_tool.get_tool("web_search_serpapi") is None
+
     def test_apply_web_search_citation_prompt_for_webchat(self, mock_event):
         module = ama
         req = ProviderRequest(system_prompt="base")

@@ -5,6 +5,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from astrbot.core.computer import process_sandbox
 from astrbot.core.computer.booters import local as local_booter
 from astrbot.core.computer.booters.local import LocalFileSystemComponent
@@ -267,3 +269,71 @@ def test_local_file_system_component_handles_search_timeout(monkeypatch):
         "content": "",
         "error": "File search timed out after 30 seconds.",
     }
+
+
+def test_local_file_system_component_rejects_multi_link_rg_matches(
+    monkeypatch,
+    tmp_path: Path,
+):
+    _allow_tmp_root(monkeypatch, tmp_path)
+    target = tmp_path / "target.txt"
+    target.write_text("needle\n", encoding="utf-8")
+    alias = tmp_path / "alias.txt"
+    try:
+        os.link(target, alias)
+    except (AttributeError, OSError) as exc:
+        pytest.skip(f"hard links are unavailable on this filesystem: {exc}")
+
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=f"{alias}\0".encode(),
+            stderr=b"",
+        )
+
+    monkeypatch.setattr(local_booter.shutil, "which", lambda _executable: "/bin/rg")
+    monkeypatch.setattr(local_booter.sys, "version_info", (3, 14))
+    monkeypatch.setattr(local_booter.subprocess, "run", fake_run)
+
+    result = asyncio.run(
+        LocalFileSystemComponent().search_files(
+            "needle",
+            path=str(tmp_path),
+            reject_multi_link_files=True,
+        )
+    )
+
+    assert result["success"] is False
+    assert "multiple hard links" in result["error"]
+    assert len(calls) == 1
+
+
+def test_local_file_system_component_rejects_multi_link_fallback_matches(
+    monkeypatch,
+    tmp_path: Path,
+):
+    _allow_tmp_root(monkeypatch, tmp_path)
+    target = tmp_path / "target.txt"
+    target.write_text("needle\n", encoding="utf-8")
+    alias = tmp_path / "alias.txt"
+    try:
+        os.link(target, alias)
+    except (AttributeError, OSError) as exc:
+        pytest.skip(f"hard links are unavailable on this filesystem: {exc}")
+
+    monkeypatch.setattr(local_booter.shutil, "which", lambda _executable: None)
+
+    result = asyncio.run(
+        LocalFileSystemComponent().search_files(
+            "needle",
+            path=str(alias),
+            reject_multi_link_files=True,
+        )
+    )
+
+    assert result["success"] is False
+    assert "multiple hard links" in result["error"]

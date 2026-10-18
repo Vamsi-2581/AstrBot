@@ -199,7 +199,7 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 export const localPermissionDefaults = {
   member: {
     filesystem_scope: 'workspace',
@@ -214,14 +214,33 @@ export const localPermissionDefaults = {
 };
 </script>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import type { PropType } from 'vue';
 import { useModuleI18n } from '@/i18n/composables';
 import { statsApi } from '@/api/v1';
+import type { RuntimeInfo } from '@/api/v1';
+
+interface PermissionPolicy {
+  filesystem_scope: string;
+  allow_execution: boolean;
+  allow_network: boolean;
+}
+
+interface PermissionDefaults {
+  member: PermissionPolicy;
+  admin: PermissionPolicy;
+}
+
+type PermissionRole = keyof PermissionDefaults;
+
+type PermissionModelValue = Partial<
+  Record<PermissionRole, Partial<PermissionPolicy>>
+>;
 
 const props = defineProps({
   modelValue: {
-    type: Object,
+    type: Object as PropType<PermissionModelValue>,
     default: () => ({}),
   },
 });
@@ -230,50 +249,41 @@ const emit = defineEmits(['update:modelValue']);
 const { tm } = useModuleI18n(
   'features/config-metadata.ai_group.agent_computer_use.local_permissions',
 );
-const runtime = ref(null);
+const runtime = ref<RuntimeInfo | null>(null);
 const runtimeLoading = ref(true);
 const unsupported = computed(
   () => runtime.value?.sandbox?.status === 'unsupported',
 );
-const sandboxUnavailable = computed(() =>
-  ['missing', 'unavailable'].includes(runtime.value?.sandbox?.status),
-);
+const sandboxUnavailable = computed(() => {
+  const status = runtime.value?.sandbox?.status;
+  return status === 'missing' || status === 'unavailable';
+});
 const isolationUnavailable = computed(
   () => unsupported.value || sandboxUnavailable.value,
 );
-const executionUnavailableHint = computed(() =>
-  isolationUnavailable.value
-    ? tm(`runtime.executionUnavailable.${runtime.value.sandbox.status}`, {
-        backend:
-          runtime.value.sandbox.backend === 'seatbelt'
-            ? 'Seatbelt'
-            : 'bubblewrap',
-        dependency:
-          runtime.value.sandbox.backend === 'seatbelt'
-            ? 'sandbox-exec'
-            : 'bwrap',
-      })
-    : '',
-);
-const isolationFailureReason = computed(() => {
-  if (!isolationUnavailable.value) return '';
-  const reason = tm(
-    `runtime.isolationFailure.${runtime.value.sandbox.status}`,
-    {
-      backend:
-        runtime.value.sandbox.backend === 'seatbelt'
-          ? 'Seatbelt'
-          : 'bubblewrap',
-      dependency:
-        runtime.value.sandbox.backend === 'seatbelt' ? 'sandbox-exec' : 'bwrap',
-    },
-  );
-  return runtime.value.sandbox.error
-    ? `${reason} ${runtime.value.sandbox.error}`
-    : reason;
+const executionUnavailableHint = computed(() => {
+  const current = runtime.value;
+  if (!isolationUnavailable.value || !current) {
+    return '';
+  }
+  return tm(`runtime.executionUnavailable.${current.sandbox.status}`, {
+    backend: current.sandbox.backend === 'seatbelt' ? 'Seatbelt' : 'bubblewrap',
+    dependency:
+      current.sandbox.backend === 'seatbelt' ? 'sandbox-exec' : 'bwrap',
+  });
 });
-const roles = ['member', 'admin'];
-const defaults = computed(() => localPermissionDefaults);
+const isolationFailureReason = computed(() => {
+  const current = runtime.value;
+  if (!isolationUnavailable.value || !current) return '';
+  const reason = tm(`runtime.isolationFailure.${current.sandbox.status}`, {
+    backend: current.sandbox.backend === 'seatbelt' ? 'Seatbelt' : 'bubblewrap',
+    dependency:
+      current.sandbox.backend === 'seatbelt' ? 'sandbox-exec' : 'bwrap',
+  });
+  return current.sandbox.error ? `${reason} ${current.sandbox.error}` : reason;
+});
+const roles: PermissionRole[] = ['member', 'admin'];
+const defaults = computed<PermissionDefaults>(() => localPermissionDefaults);
 const executionBlockedRoles = computed(() =>
   roles.filter(
     (role) =>
@@ -298,8 +308,8 @@ onMounted(async () => {
   }
 });
 
-function policy(role, applyRuntime = true) {
-  const resolved = {
+function policy(role: PermissionRole, applyRuntime = true): PermissionPolicy {
+  const resolved: PermissionPolicy = {
     ...defaults.value[role],
     ...(props.modelValue?.[role] || {}),
   };
@@ -321,7 +331,10 @@ function policy(role, applyRuntime = true) {
   return resolved;
 }
 
-function updatePermission(role, changes) {
+function updatePermission(
+  role: PermissionRole,
+  changes: Partial<PermissionPolicy>,
+): void {
   const updatedRole = {
     ...policy(role, false),
     ...changes,

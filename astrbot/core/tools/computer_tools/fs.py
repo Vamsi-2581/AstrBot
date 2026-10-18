@@ -741,13 +741,15 @@ class GrepTool(FunctionTool):
                 context.context.event.unified_msg_origin,
             )
             contents: list[str] = []
+            filesystem = cast(Any, sb.fs)
             for search_path in search_paths:
-                result = await sb.fs.search_files(
+                result = await filesystem.search_files(
                     pattern=normalized_pattern,
                     path=search_path,
                     glob=glob,
                     after_context=after_context,
                     before_context=before_context,
+                    **({"reject_multi_link_files": True} if restricted else {}),
                 )
                 if not result.get("success", False):
                     error_detail = str(result.get("error", "") or "").strip()

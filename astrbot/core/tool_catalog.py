@@ -141,6 +141,16 @@ WEB_SEARCH_PROVIDER_TOOLS: Mapping[str, tuple[str, ...]] = {
     "tavily": ("tavily_extract_web_page",),
     "firecrawl": ("firecrawl_extract_web_page",),
     "exa": ("exa_get_contents",),
+    "deepseek": ("deepseek_fetch_web_page",),
+}
+
+WEB_SEARCH_CONFIGURED_TOOLS: Mapping[str, tuple[str, ...]] = {
+    "serpapi": (
+        "web_search_serpapi",
+        "image_search_serpapi",
+        "finance_search_serpapi",
+        "scholar_search_serpapi",
+    ),
 }
 
 
@@ -163,6 +173,7 @@ class ToolCatalogInputs:
     memory_enabled: bool = False
     web_search_enabled: bool = False
     web_search_route: tuple[str, ...] = ()
+    web_search_configured_providers: tuple[str, ...] = ()
     group_history_enabled: bool = False
     proactive_messaging: bool = False
     kb_agentic_mode: bool = False
@@ -344,6 +355,9 @@ def _platform_baseline(inputs: ToolCatalogInputs) -> set[str]:
         names.add(WEB_SEARCH_TOOL_NAME)
         for provider in inputs.web_search_route:
             names.update(WEB_SEARCH_PROVIDER_TOOLS.get(provider, ()))
+    if inputs.web_search_enabled:
+        for provider in inputs.web_search_configured_providers:
+            names.update(WEB_SEARCH_CONFIGURED_TOOLS.get(provider, ()))
     if inputs.group_history_enabled:
         names.add("get_group_message_history")
     if inputs.proactive_messaging:
