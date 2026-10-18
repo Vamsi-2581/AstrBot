@@ -270,6 +270,7 @@ def test_prompt_tools_matrix_and_duplicate_skill_tools(tmp_path: Path):
     assert "plugin_tool" in none_names
     assert "read_skill" in none_names
     assert "astrbot_execute_shell" not in none_names
+    builtin_tool_names = frozenset({"search_memory", "read_skill"})
     empty_names = assemble_tool_catalog_names(
         ToolCatalogInputs(
             snapshot=snapshot,
@@ -278,10 +279,11 @@ def test_prompt_tools_matrix_and_duplicate_skill_tools(tmp_path: Path):
             computer_use_runtime="none",
             plugin_names=None,
             registered_tools=registered,
+            builtin_tool_names=builtin_tool_names,
             memory_enabled=True,
         )
     )
-    assert empty_names == ("read_skill",)
+    assert empty_names == ("read_skill", "search_memory")
     listed = assemble_tool_catalog_names(
         ToolCatalogInputs(
             snapshot=snapshot,
@@ -290,12 +292,14 @@ def test_prompt_tools_matrix_and_duplicate_skill_tools(tmp_path: Path):
             computer_use_runtime="none",
             plugin_names=None,
             registered_tools=registered,
+            builtin_tool_names=builtin_tool_names,
             session_tool_names=frozenset({"plugin_tool"}),
+            memory_enabled=True,
         )
     )
     assert "plugin_tool" in listed
     assert "read_skill" in listed
-    assert "search_memory" not in listed
+    assert "search_memory" in listed
 
 
 def test_allowed_tools_only_skill_adds_nothing(tmp_path: Path):

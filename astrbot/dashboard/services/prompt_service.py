@@ -73,7 +73,7 @@ class PromptService:
 
         return {
             "message": "提示词创建成功",
-            "prompt": self.serialize_prompt(prompt, empty_lists_for_tools=True),
+            "prompt": self.serialize_prompt(prompt),
         }
 
     async def update_prompt(self, data: object) -> dict:
@@ -229,13 +229,13 @@ class PromptService:
         return {"message": "排序更新成功"}
 
     @staticmethod
-    def serialize_prompt(prompt, empty_lists_for_tools: bool = False) -> dict:
+    def serialize_prompt(prompt) -> dict:
         return {
             "prompt_id": prompt.prompt_id,
             "system_prompt": prompt.system_prompt,
             "begin_dialogs": prompt.begin_dialogs or [],
-            "tools": (prompt.tools or []) if empty_lists_for_tools else prompt.tools,
-            "skills": (prompt.skills or []) if empty_lists_for_tools else prompt.skills,
+            "tools": prompt.tools,
+            "skills": prompt.skills,
             "custom_error_message": prompt.custom_error_message,
             "folder_id": prompt.folder_id,
             "sort_order": prompt.sort_order,

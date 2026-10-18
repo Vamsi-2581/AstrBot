@@ -166,7 +166,11 @@ class PromptManager:
         skills: list[str] | None | object = NOT_GIVEN,
         custom_error_message: str | None | object = NOT_GIVEN,
     ):
-        """更新指定 prompt 的信息。tools 参数为 None 时表示使用所有工具，空列表表示不使用任何工具"""
+        """更新指定 prompt 的信息。
+
+        tools 为 None 时表示使用所有扩展工具；空列表表示不使用任何插件、
+        MCP 或会话工具。内置工具不受该列表影响。
+        """
         existing_prompt = await self.db.get_prompt_by_id(prompt_id)
         if not existing_prompt:
             raise ValueError(f"Prompt with ID {prompt_id} does not exist.")
@@ -354,7 +358,8 @@ class PromptManager:
             prompt_id: Prompt 唯一标识
             system_prompt: 系统提示词
             begin_dialogs: 预设对话列表
-            tools: 工具列表，None 表示使用所有工具，空列表表示不使用任何工具
+            tools: 扩展工具列表，None 表示使用所有扩展工具，空列表表示不使用任何扩展工具；
+                内置工具始终由配置、授权和会话场景决定
             skills: Skills 列表，None 表示使用所有 Skills，空列表表示不使用任何 Skills
             folder_id: 所属文件夹 ID，None 表示根目录
             sort_order: 排序顺序

@@ -85,8 +85,8 @@ Names and descriptions can also follow the WebUI language. See
 
 ### Logo (Optional)
 
-Place `logo.png` in the plugin root to provide a logo. A 1:1 aspect ratio and a
-256×256 image are recommended.
+Place `logo.png` in the plugin root to provide a logo. A $1:1$ aspect ratio and a
+$256 \times 256$ image are recommended.
 
 ![Plugin logo example](https://files.astrbot.app/docs/source/images/plugin/plugin_logo.png)
 

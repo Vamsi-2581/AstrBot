@@ -1448,11 +1448,14 @@ def _assemble_request_tool_catalog(
     memory_manager = _get_context_runtime_attr(plugin_context, "memory_manager")
     tool_manager = plugin_context.get_llm_tool_manager()
     registered_tools = _registered_tools_table(tool_manager)
-    session_tool_names = frozenset(registered_tools) - frozenset(
-        getattr(tool, "name", "")
+    builtin_tool_names = frozenset(
+        name
         for tool in _safe_iter_builtin_tools(tool_manager)
-        if getattr(tool, "name", "")
+        if isinstance(name := getattr(tool, "name", None), str)
+        and name
+        and registered_tools.get(name) is tool
     )
+    session_tool_names = frozenset(registered_tools) - builtin_tool_names
     full_set = tool_manager.get_full_tool_set()
     full_tools = getattr(full_set, "tools", None)
     if isinstance(full_tools, list):
@@ -1476,6 +1479,7 @@ def _assemble_request_tool_catalog(
         allow_computer_tools=config.allow_computer_tools,
         plugin_names=event.plugins_name,
         registered_tools=registered_tools,
+        builtin_tool_names=builtin_tool_names,
         session_tool_names=session_tool_names,
         memory_enabled=memory_manager is not None,
         web_search_enabled=bool(provider_settings.get("web_search", False)),

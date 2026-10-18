@@ -160,6 +160,7 @@ class ToolCatalogInputs:
     computer_use_runtime: str
     plugin_names: Sequence[str] | None
     registered_tools: Mapping[str, FunctionTool]
+    builtin_tool_names: frozenset[str] = frozenset()
     session_tool_names: frozenset[str] = frozenset()
     memory_enabled: bool = False
     web_search_enabled: bool = False
@@ -200,6 +201,7 @@ def assemble_tool_catalog_names(inputs: ToolCatalogInputs) -> tuple[str, ...]:
         candidates,
         prompt_tools=inputs.prompt_tools,
         snapshot=inputs.snapshot,
+        builtin_tool_names=inputs.builtin_tool_names,
     )
     after_plugin = _apply_plugin_filter(
         after_prompt,
@@ -421,15 +423,23 @@ def _apply_prompt_tools(
     *,
     prompt_tools: Sequence[str] | None,
     snapshot: SkillSnapshot,
+    builtin_tool_names: frozenset[str] = frozenset(),
 ) -> set[str]:
+    """Apply the Prompt allowlist to plugin, MCP, and session tools only.
+
+    Builtin tools are not selectable in a Prompt. Their availability is owned
+    by the profile, authorization, surface, and loop gates that built them into
+    the candidate set. An empty Prompt list therefore means "no extension
+    tools", not "no tools at all".
+    """
     keep_read_skill = bool(snapshot.skills) and READ_SKILL_TOOL_NAME in candidates
     if prompt_tools is None:
         names = set(candidates)
-    elif not prompt_tools:
-        names = set()
     else:
         allowed = set(prompt_tools)
-        names = {name for name in candidates if name in allowed}
+        names = {
+            name for name in candidates if name in allowed or name in builtin_tool_names
+        }
     if keep_read_skill:
         names.add(READ_SKILL_TOOL_NAME)
     elif not snapshot.skills:

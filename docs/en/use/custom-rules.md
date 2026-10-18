@@ -36,7 +36,7 @@ When `unlisted_sessions=deny`, the admission stage looks at overlays on the cano
 
 ### Sender overlays (sender)
 
-Sender overlays live on `scope=sender` with `scope_id=Subject.im.id` (`im:{platform instance}:{bot account}:{sender id}`). Only `blocked` and `llm_enabled` are honored. They apply to every session on this bot instance, including shared groups with isolated sessions off; they are not a `UMO×UID` selector. Prompt, TTS, knowledge bases, providers, and plugin disables still belong to session rules.
+Sender overlays live on `scope=sender` with `scope_id=Subject.im.id` (`im:{platform instance}:{bot account}:{sender id}`). Only `blocked` and `llm_enabled` are honored. They apply to every session on this bot instance, including shared groups with isolated sessions off; they are not a $UMO \times UID$ selector. Prompt, TTS, knowledge bases, providers, and plugin disables still belong to session rules.
 
 The **Sender** target on this page and `/user block`, `/user unblock`, and `/user llm on|off` read and write the same preference row. Dashboard requires the full `im:` subject ID; chat `/user` can also mint a raw sender id from the current session. See [Built-in commands](./command). Save applies immediately; a restart is unnecessary. Deleting the row unlists that sender.
 

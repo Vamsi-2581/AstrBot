@@ -99,14 +99,42 @@
                       :aria-label="tm('form.tools')"
                       :hide-details="true"
                     >
-                      <v-radio label="默认使用全部函数工具" value="0"></v-radio>
-                      <v-radio label="选择指定函数工具" value="1"> </v-radio>
+                      <v-radio
+                        :label="tm('form.toolsAllAvailable')"
+                        value="0"
+                      />
+                      <v-radio
+                        :label="tm('form.toolsSelectSpecific')"
+                        value="1"
+                        :disabled="loadingTools"
+                      />
                     </v-radio-group>
 
                     <div
                       v-if="toolSelectValue === '1'"
                       class="mt-3 selected-config-area"
                     >
+                      <div class="d-flex flex-wrap ga-2 mb-3">
+                        <v-btn
+                          size="small"
+                          variant="tonal"
+                          prepend-icon="mdi-select-all"
+                          :disabled="loadingTools"
+                          @click="selectAllTools"
+                        >
+                          {{ tm('form.selectAllTools') }}
+                        </v-btn>
+                        <v-btn
+                          size="small"
+                          variant="text"
+                          prepend-icon="mdi-close-box-outline"
+                          :disabled="loadingTools"
+                          @click="clearAllTools"
+                        >
+                          {{ tm('form.clearAllTools') }}
+                        </v-btn>
+                      </div>
+
                       <!-- 工具搜索 -->
                       <v-text-field
                         v-model="toolSearch"
@@ -204,6 +232,14 @@
                                         variant="outlined"
                                       >
                                         {{ item.origin_name }}
+                                      </v-chip>
+                                      <v-chip
+                                        v-if="builtinStatusLabel(item)"
+                                        size="x-small"
+                                        :color="builtinStatusColor(item)"
+                                        variant="tonal"
+                                      >
+                                        {{ builtinStatusLabel(item) }}
                                       </v-chip>
                                     </v-list-item-title>
 
@@ -305,6 +341,14 @@
                             }}</span>
                           </v-tooltip>
                         </div>
+                        <v-alert
+                          v-else-if="Array.isArray(promptForm.tools)"
+                          type="warning"
+                          variant="tonal"
+                          density="compact"
+                        >
+                          {{ tm('form.noExtensionToolsSelectedWarning') }}
+                        </v-alert>
                         <div v-else class="text-body-2 text-medium-emphasis">
                           {{ tm('form.noToolsSelected') }}
                         </div>
@@ -628,11 +672,18 @@ interface McpServerItem {
   tools: string[];
 }
 
+interface BuiltinToolConfigStatus {
+  conf_id: string;
+  conf_name: string;
+  enabled: boolean;
+}
+
 interface PromptToolItem extends Pick<
   ToolItem,
   'name' | 'description' | 'origin' | 'origin_name' | 'readonly'
 > {
   mcp_server_name?: string;
+  builtin_config_statuses?: BuiltinToolConfigStatus[];
 }
 
 interface SkillItemOption {
@@ -707,6 +758,12 @@ const systemPromptRules = computed<PromptRule[]>(() => [
     value.trim().length >= 10 || tm('validation.minLength', { min: 10 }),
 ]);
 
+const selectableToolNames = computed(() =>
+  availableTools.value
+    .filter((tool) => !isBuiltinTool(tool))
+    .map((tool) => tool.name),
+);
+
 const filteredTools = computed(() => {
   const search = toolSearch.value.trim().toLowerCase();
   if (!search) {
@@ -778,8 +835,10 @@ watch(
 watch(toolSelectValue, (newValue) => {
   if (newValue === '0') {
     promptForm.tools = null;
-  } else if (promptForm.tools === null) {
-    promptForm.tools = [];
+    return;
+  }
+  if (promptForm.tools === null) {
+    promptForm.tools = [...selectableToolNames.value];
   }
 });
 
@@ -799,14 +858,14 @@ function createEmptyPromptForm(
     system_prompt: '',
     custom_error_message: '',
     begin_dialogs: [],
-    tools: [],
-    skills: [],
+    tools: null,
+    skills: null,
     folder_id: folderId ?? null,
   };
 }
 
 function cloneStringList(value: string[] | null | undefined): string[] | null {
-  if (value === null) {
+  if (value === null || value === undefined) {
     return null;
   }
   return Array.isArray(value) ? [...value] : [];
@@ -904,6 +963,24 @@ function normalizeMcpServer(value: unknown): McpServerItem | null {
   };
 }
 
+function normalizeBuiltinConfigStatuses(
+  value: unknown,
+): BuiltinToolConfigStatus[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.flatMap((item) => {
+    const record = asRecord(item);
+    const confId = getString(record?.conf_id);
+    const confName = getString(record?.conf_name);
+    const enabled = getBoolean(record?.enabled);
+    if (!confId || !confName || enabled === null) {
+      return [];
+    }
+    return [{ conf_id: confId, conf_name: confName, enabled }];
+  });
+}
+
 function normalizeToolItem(value: unknown): PromptToolItem | null {
   const record = asRecord(value);
   if (!record) {
@@ -920,6 +997,9 @@ function normalizeToolItem(value: unknown): PromptToolItem | null {
     origin: getString(record.origin) ?? undefined,
     origin_name: getString(record.origin_name) ?? undefined,
     readonly: getBoolean(record.readonly) ?? undefined,
+    builtin_config_statuses: normalizeBuiltinConfigStatuses(
+      record.builtin_config_statuses,
+    ),
   };
 }
 
@@ -996,6 +1076,11 @@ async function loadTools() {
     availableTools.value = payload
       .map(normalizeToolItem)
       .filter((tool): tool is PromptToolItem => tool !== null);
+    if (Array.isArray(promptForm.tools)) {
+      promptForm.tools = promptForm.tools.filter(
+        (name) => !isBuiltinToolName(name),
+      );
+    }
   } catch (error) {
     emit('error', getApiErrorMessage(error, 'Failed to load tools'));
     availableTools.value = [];
@@ -1156,14 +1241,14 @@ function toggleMcpServer(server: McpServerItem) {
     return;
   }
   if (promptForm.tools === null) {
-    promptForm.tools = availableTools.value
-      .map((tool) => tool.name)
-      .filter((toolName) => !server.tools.includes(toolName));
+    promptForm.tools = selectableToolNames.value.filter(
+      (toolName) => !server.tools.includes(toolName),
+    );
     toolSelectValue.value = '1';
     return;
   }
   if (!Array.isArray(promptForm.tools)) {
-    promptForm.tools = [];
+    promptForm.tools = [...selectableToolNames.value];
     toolSelectValue.value = '1';
   }
 
@@ -1188,9 +1273,9 @@ function toggleTool(toolName: string) {
     return;
   }
   if (promptForm.tools === null) {
-    promptForm.tools = availableTools.value
-      .map((tool) => tool.name)
-      .filter((name) => name !== toolName);
+    promptForm.tools = selectableToolNames.value.filter(
+      (name) => name !== toolName,
+    );
     toolSelectValue.value = '1';
     return;
   }
@@ -1212,9 +1297,9 @@ function removeTool(toolName: string) {
     return;
   }
   if (promptForm.tools === null) {
-    promptForm.tools = availableTools.value
-      .map((tool) => tool.name)
-      .filter((name) => name !== toolName);
+    promptForm.tools = selectableToolNames.value.filter(
+      (name) => name !== toolName,
+    );
     toolSelectValue.value = '1';
     return;
   }
@@ -1225,6 +1310,16 @@ function removeTool(toolName: string) {
   if (index !== -1) {
     promptForm.tools.splice(index, 1);
   }
+}
+
+function selectAllTools() {
+  promptForm.tools = [...selectableToolNames.value];
+  toolSelectValue.value = '1';
+}
+
+function clearAllTools() {
+  promptForm.tools = [];
+  toolSelectValue.value = '1';
 }
 
 function toggleSkill(skillName: string) {
@@ -1266,13 +1361,40 @@ function removeSkill(skillName: string) {
 }
 
 function isBuiltinTool(tool: PromptToolItem) {
-  return tool.origin === 'builtin' || tool.readonly === true;
+  return tool.origin === 'builtin';
 }
 
 function isBuiltinToolName(toolName: string) {
   return availableTools.value.some(
     (tool) => tool.name === toolName && isBuiltinTool(tool),
   );
+}
+
+function builtinStatusLabel(tool: PromptToolItem): string {
+  if (!isBuiltinTool(tool)) {
+    return '';
+  }
+  const statuses = tool.builtin_config_statuses ?? [];
+  if (statuses.length === 0) {
+    return '';
+  }
+  const enabled = statuses.filter((status) => status.enabled).length;
+  if (enabled === statuses.length) {
+    return tm('form.builtinStatusEnabledAll');
+  }
+  if (enabled > 0) {
+    return tm('form.builtinStatusEnabledSome', {
+      enabled,
+      total: statuses.length,
+    });
+  }
+  return tm('form.builtinStatusDisabledAll');
+}
+
+function builtinStatusColor(tool: PromptToolItem): 'success' | 'warning' {
+  return (tool.builtin_config_statuses ?? []).some((status) => status.enabled)
+    ? 'success'
+    : 'warning';
 }
 
 function getDialogRules(index: number): PromptRule[] {

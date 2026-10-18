@@ -1,6 +1,7 @@
 // https://vitepress.dev/guide/custom-theme
 import { h } from 'vue'
 import DefaultTheme from 'vitepress/theme'
+import 'katex/dist/katex.min.css'
 import './styles/style.css'
 import './styles/custom-block.css'
 import './styles/font.css'

@@ -1310,7 +1310,7 @@ async def test_memory_retrieval_tools_are_available_for_default_prompt(
 
 
 @pytest.mark.asyncio
-async def test_memory_retrieval_tools_respect_explicit_empty_prompt_tools(
+async def test_memory_retrieval_builtin_tools_survive_empty_prompt_tools(
     mock_event,
     mock_context,
 ):
@@ -1350,7 +1350,12 @@ async def test_memory_retrieval_tools_respect_explicit_empty_prompt_tools(
     ama._assemble_request_tool_catalog(mock_event, req, mock_context, _catalog_config())
 
     assert req.func_tool is not None
-    assert req.func_tool.names() == []
+    assert {
+        "search_memory",
+        "get_person_profile",
+        "query_episode",
+        "maintain_memory",
+    }.issubset(set(req.func_tool.names()))
 
 
 @pytest.mark.asyncio
@@ -2040,14 +2045,17 @@ class TestEnsurePromptAndSkills:
         assert "test_tool" in req.func_tool.names()
 
     @pytest.mark.asyncio
-    async def test_prompt_empty_tools_strips_late_builtin_tools(
+    async def test_prompt_empty_tools_keeps_builtin_tools(
         self, mock_event, mock_context, mock_provider
     ):
         module = ama
-        prompt = {"name": "locked", "prompt": "No tools.", "tools": []}
+        prompt = {"name": "locked", "prompt": "No extension tools.", "tools": []}
         mock_context.prompt_manager.resolve_selected_prompt = AsyncMock(
             return_value=("locked", prompt, None, False)
         )
+        mock_context.get_llm_tool_manager.return_value.iter_builtin_tools.return_value = [
+            _named_tool("web_search")
+        ]
         mock_event.platform_meta.support_proactive_message = False
         mock_context.get_config.return_value = {
             "provider_settings": {
@@ -2086,7 +2094,7 @@ class TestEnsurePromptAndSkills:
         assert result is not None
         try:
             assert result.provider_request.func_tool is not None
-            assert "web_search" not in result.provider_request.func_tool.names()
+            assert "web_search" in result.provider_request.func_tool.names()
         finally:
             if result.reset_coro:
                 result.reset_coro.close()

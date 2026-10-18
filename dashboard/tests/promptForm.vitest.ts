@@ -135,7 +135,9 @@ describe('PromptForm', () => {
 
     expect(wrapper.text()).toContain('MCP Servers Quick Select');
     expect(wrapper.text()).toContain('server-a');
-    expect(wrapper.text()).toContain('No tools selected');
+    expect(wrapper.text()).toContain(
+      'This Prompt loads no plugin or MCP tools',
+    );
 
     const serverChip = wrapper
       .findAll('.v-chip')
@@ -146,7 +148,9 @@ describe('PromptForm', () => {
     await serverChip!.trigger('click');
     await flushPromises();
 
-    expect(wrapper.text()).not.toContain('No tools selected');
+    expect(wrapper.text()).not.toContain(
+      'This Prompt loads no plugin or MCP tools',
+    );
     expect(wrapper.text()).toContain('tool.alpha');
     expect(wrapper.text()).toContain('tool.beta');
   });
@@ -216,6 +220,138 @@ describe('PromptForm', () => {
       'helper',
       expect.objectContaining({
         skills: ['disabled-plugin-skill'],
+      }),
+    );
+  });
+
+  it('keeps builtin tools out of the prompt allowlist and warns on empty selection', async () => {
+    testState.toolListMock.mockResolvedValue({
+      data: {
+        status: 'ok',
+        data: [
+          {
+            name: 'tool.alpha',
+            description: 'Alpha tool',
+            mcp_server_name: 'server-a',
+          },
+          {
+            name: 'tool.beta',
+            description: 'Beta tool',
+            mcp_server_name: 'server-a',
+          },
+          {
+            name: 'web_search',
+            description: 'Search the web',
+            origin: 'builtin',
+            origin_name: 'AstrBot Core',
+            readonly: true,
+            builtin_config_statuses: [
+              {
+                conf_id: 'default',
+                conf_name: 'default',
+                enabled: true,
+                matched_conditions: [],
+                failed_conditions: [],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const wrapper = mountWithVuetify(PromptForm, {
+      props: {
+        modelValue: false,
+        editingPrompt: {
+          prompt_id: 'helper',
+          system_prompt: 'This is a sufficiently long system prompt.',
+          custom_error_message: '',
+          begin_dialogs: [],
+          tools: [],
+          skills: [],
+          folder_id: null,
+        },
+      },
+      global: {
+        stubs: {
+          VDialog: {
+            props: ['modelValue'],
+            template: '<div class="v-dialog-stub"><slot /></div>',
+          },
+        },
+      },
+    });
+
+    await wrapper.setProps({ modelValue: true });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('web_search');
+    expect(wrapper.text()).toContain('Enabled');
+    expect(wrapper.text()).toContain(
+      'This Prompt loads no plugin or MCP tools',
+    );
+
+    const selectAllButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Select All Extension Tools');
+    expect(selectAllButton).toBeDefined();
+    await selectAllButton!.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain(
+      'This Prompt loads no plugin or MCP tools',
+    );
+
+    const saveButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Save');
+    expect(saveButton).toBeDefined();
+    await saveButton!.trigger('click');
+    await flushPromises();
+
+    expect(testState.promptUpdateMock).toHaveBeenLastCalledWith(
+      'helper',
+      expect.objectContaining({
+        tools: ['tool.alpha', 'tool.beta'],
+      }),
+    );
+  });
+
+  it('defaults new prompts to all extension tools', async () => {
+    const wrapper = mountWithVuetify(PromptForm, {
+      props: {
+        modelValue: false,
+        editingPrompt: null,
+      },
+      global: {
+        stubs: {
+          VDialog: {
+            props: ['modelValue'],
+            template: '<div class="v-dialog-stub"><slot /></div>',
+          },
+        },
+      },
+    });
+
+    await wrapper.setProps({ modelValue: true });
+    await flushPromises();
+
+    await wrapper.find('input').setValue('new-helper');
+    await wrapper.find('textarea').setValue(
+      'This is a sufficiently long system prompt.',
+    );
+    await flushPromises();
+
+    const saveButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Save');
+    expect(saveButton).toBeDefined();
+    await saveButton!.trigger('click');
+    await flushPromises();
+
+    expect(testState.promptCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: null,
+        skills: null,
       }),
     );
   });

@@ -8,10 +8,10 @@ A Prompt controls the system prompt, opening dialogue, tools, Skills, and error 
 - **System prompt** defines the role, goals, boundaries, and response style. Do not store secrets or anything that must not be sent to the model.
 - **Custom error reply** is sent first when an LLM request using this Prompt fails. Leave it empty to use the system default error message.
 - **Opening dialogue** contains alternating user and assistant few-shot examples and must have an even number of entries. These examples enter model context but are not written back as real conversation history.
-- **Tools / MCP tools**: `null` means all currently available tools, an explicit name list allows only those tools, and an empty list means no ordinary tools. An empty list still keeps `read_skill` so the Agent can read manuals for Skills enabled on this request.
+- **Tools / MCP tools**: `null` does not restrict plugin or MCP tools, an explicit name list allows only those extension tools, and an empty list disables every extension tool. Builtin tools such as web search, `read_skill`, memory, and scheduled-task tools are not controlled by this list; they always follow global configuration, authorization, and session context.
 - **Skills** use the same all, selected-only, or none semantics. An empty Skills list also disables workspace Skills.
 
-Tools and Skills are permission boundaries, not just prompt optimization. Apply least privilege to shell, file-write, browser, external-account, and administrative tools, and review the selection after models or plugins change.
+Tools and Skills are permission boundaries, not just prompt optimization. A Prompt can further narrow plugin and MCP tools; apply least privilege to builtin tools such as shell, file-write, browser, and web search through global configuration and authorization, and review the selection after models or plugins change.
 
 ## Which Prompt is selected
 

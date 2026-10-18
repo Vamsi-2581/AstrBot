@@ -18,7 +18,7 @@ And other prompts with search intent to trigger the model to invoke the search t
 AstrBot queries every source in the ordered `Web Search Sources` (`websearch_route`) list in parallel, deduplicates the results by canonical URL, and fuses them with RRF (Reciprocal Rank Fusion, k=60) behind a single `web_search` tool. The list order is the priority order: earlier sources carry more weight in the fusion.
 
 - `websearch_route`: the ordered, multi-select source list, defaulting to `["searxng", "duckduckgo"]`.
-- `websearch_oversample`: the per-source candidate multiplier, defaulting to 8. Each source fetches `target results × this multiplier` candidates (clamped to each source's limit) before fusion.
+- `websearch_oversample`: the per-source candidate multiplier, defaulting to 8. Each source fetches `target results` $\times$ `this multiplier` candidates (clamped to each source's limit) before fusion.
 - A source that is unconfigured, fails, or times out is skipped without affecting the others; when no source is usable, `web_search` returns a clear error.
 
 Keyless `SearXNG` and `DuckDuckGo` are supported alongside the key-based `Tavily`, `BoCha`, `Baidu AI Search`, `Brave`, `Firecrawl`, `Exa`, `AnySearch`, `DeepSeek`, and `SerpApi`.
