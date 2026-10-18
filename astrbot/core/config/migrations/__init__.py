@@ -106,7 +106,7 @@ def _migrate_windows_member_workspace(conf: dict) -> bool:
     if not isinstance(permissions, dict):
         return False
     member = permissions.get("member")
-    if member != {
+    if not isinstance(member, dict) or member != {
         "allow_execution": False,
         "allow_network": False,
         "filesystem_scope": "none",

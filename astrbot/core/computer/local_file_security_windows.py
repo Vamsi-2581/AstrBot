@@ -92,8 +92,8 @@ def open_windows_file(
     ):
         raise PermissionError("Access denied: unsafe restricted Windows path.")
 
-    ntdll = ctypes.WinDLL("ntdll", use_last_error=True)
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    ntdll = ctypes.WinDLL("ntdll", use_last_error=True)  # type: ignore[attr-defined]
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
     create_file = ntdll.NtCreateFile
     create_file.restype = ctypes.c_int32
     create_file.argtypes = [
@@ -183,11 +183,12 @@ def open_windows_file(
                     )
                 if terminal and status & 0xFFFFFFFF == 0xC00000BA:
                     raise IsADirectoryError(str(root.joinpath(*parts)))
-                raise ctypes.WinError(status_to_error(status))
+                raise ctypes.WinError(status_to_error(status))  # type: ignore[attr-defined]
+            assert handle.value is not None
             handles.append(handle.value)
             information = _FileInformation()
             if not file_information(handle, ctypes.byref(information)):
-                raise ctypes.WinError(ctypes.get_last_error())
+                raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
             if information.Attributes & 0x400:  # FILE_ATTRIBUTE_REPARSE_POINT
                 raise PermissionError(
                     "Access denied: restricted path contains a reparse point."
@@ -203,11 +204,17 @@ def open_windows_file(
                         "content outside allowed directories."
                     )
                 # Do not truncate before checking the opened object's identity.
-                descriptor = msvcrt.open_osfhandle(
-                    handle.value, modes[access] | os.O_BINARY | os.O_NOINHERIT
+                descriptor = msvcrt.open_osfhandle(  # type: ignore[attr-defined]
+                    handle.value,  # type: ignore[arg-type]
+                    modes[access]
+                    | os.O_BINARY  # type: ignore[attr-defined]
+                    | os.O_NOINHERIT,  # type: ignore[attr-defined]
                 )
                 handles.pop()  # The CRT descriptor now owns this handle.
                 return descriptor
     finally:
         for handle in reversed(handles):
             close_handle(handle)
+    raise RuntimeError(
+        "Restricted Windows file open did not reach a terminal component."
+    )
