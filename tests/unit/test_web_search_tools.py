@@ -162,28 +162,6 @@ async def test_firecrawl_search_maps_v2_grouped_web_data(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_firecrawl_extract_returns_scraped_markdown(monkeypatch):
-    async def fake_firecrawl_scrape(provider_settings, payload):
-        assert provider_settings["websearch_firecrawl_key"] == ["firecrawl-key"]
-        assert payload == {
-            "url": "https://example.com",
-            "formats": ["markdown"],
-            "onlyMainContent": True,
-        }
-        return {"url": "https://example.com", "markdown": "# Example"}
-
-    monkeypatch.setattr(tools, "_firecrawl_scrape", fake_firecrawl_scrape)
-    tool = tools.FirecrawlExtractWebPageTool()
-    context = _context_with_provider_settings(
-        {"websearch_firecrawl_key": ["firecrawl-key"]}
-    )
-
-    result = await tool.call(context, url="https://example.com")
-
-    assert result == "URL: https://example.com\nContent: # Example"
-
-
-@pytest.mark.asyncio
 async def test_firecrawl_search_uses_session_context(monkeypatch):
     session = _FakeFirecrawlSession(
         _FakeFirecrawlResponse(
@@ -766,22 +744,6 @@ async def test_exa_search_raises_on_http_error(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_exa_get_contents_returns_text(monkeypatch):
-    async def fake_exa_get_contents(provider_settings, payload):
-        assert provider_settings["websearch_exa_key"] == ["exa-key"]
-        assert payload["ids"] == ["https://example.com"]
-        return [{"url": "https://example.com", "text": "# Example Content"}]
-
-    monkeypatch.setattr(tools, "_exa_get_contents", fake_exa_get_contents)
-    tool = tools.ExaGetContentsTool()
-    context = _context_with_provider_settings({"websearch_exa_key": ["exa-key"]})
-
-    result = await tool.call(context, url="https://example.com")
-
-    assert result == "URL: https://example.com\nContent: # Example Content"
-
-
-@pytest.mark.asyncio
 async def test_exa_get_contents_raises_on_http_error(monkeypatch):
     session = _FakeFirecrawlSession(
         _FakeFirecrawlResponse(status=403, text_data="Forbidden")
@@ -1003,17 +965,7 @@ async def test_deepseek_search_maps_results_and_content(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_deepseek_fetch_validates_url_and_returns_content(monkeypatch):
-    tool = tools.DeepSeekFetchWebPageTool()
-    context = _context_with_provider_settings(
-        {"websearch_deepseek_key": ["deepseek-key"]}
-    )
-
-    assert (await tool.call(context, url="file:///etc/passwd")).startswith("Error:")
-    assert (await tool.call(context, url="https://user:pass@example.com")).startswith(
-        "Error:"
-    )
-
+async def test_deepseek_fetch_returns_response(monkeypatch):
     response = _DeepSeekResponse(json_data={"title": "Example", "content": "# Example"})
     monkeypatch.setattr(tools, "_client_session", lambda: _DeepSeekSession())
     monkeypatch.setattr(
@@ -1022,19 +974,20 @@ async def test_deepseek_fetch_validates_url_and_returns_content(monkeypatch):
         lambda _session, _url, *, json, headers: response,
     )
 
-    result = await tool.call(context, url="https://example.com")
+    result = await tools._deepseek_fetch(
+        {"websearch_deepseek_key": ["deepseek-key"]},
+        {"url": "https://example.com"},
+    )
 
-    assert result == "URL: https://example.com\nTitle: Example\nContent: # Example"
+    assert result == {"title": "Example", "content": "# Example"}
 
 
 @pytest.mark.asyncio
 async def test_deepseek_tools_require_api_key():
-    context = _context_with_provider_settings({})
-    assert "not configured" in await tools.DeepSeekFetchWebPageTool().call(
-        context, url="https://example.com"
-    )
     with pytest.raises(ValueError, match="not configured"):
         await tools._deepseek_search({}, {"query": "AstrBot"})
+    with pytest.raises(ValueError, match="not configured"):
+        await tools._deepseek_fetch({}, {"url": "https://example.com"})
 
 
 class _SerpApiResponse:

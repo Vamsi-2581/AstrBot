@@ -88,4 +88,6 @@ AnySearch 除通用网页搜索外，还可通过服务商支持的领域标签�
 
 ## 正文抽取
 
-当来源列表包含 `Tavily`、`Firecrawl`、`Exa` 或 `DeepSeek` 时，AstrBot 会同时提供对应的正文抽取工具（`tavily_extract_web_page`、`firecrawl_extract_web_page`、`exa_get_contents`、`deepseek_fetch_web_page`），用于读取结果页正文。来源不在列表中时，对应抽取工具不会挂载。配置 SerpApi Key 后，还会提供 `image_search_serpapi`、`finance_search_serpapi` 和 `scholar_search_serpapi`。
+当网页搜索已启用，且来源列表中存在已配置的 `Tavily`、`Firecrawl`、`Exa` 或 `DeepSeek` 时，AstrBot 会提供单一的 `web_fetch` 工具，只接受 `url` 参数。它会按 `websearch_route` 的顺序依次尝试这些已配置来源，某个来源失败或超时后自动切换到下一个，成功后返回 `URL`、可选的 `Title` 和 `Content`。全部失败时只返回通用错误，不会暴露上游错误内容。
+
+抽取参数固定使用各来源的默认值：Tavily 基础抽取、Firecrawl 输出 Markdown 正文、Exa 最多 3000 字符、DeepSeek 保持原请求。模型不需要选择来源，也不能传入高级抽取参数。未配置的来源，以及不支持正文抽取的来源（如 SearXNG、DuckDuckGo），不会参与。配置 SerpApi Key 后，还会提供 `image_search_serpapi`、`finance_search_serpapi` 和 `scholar_search_serpapi`。

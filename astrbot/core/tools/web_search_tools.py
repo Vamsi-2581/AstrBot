@@ -3,7 +3,7 @@ import json
 import uuid
 from dataclasses import dataclass as std_dataclass
 from dataclasses import field
-from urllib.parse import parse_qsl, quote, urljoin, urlparse, urlsplit
+from urllib.parse import parse_qsl, quote, urljoin, urlparse
 
 import aiohttp
 from pydantic import Field
@@ -19,10 +19,7 @@ from astrbot.core.utils.outbound_http import (
 
 WEB_SEARCH_TOOL_NAMES = [
     "web_search",
-    "tavily_extract_web_page",
-    "firecrawl_extract_web_page",
-    "exa_get_contents",
-    "deepseek_fetch_web_page",
+    "web_fetch",
     "web_search_serpapi",
     "image_search_serpapi",
     "finance_search_serpapi",
@@ -754,6 +751,51 @@ async def _deepseek_search(
     return results
 
 
+async def _deepseek_fetch(
+    provider_settings: dict,
+    payload: dict,
+) -> dict:
+    """Fetch one page through the DeepSeek Fetch API.
+
+    Args:
+        provider_settings: Provider settings containing DeepSeek API keys.
+        payload: Fetch payload with the target ``url``.
+
+    Returns:
+        The raw DeepSeek fetch response data.
+
+    Raises:
+        ValueError: If DeepSeek API keys are not configured.
+        Exception: If the API returns a non-200 status.
+    """
+    keys = provider_settings.get("websearch_deepseek_key", [])
+    if not keys:
+        raise ValueError("Error: DeepSeek API key is not configured in AstrBot.")
+
+    key = await _get_key_rotator(
+        provider_settings,
+        "websearch_deepseek_key",
+        "DeepSeek",
+    ).get(provider_settings)
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+    async with _client_session() as session:
+        async with _post(
+            session,
+            "https://api.deepseek.com/v1/tools/fetch",
+            json=payload,
+            headers=headers,
+        ) as response:
+            if response.status != 200:
+                reason = await response.text()
+                raise Exception(
+                    f"DeepSeek fetch failed: {reason}, status: {response.status}",
+                )
+            return await response.json()
+
+
 async def _serpapi_request(
     provider_settings: dict,
     payload: dict,
@@ -1009,248 +1051,6 @@ async def _duckduckgo_search(
             )
         )
     return results
-
-
-@builtin_tool(config=_WEB_SEARCH_ENABLED_CONFIG, required_actions=("tool.web_search",))
-@pydantic_dataclass
-class TavilyExtractWebPageTool(FunctionTool[AstrAgentContext]):
-    name: str = "tavily_extract_web_page"
-    description: str = "Extract the content of a web page using Tavily."
-    parameters: dict = Field(
-        default_factory=lambda: {
-            "type": "object",
-            "properties": {
-                "url": {
-                    "type": "string",
-                    "description": "Required. A URL to extract content from.",
-                },
-                "extract_depth": {
-                    "type": "string",
-                    "description": 'Optional. The depth of the extraction, must be one of "basic", "advanced". Default is "basic".',
-                },
-            },
-            "required": ["url"],
-        }
-    )
-
-    async def call(self, context, **kwargs) -> ToolExecResult:
-        _, provider_settings, _ = _get_runtime(context)
-        if not provider_settings.get("websearch_tavily_key", []):
-            return "Error: Tavily API key is not configured in AstrBot."
-
-        url = str(kwargs.get("url", "")).strip()
-        if not url:
-            return "Error: url must be a non-empty string."
-
-        extract_depth = kwargs.get("extract_depth", "basic")
-        if extract_depth not in ["basic", "advanced"]:
-            extract_depth = "basic"
-
-        results = await _tavily_extract(
-            provider_settings,
-            {"urls": [url], "extract_depth": extract_depth},
-        )
-        ret_ls = []
-        for result in results:
-            ret_ls.append(f"URL: {result.get('url', 'No URL')}")
-            ret_ls.append(f"Content: {result.get('raw_content', 'No content')}")
-        ret = "\n".join(ret_ls)
-        return ret or "Error: Tavily web searcher does not return any results."
-
-
-@builtin_tool(config=_WEB_SEARCH_ENABLED_CONFIG, required_actions=("tool.web_search",))
-@pydantic_dataclass
-class FirecrawlExtractWebPageTool(FunctionTool[AstrAgentContext]):
-    name: str = "firecrawl_extract_web_page"
-    description: str = "Extract the content of a web page using Firecrawl."
-    parameters: dict = Field(
-        default_factory=lambda: {
-            "type": "object",
-            "properties": {
-                "url": {
-                    "type": "string",
-                    "description": "Required. A URL to extract content from.",
-                },
-                "format": {
-                    "type": "string",
-                    "description": 'Optional. Output format, one of "markdown", "html", "rawHtml", "summary". Default is "markdown".',
-                },
-                "only_main_content": {
-                    "type": "boolean",
-                    "description": "Optional. Whether to extract only the main page content. Default is true.",
-                },
-                "timeout": {
-                    "type": "integer",
-                    "description": "Optional. Request timeout in milliseconds.",
-                },
-                "max_age": {
-                    "type": "integer",
-                    "description": "Optional. Maximum cache age in milliseconds.",
-                },
-            },
-            "required": ["url"],
-        }
-    )
-
-    async def call(self, context, **kwargs) -> ToolExecResult:
-        _, provider_settings, _ = _get_runtime(context)
-        if not provider_settings.get("websearch_firecrawl_key", []):
-            return "Error: Firecrawl API key is not configured in AstrBot."
-
-        url = str(kwargs.get("url", "")).strip()
-        if not url:
-            return "Error: url must be a non-empty string."
-
-        output_format = kwargs.get("format", "markdown")
-        if output_format not in ["markdown", "html", "rawHtml", "summary"]:
-            output_format = "markdown"
-
-        payload = {
-            "url": url,
-            "formats": [output_format],
-            "onlyMainContent": kwargs.get("only_main_content", True),
-        }
-        if kwargs.get("timeout"):
-            payload["timeout"] = kwargs["timeout"]
-        if kwargs.get("max_age"):
-            payload["maxAge"] = kwargs["max_age"]
-
-        result = await _firecrawl_scrape(provider_settings, payload)
-        content = result.get(output_format, "")
-        result_url = result.get("url") or url
-        ret = f"URL: {result_url}\nContent: {content}" if content else ""
-        return ret or "Error: Firecrawl web scraper does not return any results."
-
-
-@builtin_tool(config=_WEB_SEARCH_ENABLED_CONFIG, required_actions=("tool.web_search",))
-@pydantic_dataclass
-class ExaGetContentsTool(FunctionTool[AstrAgentContext]):
-    name: str = "exa_get_contents"
-    description: str = "Extract the content of a web page using Exa."
-    parameters: dict = Field(
-        default_factory=lambda: {
-            "type": "object",
-            "properties": {
-                "url": {
-                    "type": "string",
-                    "description": "Required. A URL to extract content from.",
-                },
-                "max_characters": {
-                    "type": "integer",
-                    "description": "Optional. Maximum number of characters to return. Default is 3000.",
-                },
-            },
-            "required": ["url"],
-        }
-    )
-
-    async def call(self, context, **kwargs) -> ToolExecResult:
-        _, provider_settings, _ = _get_runtime(context)
-        if not provider_settings.get("websearch_exa_key", []):
-            return "Error: Exa API key is not configured in AstrBot."
-
-        url = str(kwargs.get("url", "")).strip()
-        if not url:
-            return "Error: url must be a non-empty string."
-
-        try:
-            max_characters = int(kwargs.get("max_characters", 3000))
-        except TypeError, ValueError:
-            max_characters = 3000
-
-        results = await _exa_get_contents(
-            provider_settings,
-            {
-                "ids": [url],
-                "text": {"maxCharacters": max_characters},
-            },
-        )
-        ret_ls = []
-        for result in results:
-            ret_ls.append(f"URL: {result.get('url', 'No URL')}")
-            ret_ls.append(f"Content: {result.get('text', 'No content')}")
-        ret = "\n".join(ret_ls)
-        return ret or "Error: Exa get contents does not return any results."
-
-
-@builtin_tool(config=_WEB_SEARCH_ENABLED_CONFIG, required_actions=("tool.web_search",))
-@pydantic_dataclass
-class DeepSeekFetchWebPageTool(FunctionTool[AstrAgentContext]):
-    name: str = "deepseek_fetch_web_page"
-    description: str = (
-        "Fetch a single web page using DeepSeek and return its title and "
-        "Markdown content. Use this to read a known URL, including a page "
-        "found through web search."
-    )
-    parameters: dict = Field(
-        default_factory=lambda: {
-            "type": "object",
-            "properties": {
-                "url": {
-                    "type": "string",
-                    "description": (
-                        "Required. HTTP or HTTPS URL with a host, no embedded "
-                        "credentials, and at most 8192 characters."
-                    ),
-                },
-            },
-            "required": ["url"],
-        }
-    )
-
-    async def call(self, context, **kwargs) -> ToolExecResult:
-        _, provider_settings, _ = _get_runtime(context)
-        if not provider_settings.get("websearch_deepseek_key", []):
-            return "Error: DeepSeek API key is not configured in AstrBot."
-
-        url = kwargs.get("url")
-        if not isinstance(url, str) or not 1 <= len(url) <= 8192:
-            return "Error: url must be a string of 1-8192 characters."
-        try:
-            parsed = urlsplit(url)
-            # Port syntax and range are validated only when this property is read.
-            _ = parsed.port
-            valid_url = (
-                parsed.scheme in {"http", "https"}
-                and bool(parsed.hostname)
-                and parsed.username is None
-                and parsed.password is None
-                and not any(char.isspace() for char in url)
-            )
-        except ValueError:
-            valid_url = False
-        if not valid_url:
-            return (
-                "Error: url must be an HTTP or HTTPS URL with a host and no "
-                "embedded credentials."
-            )
-
-        key = await _get_key_rotator(
-            provider_settings,
-            "websearch_deepseek_key",
-            "DeepSeek",
-        ).get(provider_settings)
-        headers = {
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-        }
-        async with _client_session() as session:
-            async with _post(
-                session,
-                "https://api.deepseek.com/v1/tools/fetch",
-                json={"url": url},
-                headers=headers,
-            ) as response:
-                if response.status != 200:
-                    reason = await response.text()
-                    raise Exception(
-                        f"DeepSeek fetch failed: {reason}, status: {response.status}",
-                    )
-                data = await response.json()
-
-        if not data.get("content"):
-            return "Error: DeepSeek fetch does not return any content."
-        return f"URL: {url}\nTitle: {data.get('title', '')}\nContent: {data['content']}"
 
 
 @builtin_tool(config=_WEB_SEARCH_ENABLED_CONFIG, required_actions=("tool.web_search",))
@@ -1698,13 +1498,9 @@ async def _anysearch_search(
 
 
 __all__ = [
-    "DeepSeekFetchWebPageTool",
-    "ExaGetContentsTool",
-    "FirecrawlExtractWebPageTool",
     "SerpApiFinanceSearchTool",
     "SerpApiImageSearchTool",
     "SerpApiScholarSearchTool",
     "SerpApiWebSearchTool",
-    "TavilyExtractWebPageTool",
     "WEB_SEARCH_TOOL_NAMES",
 ]

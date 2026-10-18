@@ -88,4 +88,6 @@ Go to the [DeepSeek Platform](https://platform.deepseek.com/api_keys) to get an 
 
 ## Page extraction
 
-When the source list contains `Tavily`, `Firecrawl`, `Exa`, or `DeepSeek`, AstrBot also exposes the matching page-content extract tools (`tavily_extract_web_page`, `firecrawl_extract_web_page`, `exa_get_contents`, `deepseek_fetch_web_page`). A source that is not in the list does not mount its extract tool. SerpApi additionally provides `image_search_serpapi`, `finance_search_serpapi`, and `scholar_search_serpapi` whenever its key is configured.
+When web search is enabled and the source list contains a configured `Tavily`, `Firecrawl`, `Exa`, or `DeepSeek` source, AstrBot exposes a single `web_fetch` tool that accepts only `url`. It tries those configured sources sequentially in `websearch_route` order, moving to the next source when one fails or times out, and returns `URL`, an optional `Title`, and `Content`. If every source fails, it returns one generic error without exposing upstream error text.
+
+Extraction parameters use each provider's fixed defaults: Tavily basic extraction, Firecrawl Markdown main content, Exa with at most 3000 characters, and the unchanged DeepSeek request. The model does not choose a provider and cannot pass advanced extraction parameters. Unconfigured sources and sources without extraction support, such as SearXNG and DuckDuckGo, are skipped. SerpApi additionally provides `image_search_serpapi`, `finance_search_serpapi`, and `scholar_search_serpapi` whenever its key is configured.

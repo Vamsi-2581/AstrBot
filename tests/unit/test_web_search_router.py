@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -350,3 +351,278 @@ async def test_serpapi_source_uses_google_web_search(monkeypatch):
 
     assert [item.url for item in results] == ["https://example.com"]
     assert calls == [(settings, {"q": "AstrBot", "num": 8})]
+
+
+def _context_with_provider_settings(provider_settings):
+    config = {"provider_settings": provider_settings}
+    agent_context = SimpleNamespace(
+        context=SimpleNamespace(get_config=lambda umo: config),
+        event=SimpleNamespace(unified_msg_origin="test:private:session"),
+    )
+    return SimpleNamespace(context=agent_context)
+
+
+def test_fetch_available_requires_configured_extraction_source():
+    assert router.fetch_available(["searxng", "duckduckgo"], {}) is False
+    assert router.fetch_available(["tavily"], {}) is False
+    assert router.fetch_available(["tavily"], {"websearch_tavily_key": ["k"]}) is True
+    assert (
+        router.fetch_available(["firecrawl"], {"websearch_firecrawl_key": ["k"]})
+        is True
+    )
+    assert router.fetch_available(["exa"], {"websearch_exa_key": ["k"]}) is True
+    assert (
+        router.fetch_available(["deepseek"], {"websearch_deepseek_key": ["k"]}) is True
+    )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "file:///etc/passwd",
+        "https://",
+        "https://user:pass@example.com",
+        "https://example.com:not-a-port",
+        "https://exa mple.com",
+        "https://example.com/" + ("a" * router.MAX_FETCH_URL_LENGTH),
+        123,
+        "",
+    ],
+)
+def test_validate_fetch_url_rejects_unsafe_inputs(url):
+    with pytest.raises(ValueError, match="HTTP or HTTPS"):
+        router.validate_fetch_url(url)
+
+
+def test_validate_fetch_url_accepts_http_and_https():
+    assert router.validate_fetch_url("https://example.com/path?q=1") == (
+        "https://example.com/path?q=1"
+    )
+    assert router.validate_fetch_url("  http://example.com  ") == ("http://example.com")
+
+
+@pytest.mark.asyncio
+async def test_fetch_page_uses_fixed_provider_defaults(monkeypatch):
+    url = "https://example.com/page"
+    calls = {}
+
+    async def fake_tavily(settings, payload):
+        calls["tavily"] = payload
+        return [{"url": url, "raw_content": "tavily content"}]
+
+    async def fake_firecrawl(settings, payload):
+        calls["firecrawl"] = payload
+        return {"url": url, "markdown": "firecrawl content"}
+
+    async def fake_exa(settings, payload):
+        calls["exa"] = payload
+        return [{"url": url, "text": "exa content"}]
+
+    async def fake_deepseek(settings, payload):
+        calls["deepseek"] = payload
+        return {"title": "Example", "content": "deepseek content"}
+
+    monkeypatch.setattr(router, "_tavily_extract", fake_tavily)
+    monkeypatch.setattr(router, "_firecrawl_scrape", fake_firecrawl)
+    monkeypatch.setattr(router, "_exa_get_contents", fake_exa)
+    monkeypatch.setattr(router, "_deepseek_fetch", fake_deepseek)
+
+    settings = {
+        "websearch_tavily_key": ["k"],
+        "websearch_firecrawl_key": ["k"],
+        "websearch_exa_key": ["k"],
+        "websearch_deepseek_key": ["k"],
+    }
+
+    assert await router.fetch_page(["tavily"], settings, url) == (
+        f"URL: {url}\nContent: tavily content"
+    )
+    assert await router.fetch_page(["firecrawl"], settings, url) == (
+        f"URL: {url}\nContent: firecrawl content"
+    )
+    assert await router.fetch_page(["exa"], settings, url) == (
+        f"URL: {url}\nContent: exa content"
+    )
+    assert await router.fetch_page(["deepseek"], settings, url) == (
+        f"URL: {url}\nTitle: Example\nContent: deepseek content"
+    )
+
+    assert calls["tavily"] == {"urls": [url], "extract_depth": "basic"}
+    assert calls["firecrawl"] == {
+        "url": url,
+        "formats": ["markdown"],
+        "onlyMainContent": True,
+    }
+    assert "timeout" not in calls["firecrawl"]
+    assert "maxAge" not in calls["firecrawl"]
+    assert calls["exa"] == {"ids": [url], "text": {"maxCharacters": 3000}}
+    assert calls["deepseek"] == {"url": url}
+
+
+@pytest.mark.asyncio
+async def test_fetch_page_follows_route_order_and_fails_over(monkeypatch):
+    calls = []
+
+    async def failing_tavily(settings, payload):
+        calls.append("tavily")
+        raise RuntimeError("tavily failed")
+
+    async def working_firecrawl(settings, payload):
+        calls.append("firecrawl")
+        return {"markdown": "fallback content"}
+
+    async def unused_exa(settings, payload):
+        calls.append("exa")
+        return [{"text": "exa content"}]
+
+    monkeypatch.setattr(router, "_tavily_extract", failing_tavily)
+    monkeypatch.setattr(router, "_firecrawl_scrape", working_firecrawl)
+    monkeypatch.setattr(router, "_exa_get_contents", unused_exa)
+
+    settings = {
+        "websearch_tavily_key": ["k"],
+        "websearch_firecrawl_key": ["k"],
+        "websearch_exa_key": ["k"],
+    }
+
+    result = await router.fetch_page(
+        ["searxng", "tavily", "firecrawl", "exa"],
+        settings,
+        "https://example.com/page",
+    )
+
+    assert result == "URL: https://example.com/page\nContent: fallback content"
+    assert calls == ["tavily", "firecrawl"]
+
+
+@pytest.mark.asyncio
+async def test_fetch_page_skips_unconfigured_extraction_sources(monkeypatch):
+    calls = []
+
+    async def fake_tavily(settings, payload):
+        calls.append("tavily")
+        return [{"raw_content": "content"}]
+
+    monkeypatch.setattr(router, "_tavily_extract", fake_tavily)
+
+    assert (
+        await router.fetch_page(
+            ["searxng", "tavily"],
+            {},
+            "https://example.com/page",
+        )
+        is None
+    )
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_fetch_page_moves_on_after_timeout(monkeypatch):
+    async def slow_tavily(settings, payload):
+        await asyncio.sleep(1)
+        return [{"raw_content": "too late"}]
+
+    async def fast_firecrawl(settings, payload):
+        return {"markdown": "in time"}
+
+    monkeypatch.setattr(router, "_tavily_extract", slow_tavily)
+    monkeypatch.setattr(router, "_firecrawl_scrape", fast_firecrawl)
+    monkeypatch.setattr(router, "SOURCE_TIMEOUT_SECONDS", 0.01)
+
+    settings = {
+        "websearch_tavily_key": ["k"],
+        "websearch_firecrawl_key": ["k"],
+    }
+
+    result = await router.fetch_page(
+        ["tavily", "firecrawl"],
+        settings,
+        "https://example.com/page",
+    )
+
+    assert result == "URL: https://example.com/page\nContent: in time"
+
+
+@pytest.mark.asyncio
+async def test_fetch_page_returns_none_and_logs_redacted_failures(monkeypatch, caplog):
+    async def failing_tavily(settings, payload):
+        raise RuntimeError("failed at https://secret.example/path?api_key=abc")
+
+    monkeypatch.setattr(router, "_tavily_extract", failing_tavily)
+
+    result = await router.fetch_page(
+        ["tavily"],
+        {"websearch_tavily_key": ["k"]},
+        "https://example.com/page",
+    )
+
+    assert result is None
+    assert "https://secret.example" not in caplog.text
+    assert "Web fetch source tavily failed" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_tool_returns_content(monkeypatch):
+    async def fake_fetch_page(route, provider_settings, url):
+        assert route == ("tavily",)
+        return "URL: https://example.com\nContent: page"
+
+    monkeypatch.setattr(router, "fetch_page", fake_fetch_page)
+    tool = router.WebFetchTool()
+    context = _context_with_provider_settings(
+        {"websearch_route": ["tavily"], "websearch_tavily_key": ["k"]}
+    )
+
+    result = await tool.call(context, url="https://example.com")
+
+    assert result == "URL: https://example.com\nContent: page"
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_tool_returns_generic_error_when_all_providers_fail(
+    monkeypatch,
+):
+    async def fake_fetch_page(route, provider_settings, url):
+        return None
+
+    monkeypatch.setattr(router, "fetch_page", fake_fetch_page)
+    tool = router.WebFetchTool()
+    context = _context_with_provider_settings(
+        {"websearch_route": ["tavily"], "websearch_tavily_key": ["k"]}
+    )
+
+    result = await tool.call(context, url="https://example.com")
+
+    assert result == (
+        "Error: web fetch did not return content from any configured provider."
+    )
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_tool_rejects_invalid_url_before_dispatch(monkeypatch):
+    calls = []
+
+    async def fake_tavily(settings, payload):
+        calls.append(payload)
+        return [{"raw_content": "content"}]
+
+    monkeypatch.setattr(router, "_tavily_extract", fake_tavily)
+    tool = router.WebFetchTool()
+    context = _context_with_provider_settings(
+        {"websearch_route": ["tavily"], "websearch_tavily_key": ["k"]}
+    )
+
+    result = await tool.call(context, url="file:///etc/passwd")
+
+    assert result == router._FETCH_URL_ERROR
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_tool_reports_missing_route():
+    tool = router.WebFetchTool()
+    context = _context_with_provider_settings({})
+
+    result = await tool.call(context, url="https://example.com")
+
+    assert result.startswith("Error: web search route")

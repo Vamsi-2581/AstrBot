@@ -1,10 +1,10 @@
-"""Multi-source web search fan-out, canonical deduplication, and RRF fusion.
+"""Multi-source web search and page fetch routing.
 
-The router turns an ordered ``websearch_route`` into a single fused result
-list.  Each route member is queried in parallel, results are deduplicated by a
-canonicalized URL, and the surviving pages are ranked with reciprocal rank
-fusion (RRF).  A source that is unconfigured, fails, or times out is skipped
-without affecting the other sources.
+The router turns an ordered ``websearch_route`` into either one fused search
+result list or one fetched page.  Search queries every configured route member
+in parallel and ranks the surviving pages with reciprocal rank fusion (RRF).
+Page fetch reuses the route order but tries configured extraction providers
+sequentially, moving on when one fails or times out.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import json
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlsplit, urlunparse
 
 from pydantic import Field
 from pydantic.dataclasses import dataclass as pydantic_dataclass
@@ -31,13 +31,17 @@ from astrbot.core.tools.web_search_tools import (
     _baidu_search,
     _bocha_search,
     _brave_search,
+    _deepseek_fetch,
     _deepseek_search,
     _duckduckgo_search,
+    _exa_get_contents,
     _exa_search,
+    _firecrawl_scrape,
     _firecrawl_search,
     _get_runtime,
     _searxng_search,
     _serpapi_search,
+    _tavily_extract,
     _tavily_search,
 )
 from astrbot.core.utils.error_redaction import safe_error
@@ -45,7 +49,14 @@ from astrbot.core.utils.error_redaction import safe_error
 DEFAULT_RRF_K = 60
 DEFAULT_OVERSAMPLE = 8
 SOURCE_TIMEOUT_SECONDS = 20.0
+MAX_FETCH_URL_LENGTH = 8192
 _WEB_SEARCH_DEFAULT_MAX_RESULTS = 7
+_WEB_FETCH_DEFAULT_MAX_CHARACTERS = 3000
+_WEB_FETCH_SOURCE_NAMES = frozenset({"tavily", "firecrawl", "exa", "deepseek"})
+_FETCH_URL_ERROR = (
+    "Error: url must be an HTTP or HTTPS URL with a host, no embedded "
+    "credentials, and at most 8192 characters."
+)
 
 _TRACKING_QUERY_KEYS = frozenset({"gclid", "fbclid"})
 _TRACKING_QUERY_PREFIXES = ("utm_",)
@@ -442,6 +453,181 @@ async def search(
     return reciprocal_rank_fusion(non_empty, limit=target)
 
 
+def fetch_available(route: Sequence[str], provider_settings: dict) -> bool:
+    """Return whether the route has a configured page-extraction source."""
+
+    return any(
+        name in _WEB_FETCH_SOURCE_NAMES
+        and source_is_configured(name, provider_settings)
+        for name in route
+    )
+
+
+def validate_fetch_url(url: object) -> str:
+    """Validate one model-supplied page URL before any provider dispatch.
+
+    Args:
+        url: Candidate URL from a tool call.
+
+    Returns:
+        The stripped URL.
+
+    Raises:
+        ValueError: If the URL is not HTTP(S), has no host, embeds credentials,
+            contains whitespace, has invalid port syntax, or exceeds the length
+            limit.
+    """
+
+    if not isinstance(url, str):
+        raise ValueError(_FETCH_URL_ERROR)
+    candidate = url.strip()
+    if (
+        not candidate
+        or len(candidate) > MAX_FETCH_URL_LENGTH
+        or any(char.isspace() for char in candidate)
+    ):
+        raise ValueError(_FETCH_URL_ERROR)
+    try:
+        parsed = urlsplit(candidate)
+        # Port syntax and range are validated only when this property is read.
+        _ = parsed.port
+    except ValueError:
+        raise ValueError(_FETCH_URL_ERROR) from None
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ValueError(_FETCH_URL_ERROR)
+    return candidate
+
+
+def _format_fetched_page(url: str, content: object, title: object = None) -> str:
+    lines = [f"URL: {url}"]
+    if isinstance(title, str) and title.strip():
+        lines.append(f"Title: {title}")
+    lines.append(f"Content: {content}")
+    return "\n".join(lines)
+
+
+async def _tavily_fetch(provider_settings: dict, url: str) -> str | None:
+    results = await _tavily_extract(
+        provider_settings,
+        {"urls": [url], "extract_depth": "basic"},
+    )
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        content = result.get("raw_content")
+        if content:
+            return _format_fetched_page(
+                str(result.get("url") or url),
+                content,
+                result.get("title"),
+            )
+    return None
+
+
+async def _firecrawl_fetch(provider_settings: dict, url: str) -> str | None:
+    result = await _firecrawl_scrape(
+        provider_settings,
+        {"url": url, "formats": ["markdown"], "onlyMainContent": True},
+    )
+    if not isinstance(result, dict):
+        return None
+    content = result.get("markdown")
+    if not content:
+        return None
+    metadata = result.get("metadata")
+    title = metadata.get("title") if isinstance(metadata, dict) else None
+    return _format_fetched_page(str(result.get("url") or url), content, title)
+
+
+async def _exa_fetch(provider_settings: dict, url: str) -> str | None:
+    results = await _exa_get_contents(
+        provider_settings,
+        {
+            "ids": [url],
+            "text": {"maxCharacters": _WEB_FETCH_DEFAULT_MAX_CHARACTERS},
+        },
+    )
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        content = result.get("text")
+        if content:
+            return _format_fetched_page(
+                str(result.get("url") or url),
+                content,
+                result.get("title"),
+            )
+    return None
+
+
+async def _deepseek_fetch_page(provider_settings: dict, url: str) -> str | None:
+    data = await _deepseek_fetch(provider_settings, {"url": url})
+    if not isinstance(data, dict):
+        return None
+    content = data.get("content")
+    if not content:
+        return None
+    return _format_fetched_page(url, content, data.get("title"))
+
+
+_FETCHERS: Mapping[str, Callable[[dict, str], Awaitable[str | None]]] = {
+    "tavily": _tavily_fetch,
+    "firecrawl": _firecrawl_fetch,
+    "exa": _exa_fetch,
+    "deepseek": _deepseek_fetch_page,
+}
+
+
+async def fetch_page(
+    route: Sequence[str],
+    provider_settings: dict,
+    url: object,
+) -> str | None:
+    """Fetch one page from the first working extraction provider in route order.
+
+    Args:
+        route: Ordered web search source names.
+        provider_settings: Provider settings with per-source configuration.
+        url: Candidate page URL.
+
+    Returns:
+        Normalized page text, or ``None`` when no provider returned content.
+
+    Raises:
+        ValueError: If ``url`` fails :func:`validate_fetch_url`.
+    """
+
+    target = validate_fetch_url(url)
+    for name in route:
+        if name not in _WEB_FETCH_SOURCE_NAMES:
+            continue
+        fetcher = _FETCHERS.get(name)
+        if fetcher is None or not source_is_configured(name, provider_settings):
+            continue
+        try:
+            content = await asyncio.wait_for(
+                fetcher(provider_settings, target),
+                timeout=SOURCE_TIMEOUT_SECONDS,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(
+                "Web fetch source %s failed: %s",
+                name,
+                safe_error("", exc),
+            )
+            continue
+        if content:
+            return content
+    return None
+
+
 def _search_result_payload(results: list[SearchResult]) -> str:
     ref_uuid = str(uuid.uuid4())[:4]
     ret_ls = []
@@ -526,17 +712,66 @@ class WebSearchTool(FunctionTool[AstrAgentContext]):
         return _search_result_payload(results)
 
 
+@builtin_tool(config=_WEB_SEARCH_ENABLED_CONFIG, required_actions=("tool.web_search",))
+@pydantic_dataclass
+class WebFetchTool(FunctionTool[AstrAgentContext]):
+    """Fetch one page through the configured extraction-capable sources."""
+
+    name: str = "web_fetch"
+    description: str = (
+        "Fetch the text content of one web page through the configured web search "
+        "route. Use it to read a known URL, including a page found through web "
+        "search."
+    )
+    parameters: dict = Field(
+        default_factory=lambda: {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": (
+                        "Required. HTTP or HTTPS URL with a host, no embedded "
+                        "credentials, and at most 8192 characters."
+                    ),
+                },
+            },
+            "required": ["url"],
+        }
+    )
+
+    async def call(self, context, **kwargs) -> ToolExecResult:
+        _, provider_settings, _ = _get_runtime(context)
+        route = normalize_route(provider_settings.get("websearch_route"))
+        if not route:
+            return "Error: web search route is not configured in AstrBot."
+
+        try:
+            content = await fetch_page(route, provider_settings, kwargs.get("url"))
+        except ValueError as exc:
+            return str(exc)
+        if not content:
+            return (
+                "Error: web fetch did not return content from any configured provider."
+            )
+        return content
+
+
 __all__ = [
     "DEFAULT_OVERSAMPLE",
     "DEFAULT_RRF_K",
+    "MAX_FETCH_URL_LENGTH",
     "NoSearchSourceError",
     "SEARCH_SOURCES",
     "SearchSource",
     "SOURCE_TIMEOUT_SECONDS",
+    "WebFetchTool",
     "WebSearchTool",
     "canonical_url",
+    "fetch_available",
+    "fetch_page",
     "normalize_route",
     "reciprocal_rank_fusion",
     "search",
     "source_is_configured",
+    "validate_fetch_url",
 ]

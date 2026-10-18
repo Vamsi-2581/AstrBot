@@ -86,6 +86,7 @@ from astrbot.core.tools.computer_tools import (
 )
 from astrbot.core.tools.function_tool_manager import FunctionToolManager
 from astrbot.core.tools.web_search_route import normalize_route
+from astrbot.core.tools.web_search_router import fetch_available
 from astrbot.core.utils.astrbot_path import (
     get_astrbot_system_tmp_path,
     get_astrbot_temp_path,
@@ -1467,6 +1468,7 @@ def _assemble_request_tool_catalog(
         subject_kind=subject_kind,
     )
     loop_mode = "work" if event.get_extra("btw_loop") == "work" else "conversation"
+    web_search_route = normalize_route(provider_settings.get("websearch_route"))
     catalog_inputs = ToolCatalogInputs(
         snapshot=snapshot,
         prompt_tools=prompt_tools,
@@ -1478,10 +1480,11 @@ def _assemble_request_tool_catalog(
         session_tool_names=session_tool_names,
         memory_enabled=memory_manager is not None,
         web_search_enabled=bool(provider_settings.get("web_search", False)),
-        web_search_route=normalize_route(provider_settings.get("websearch_route")),
+        web_search_route=web_search_route,
         web_search_configured_providers=_configured_web_search_providers(
             provider_settings
         ),
+        web_fetch_available=fetch_available(web_search_route, provider_settings),
         group_history_enabled=bool(
             event.get_message_type() == MessageType.GROUP_MESSAGE
             and ltm_settings.get("group_message_history_enable", False)
