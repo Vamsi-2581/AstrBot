@@ -1,6 +1,6 @@
 # Built-in Agent Runner
 
-By default, AstrBot uses the built-in Agent Runner as the default executor. You do not need extra executor setup to use it. Model services themselves are configured through the `Model Providers` and `Provider Configuration` pages.
+By default, AstrBot uses the built-in Agent Runner as the default executor. You do not need extra executor setup to use it. Model services themselves are configured on the **Providers** page.
 
 ![image](https://files.astrbot.app/docs/source/images/astrbot-agent-runner/image.png)
 

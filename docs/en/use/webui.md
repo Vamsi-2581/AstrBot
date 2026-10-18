@@ -11,14 +11,14 @@ These entries match the default WebUI sidebar. If you customized the sidebar, ch
 | Previous entry point                        | Current entry point                                                                 |
 | ------------------------------------------- | ----------------------------------------------------------------------------------- |
 | Providers → Add Provider → Agent Runner     | Config → Select a profile → AI → `…` next to the AI heading → Change execution mode |
-| Data / Dashboard                            | More → Data → Statistics                                                            |
-| Conversation Management / Conversations     | More → Data → Conversations                                                         |
-| Logs / Console                              | More → Data → Logs                                                                  |
-| Trace                                       | More → Data → Trace                                                                 |
+| Data / Dashboard                            | More Features → Data and Logs → Statistics                                          |
+| Conversation Management / Conversations     | More Features → Data and Logs → Conversations                                       |
+| Logs / Console                              | More Features → Data and Logs → Logs                                                |
+| Trace                                       | More Features → Data and Logs → Trace                                               |
 | Config → Normal Config                      | Config → Select a profile                                                           |
 | Config → System Config                      | Settings → General, Appearance, Network, or Security                                |
-| Command Management                          | Plugins → Manage behavior → Commands                                                |
-| Standalone MCP / Skills entries             | Plugins → MCP / Skills                                                              |
+| Command Management                          | Extensions → Manage Handlers → Commands                                             |
+| Standalone MCP / Skills entries             | Extensions → MCP Servers / Skills                                                   |
 | Config → AI → Capabilities → BTW dual loops | More Features → BTW Dual Loop (`/btw`)                                              |
 | Work-task status and coding-agent output    | More Features → BTW Delegated Runs (`/btw/runs`)                                    |
 | Persona / Persona Settings                  | Prompts / Prompt Settings                                                           |
@@ -117,7 +117,7 @@ Config profiles still control routed Agent, model, message-processing, and plugi
 
 ## Data workspace
 
-**More → Data** opens `/dashboard` with tabs for Statistics, Conversations, Logs, and Trace. The first visit opens Statistics; later visits reopen the last tab you used. The runtime `data/` file manager remains at `/data`; see [Data files](#data-files).
+**More Features → Data and Logs** opens `/dashboard` with tabs for Statistics, Conversations, Logs, and Trace. The first visit opens Statistics; later visits reopen the last tab you used. The runtime `data/` file manager remains at `/data`; see [Data files](#data-files).
 
 ### Statistics
 
@@ -179,6 +179,10 @@ In the conversation list, hover a conversation and select the share button to cr
 > [!WARNING]
 > The share link is itself a credential. Anyone holding it can read the conversation, so do not share conversations that contain sensitive information.
 
+### Parallel models
+
+Multi-model turns are off by default. Enable `dashboard.chatui_multi_model.enable` and set `dashboard.chatui_multi_model.max_models` (2–8, default 3) in `data/cmd_config.json`. In ChatUI, use **Compare models** beside the model selector to choose several models for the next prompt. Each answer becomes a branch saved with the assistant message, and the reply header switches between the branches. The first selected model is stored as the session's model.
+
 ### High-risk tools in ChatUI
 
 The shield-key button beside the message box enables high-risk tools for one
@@ -214,7 +218,7 @@ from `/session info` as `instance_operator` on that config. See
 
 WebUI supports multiple Dashboard accounts. First startup creates a bootstrap `root` account (username is usually `astrbot`). Control-plane identity comes from the account table and role bindings; a username never implies `root`.
 
-**More → Authorization** opens `/authorization`. Dashboard accounts, IM session owners, and `/admin grant` are not the same identity. Group grants, step-up, and the role table are in [Authorization](./authorization).
+**More Features → Authorization** opens `/authorization`. Dashboard accounts, IM session owners, and `/admin grant` are not the same identity. Group grants, step-up, and the role table are in [Authorization](./authorization).
 
 Cross-session watches, connects, and `/send` have no Dashboard management surface in this stage. After binding `instance_operator`, create, list, and stop watches or links only with the [built-in IM commands](./command#cross-session-watches-and-sending). The command-management page can enable or disable those commands, but it does not list active watches or links.
 
@@ -222,7 +226,7 @@ The developer model is in [Architecture](/en/dev/architecture#unified-authorizat
 
 ## Visual Configuration
 
-In the admin panel, you can configure AstrBot's plugins through visual configuration. Click `Configuration` in the left sidebar to enter the configuration page. Profiles, session binding, and priority versus custom rules are in [Configuration profiles](./config-profiles).
+In the admin panel, you can configure AstrBot's plugins through visual configuration. Click `Config` in the left sidebar to enter the configuration page. Profiles, session binding, and priority versus custom rules are in [Configuration profiles](./config-profiles).
 
 ![image](https://files.astrbot.app/docs/source/images/webui/image-3.png)
 
@@ -234,11 +238,11 @@ After editing, first click `Apply This Configuration`, which will apply the conf
 
 ![alt text](https://files.astrbot.app/docs/source/images/webui/image-5.png)
 
-## Plugins
+## Extensions (plugins)
 
-In the admin panel, you can view installed plugins and install new plugins through the `Plugins` section in the left sidebar. Marketplace source, `astrbot_version`, and Dashboard extensions are in [Plugins](./plugin).
+In the admin panel, you can view installed plugins and install new plugins through the `Extensions` section in the left sidebar. Marketplace source, `astrbot_version`, and Dashboard extensions are in [Plugins](./plugin).
 
-Click the Plugin Market tab to browse plugins from the default marketplace source. That source first requests the upstream `cloud.astrbot.app` market JSON, then falls back to `AstrBotDevs/AstrBot_Plugins_Collection` and its CDN; Xero-Team does not operate or review it. This fork requires Python 3.14+ and does not keep legacy plugin APIs, so entries in that list may fail to install or load.
+Click the **AstrBot Plugin Market** tab to browse plugins from the default marketplace source. That source first requests the upstream `cloud.astrbot.app` market JSON, then falls back to `AstrBotDevs/AstrBot_Plugins_Collection` and its CDN; Xero-Team does not operate or review it. This fork requires Python 3.14+ and does not keep legacy plugin APIs, so entries in that list may fail to install or load.
 
 ![image](https://files.astrbot.app/docs/source/images/webui/image-1.png)
 
@@ -268,7 +272,7 @@ Commands are identified by a stable `command_id` of the form `plugin-name:origin
 
 ## Data files
 
-**More → Data files** opens `/data` to browse and edit the active runtime `data/` directory. It is not a remote IDE: there is no terminal, code execution, Git, or arbitrary host-path access.
+**More Features → Data Files** opens `/data` to browse and edit the active runtime `data/` directory. It is not a remote IDE: there is no terminal, code execution, Git, or arbitrary host-path access.
 
 On desktop the left pane is a directory tree and the center holds file tabs plus a Monaco editor. The URL stores only a relative path such as `/data?path=skills/demo/SKILL.md`, never file contents or credentials. An invalid path falls back to the `data/` root. Hidden files are shown. Leaving a dirty tab prompts for confirmation.
 

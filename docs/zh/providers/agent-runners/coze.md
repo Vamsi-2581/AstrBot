@@ -48,17 +48,11 @@ AstrBot 支持接入 [Coze](https://www.coze.cn/) 的 Agent 服务。
 
 完成了所有预备工作, 现在我们就可以在 AstrBot 中配置 Coze 了。
 
-进入 AstrBot 管理面板 -> 服务提供商 -> 新增服务提供商 -> Coze, 进入配置页面。
-
-![Coze 供应商](https://files.astrbot.app/docs/source/images/coze/image_8.png)
-
-填入刚刚创建的 API Key 和 bot_id, 然后点击保存。
+打开 **配置文件 → 选择配置文件 → AI 配置 → Agent 执行方式**，选择 **Coze**，在同页填写刚刚创建的 API Key 和 `bot_id`，然后点击保存。
 
 > 其他配置说明:
 >
 > - API Base URL: 一般不需要修改, 如果你使用的是 Coze 国际版, 这里修改为: "<https://api.coze.com>"
 > - 由 Coze 管理对话记录: 如描述所示。
 
-## 选择 Agent 执行器
-
-进入左边栏配置页面，点击「Agent 执行方式」，选择「Coze」，填写 API Key 和 Bot ID 后点击右下角「保存」，即可完成配置。
+执行器配置按配置文件保存；需要接入多个 Coze Bot 时，请使用不同的配置文件。

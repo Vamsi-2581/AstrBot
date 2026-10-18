@@ -63,7 +63,7 @@ Discord supports only a root command, one optional subcommand group, and a subco
 
 Discord supports the pre-acknowledgment emoji feature. When enabled, the bot will add an emoji reaction when processing a message, letting users know the bot is working on their request.
 
-In the admin panel's "Configuration" page, find `Platform Specific -> Discord -> Pre-acknowledgment Emoji`:
+In the admin panel, open `Config -> select a profile -> Platform -> Other Settings -> Discord -> Pre-acknowledgment Emoji`:
 
 - **Enable Pre-acknowledgment Emoji**: When enabled, the bot will automatically add an emoji reaction upon receiving a message
 - **Emoji List**: Enter Unicode emoji symbols, e.g., 👍, 🤔, ⏳. You can add multiple emojis, and the bot will randomly select one to use

@@ -1,6 +1,6 @@
 # MCP
 
-AstrBot uses MCP Python SDK 2.x and the fixed MCP `2026-07-28` protocol to connect independent tool servers. Create, test, enable, inspect catalogs, and remove servers in **Plugins → MCP**.
+AstrBot uses MCP Python SDK 2.x and the fixed MCP `2026-07-28` protocol to connect independent tool servers. Create, test, enable, inspect catalogs, and remove servers in **Extensions → MCP Servers**.
 
 Only stdio and Streamable HTTP are supported. SSE, the `initialize`/session handshake, legacy protocol fallback, and their former timeout settings have been removed. A server that only supports an older protocol is explicitly rejected.
 

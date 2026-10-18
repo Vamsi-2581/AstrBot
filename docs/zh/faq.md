@@ -122,7 +122,7 @@ uv run python scripts/sync_dashboard_dist.py
 
 ### 如何使用电脑能力
 
-在 **配置 → Agent Computer Use** 中选择：
+在 **配置文件 → 选择配置文件 → AI 配置 → 能力 → 使用电脑能力** 中选择：
 
 - `local`：直接操作 AstrBot 主机，只适合可信环境；
 - `sandbox`：使用配置的 Shipyard Neo 或 CUA 沙箱；

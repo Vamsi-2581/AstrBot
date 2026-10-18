@@ -19,7 +19,7 @@
 
 </div>
 
-AstrBot is an open-source all-in-one Agent chatbot platform that integrates with mainstream instant messaging apps. It provides reliable and scalable conversational AI infrastructure for individuals, developers, and teams. Whether you're building a personal AI companion, intelligent customer service, automation assistant, or local knowledge-base retrieval, AstrBot lets you assemble AI applications inside IM workflows. The knowledge base is currently a single-node SQLite + FAISS store, not a hosted enterprise search service.
+AstrBot is an open-source all-in-one Agent chatbot platform that integrates with mainstream instant messaging apps. It provides reliable and scalable conversational AI infrastructure for individuals, developers, and teams. Whether you're building a personal AI companion, intelligent customer service, automation assistant, or local knowledge-base retrieval, AstrBot lets you assemble AI applications inside IM workflows. The knowledge base is currently a single-node SQLite store with a local vector index (FAISS by default, with an optional pure-NumPy exact backend), not a hosted enterprise search service.
 
 This repository is a modernized fork of AstrBot. The code, commands, deployment files, and compatibility expectations documented here describe this fork only: Python 3.14+, `uv` for backend workflows, `pnpm` for the dashboard, and no legacy compatibility shims.
 
@@ -72,7 +72,7 @@ uv run python scripts/sync_dashboard_dist.py
 uv run main.py
 ```
 
-Install [uv](https://docs.astral.sh/uv/), Node.js 26.11.1, and pnpm 12.11.2 first. The checkout pins Python 3.14.8 and the required pnpm version. On first startup, open `http://localhost:6185` and use the random password printed in the log; the default username is `astrbot`.
+Install [uv](https://docs.astral.sh/uv/), Node.js 26.11.1, and pnpm 12.11.2 first. The checkout pins Python 3.14.8 and the required pnpm version. On first startup, open `http://localhost:6185` and use the random password shown on the attached operator terminal; the default username is `astrbot`. The password is not written to the startup log.
 
 If you enable local text-to-image or plugin HTML rendering, also run `uv run astrbot install-browser` once. See [Deploy AstrBot from Source](docs/en/deploy/astrbot/cli.md) for updates, remote access, and security guidance.
 

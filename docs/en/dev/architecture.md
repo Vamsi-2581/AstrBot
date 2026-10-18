@@ -57,7 +57,7 @@ The source and CLI entry points have different preparation paths, but both event
 
 `AstrBotCoreLifecycle` builds Provider, Platform, Conversation, Prompt, Memory, Knowledge Base, Cron, Plugin, SubAgent, and Pipeline managers on top of those services in dependency order. Pass shared capabilities through their existing owners; do not restore process-global service singletons.
 
-The main SQLite database uses SQLModel tables as the schema source of truth. Access ports are the domain store protocols; `SQLiteDatabase` is only the composite implementation. Details are in [Main SQLite database](#main-sqlite-database) below. The knowledge-base SQLite file and FAISS document store stay separate from the main database.
+The main SQLite database uses SQLModel tables as the schema source of truth. Access ports are the domain store protocols; `SQLiteDatabase` is only the composite implementation. Details are in [Main SQLite database](#main-sqlite-database) below. The knowledge-base SQLite file and vector-index store stay separate from the main database.
 
 ## Main SQLite database
 
@@ -363,7 +363,7 @@ Usage is in [WebUI](/en/use/webui#data-files).
 
 `AstrBotConfig.save_config_async()` deep-copies a stable snapshot before leaving the event loop and commits monotonically increasing revisions. An older write that finishes late cannot replace a newer configuration. Async callers should use this API and preserve its temporary-file, `fsync`, and atomic-replace semantics instead of assembling concurrent saves with `to_thread(save_config)`.
 
-Knowledge-base uploads span media files, document metadata, chunk storage, and FAISS vectors. Validate vector shape and dimension before local writes. If any step fails before metadata commit, compensating cleanup must remove every already-written store so an API-reported failure never leaves a partially queryable document.
+Knowledge-base uploads span media files, document metadata, chunk storage, and backend-specific vectors (FAISS or the NumPy exact backend). Validate vector shape and dimension before local writes. If any step fails before metadata commit, compensating cleanup must remove every already-written store so an API-reported failure never leaves a partially queryable document.
 
 ## Runtime Root
 

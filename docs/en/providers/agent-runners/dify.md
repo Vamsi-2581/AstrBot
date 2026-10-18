@@ -6,11 +6,11 @@ If you haven't installed Dify yet, please refer to the [Dify Installation Docume
 
 ## Configure Dify in AstrBot
 
-In the WebUI, open Configuration -> Agent Execution Method, select Dify, and fill in the Dify fields on the same page.
+In the WebUI, open **Config → select a profile → AI → Agent Execution Method**, select Dify, and fill in the Dify fields on the same page.
 
 ![image](https://files.astrbot.app/docs/source/images/dify/image.png)
 
-In Dify, one `API Key` uniquely corresponds to one Dify application. Therefore, you can create multiple Providers to adapt to multiple Dify applications.
+In Dify, one `API Key` uniquely corresponds to one Dify application. The runner configuration is stored per profile, so use a separate configuration profile for each Dify application.
 
 According to the current Dify project, there are three types:
 
@@ -63,7 +63,7 @@ Copy the key and paste it into the `API Key` field in the configuration, then cl
 
 ### Select Agent Runner
 
-Go to the Configuration page in the left sidebar, click "Agent Execution Method", select "Dify", fill in the API key and related fields, and click "Save" in the bottom right corner.
+Open **Config → select a profile → AI → Agent Execution Method**, select **Dify**, fill in the API key and related fields, and click "Save" in the bottom right corner.
 
 ## Appendix: Dynamically Set Workflow Input Variables During Chat (Optional)
 

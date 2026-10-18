@@ -14,7 +14,7 @@ Click to enter the application, click Publishing Channel -> API Call -> API KEY,
 
 ![alt text](https://files.astrbot.app/docs/source/images/dashscope/image-2.png)
 
-In the WebUI, open Configuration -> Agent Execution Method, select Alibaba Cloud Bailian Application, and fill in the fields on the same page.
+In the WebUI, open **Config → select a profile → AI → Agent Execution Method**, select Alibaba Cloud Bailian Application, and fill in the fields on the same page.
 
 According to Alibaba Cloud Bailian Application, there are four application types:
 
@@ -34,7 +34,7 @@ After filling in these three items, click Save.
 
 ## Select Agent Runner
 
-Go to the Configuration page in the left sidebar, click "Agent Execution Method", select "Alibaba Cloud Bailian Application", fill in the API key and app ID, and click "Save" in the bottom right corner.
+Open **Config → select a profile → AI → Agent Execution Method**, select **Alibaba Cloud Bailian Application**, fill in the API key and app ID, and click "Save" in the bottom right corner.
 
 ## Appendix: Dynamically Set Workflow Input Variables During Chat (Optional)
 

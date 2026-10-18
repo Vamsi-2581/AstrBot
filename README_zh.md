@@ -17,7 +17,7 @@
 
 </div>
 
-AstrBot 是一个开源的一站式 Agentic 个人和群聊助手，可在 QQ、Telegram、企业微信、飞书、钉钉、Slack 等数十款主流即时通讯软件上部署，此外还内置类似 OpenWebUI 的轻量化 ChatUI，为个人、开发者和团队打造可靠、可扩展的对话式智能基础设施。无论是个人 AI 伙伴、智能客服、自动化助手，还是本地知识库检索，都能在即时通讯软件的工作流中构建 AI 应用。知识库当前是单机 SQLite + FAISS，不是托管式企业检索服务。
+AstrBot 是一个开源的一站式 Agentic 个人和群聊助手，可在 QQ、Telegram、企业微信、飞书、钉钉、Slack 等数十款主流即时通讯软件上部署，此外还内置类似 OpenWebUI 的轻量化 ChatUI，为个人、开发者和团队打造可靠、可扩展的对话式智能基础设施。无论是个人 AI 伙伴、智能客服、自动化助手，还是本地知识库检索，都能在即时通讯软件的工作流中构建 AI 应用。知识库当前是单机 SQLite 加本地向量索引（默认 FAISS，另提供可选的纯 NumPy 精确检索后端），不是托管式企业检索服务。
 
 这个仓库是 AstrBot 的现代化 fork。这里记录的命令、部署文件和兼容性边界均以当前分支为准：Python 3.14+、后端使用 `uv`、前端使用 `pnpm`，并且不再为旧兼容路径背书。
 
@@ -70,13 +70,13 @@ uv run python scripts/sync_dashboard_dist.py
 uv run main.py
 ```
 
-请先安装 [uv](https://docs.astral.sh/uv/)、Node.js 26.11.1 和 pnpm 12.11.2。仓库固定使用 Python 3.14.8 和对应的 pnpm 版本。首次启动后访问 `http://localhost:6185`，默认用户名为 `astrbot`，随机初始密码会打印在日志中。
+请先安装 [uv](https://docs.astral.sh/uv/)、Node.js 26.11.1 和 pnpm 12.11.2。仓库固定使用 Python 3.14.8 和对应的 pnpm 版本。首次启动后访问 `http://localhost:6185`，默认用户名为 `astrbot`，随机初始密码会显示在连接的运维终端中，不会写入启动日志。
 
 如果启用本地文转图或插件 HTML 渲染，还需执行一次 `uv run astrbot install-browser`。更新、远程访问和安全配置请参阅[从源码部署 AstrBot](docs/zh/deploy/astrbot/cli.md)。
 
 ### Docker 部署
 
-当前 fork 不提供官方预构建镜像，请从当前 checkout 本地构建。Compose 会将容器内 Dashboard 监听在 `0.0.0.0`，宿主机端口默认只绑定 `127.0.0.1`；需要远程访问时，请显式设置 `ASTRBOT_BIND_ADDRESS=0.0.0.0`，并配置防火墙或 HTTPS 反向代理。
+仓库内的 Compose 仍从当前 checkout 本地构建 `astrbot:local`。定时任务还会把 `master` 的 `runtime` 镜像发布到 GHCR 的 `ghcr.io/xero-team/astrbot:nightly`；它只是可选拉取路径，不是带版本号的发行镜像。Compose 会将容器内 Dashboard 监听在 `0.0.0.0`，宿主机端口默认只绑定 `127.0.0.1`；需要远程访问时，请显式设置 `ASTRBOT_BIND_ADDRESS=0.0.0.0`，并配置防火墙或 HTTPS 反向代理。
 
 然后构建并启动：
 

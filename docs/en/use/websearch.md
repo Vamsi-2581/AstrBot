@@ -25,7 +25,7 @@ Keyless `SearXNG` and `DuckDuckGo` are supported alongside the key-based `Tavily
 
 ![image](https://files.astrbot.app/docs/source/images/websearch/image.png)
 
-Go to `Configuration`, scroll down to find Web Search, choose and order the sources under `Web Search Sources`, then fill in the API Key for each source you enable.
+Go to **Config → select a profile → AI**, find Web Search, choose and order the sources under `Web Search Sources`, then fill in the API Key for each source you enable.
 
 ## SearXNG (self-hosted, keyless)
 

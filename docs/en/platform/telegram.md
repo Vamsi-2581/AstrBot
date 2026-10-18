@@ -92,7 +92,7 @@ Fill in the configuration fields that appear:
 - Enable: Check this option.
 - Bot Token: Your Telegram bot's `token`.
 
-Please ensure your network environment can access Telegram. You may need to configure a proxy using `Configuration -> Other Settings -> HTTP Proxy`.
+Please ensure your network environment can access Telegram. You may need to configure a proxy under `Settings -> Network -> Proxy & Dependency Sources -> HTTP Proxy`.
 
 ## Native Command Menu
 
@@ -114,7 +114,7 @@ When sending 2–10 compatible images, AstrBot uses one ordered media group and 
 
 ## Streaming Output
 
-The Telegram platform supports streaming output. Enable the "Streaming Output" switch in "AI Configuration" -> "Other Settings".
+The Telegram platform supports streaming output. Enable the "Streaming Output" switch under **Config -> select a profile -> AI -> Common Settings**.
 
 ### Private Chat Streaming
 
