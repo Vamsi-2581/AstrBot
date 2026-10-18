@@ -5,6 +5,7 @@ import os
 import re
 import zipfile
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -1219,3 +1220,31 @@ async def test_restored_source_blob_can_reindex(tmp_path):
     finally:
         await helper.terminate()
         await db.close()
+
+
+@pytest.mark.parametrize("filename", ["index.faiss", "index.npz"])
+@pytest.mark.asyncio
+async def test_backup_round_trips_backend_vector_index(tmp_path, filename):
+    """Both the FAISS and exact index files survive export and import."""
+    kb_id = "kb1"
+    kb_dir = tmp_path / "kb"
+    kb_dir.mkdir()
+    (kb_dir / filename).write_bytes(b"vector-index")
+
+    zip_path = tmp_path / "kb-index.zip"
+    exporter = AstrBotExporter.__new__(AstrBotExporter)
+    helper = SimpleNamespace(kb_dir=kb_dir)
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        await exporter._export_kb_vector_index(zf, helper, kb_id)
+    with zipfile.ZipFile(zip_path) as zf:
+        assert f"databases/kb_{kb_id}/{filename}" in zf.namelist()
+
+    restore_dir = tmp_path / "restore"
+    restore_dir.mkdir()
+    importer = AstrBotImporter.__new__(AstrBotImporter)
+    result = ImportResult()
+    with zipfile.ZipFile(zip_path) as zf:
+        await importer._import_single_kb_vector_index(zf, kb_id, restore_dir, result)
+
+    assert (restore_dir / filename).read_bytes() == b"vector-index"
+    assert result.success is True

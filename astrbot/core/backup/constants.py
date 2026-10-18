@@ -63,6 +63,9 @@ KB_METADATA_MODELS: dict[str, type[SQLModel]] = {
     "kb_media": KBMedia,
 }
 
+# Vector index files owned by the configured knowledge-base backend.
+KB_VECTOR_INDEX_FILENAMES: tuple[str, ...] = ("index.faiss", "index.npz")
+
 
 def get_backup_directories() -> dict[str, str]:
     """获取需要备份的目录列表
