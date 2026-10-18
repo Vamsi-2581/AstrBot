@@ -25,11 +25,8 @@ JEV_SYSTEMONE_TEMPLATE = {
 }
 
 
-def get_local_permission_defaults(system: str | None = None) -> dict:
+def get_local_permission_defaults() -> dict:
     """Return fresh Local permission defaults shared by all operating systems.
-
-    Args:
-        system: Retained for callers supplying an operating system name.
 
     Returns:
         Workspace files without execution for members and unrestricted local

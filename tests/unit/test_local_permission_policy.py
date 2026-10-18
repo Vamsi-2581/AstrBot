@@ -50,12 +50,9 @@ def _make_context(
 
 
 def test_local_permission_defaults_are_platform_independent() -> None:
-    windows = get_local_permission_defaults("Windows")
-    posix = get_local_permission_defaults("Linux")
-    assert windows["member"]["filesystem_scope"] == "workspace"
-    assert windows["admin"]["filesystem_scope"] == "host"
-    assert posix["member"]["filesystem_scope"] == "workspace"
-    assert posix["admin"]["filesystem_scope"] == "host"
+    defaults = get_local_permission_defaults()
+    assert defaults["member"]["filesystem_scope"] == "workspace"
+    assert defaults["admin"]["filesystem_scope"] == "host"
 
 
 @pytest.mark.asyncio
@@ -122,6 +119,17 @@ async def test_execution_is_denied_when_policy_disables_it() -> None:
     _policy, error = await check_local_execution_permission(context, "Shell execution")
     assert error is not None
     assert "disabled" in error
+
+
+@pytest.mark.asyncio
+async def test_execution_denial_points_to_authorization_role_binding() -> None:
+    context = _make_context(effective_role=Role.MEMBER)
+    _policy, error = await check_local_execution_permission(context, "Shell execution")
+    assert error is not None
+    assert "More Features -> Authorization" in error
+    assert "`instance_operator`" in error
+    assert "`im:test-platform:test-bot:test-user`" in error
+    assert "Access Control" not in error
 
 
 @pytest.mark.asyncio

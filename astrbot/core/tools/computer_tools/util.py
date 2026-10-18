@@ -346,16 +346,17 @@ async def check_local_execution_permission(
             role != "admin"
             and get_local_permission_policy(context, role="admin").allow_execution
         ):
-            sender_id = context.context.event.get_sender_id()
-            identity = (
-                f" (the user id is: `{sender_id}`)"
-                if sender_id
-                else " (obtain the ID with /sid)"
+            subject_id = getattr(
+                getattr(context.context.event, "subject", None),
+                "id",
+                None,
             )
+            identity = f" `{subject_id}`" if subject_id else " from /session info"
             instructions = (
                 "Ask an AstrBot administrator to either:\n"
-                f"1. Add this user's ID{identity} under AstrBot WebUI -> Config -> "
-                "Access Control -> Administrators -> Administrator IDs.\n"
+                f"1. Grant this session's Subject ID{identity} the "
+                "`instance_operator` role for this configuration profile in "
+                "AstrBot WebUI -> More Features -> Authorization.\n"
                 f"2. Enable `Execute code` for members in {policy_location}."
             )
         return policy, (

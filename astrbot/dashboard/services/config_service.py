@@ -632,11 +632,7 @@ def validate_config(
         validate(data, meta_all)
         if isinstance(data, dict):
             AstrBotConfig._strip_unknown_config_keys(DEFAULT_CONFIG, data)
-        _validate_local_permissions(
-            data,
-            errors,
-            runtime=runtime,
-        )
+        _validate_local_permissions(data, errors)
     else:
         validate(data, schema)
 
@@ -646,11 +642,9 @@ def validate_config(
 def _validate_local_permissions(
     data: dict,
     errors: list[str],
-    *,
-    runtime: dict | None,
 ) -> None:
     provider_settings = data.get("provider_settings", {})
-    defaults = get_local_permission_defaults(runtime.get("os") if runtime else None)
+    defaults = get_local_permission_defaults()
     permissions = (
         provider_settings.get("computer_use_local_permissions", {})
         if isinstance(provider_settings, dict)
