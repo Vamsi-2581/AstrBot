@@ -49,13 +49,13 @@ def _make_context(
     return ContextWrapper(context=SimpleNamespace(context=config_holder, event=event))
 
 
-def test_local_permission_defaults_disable_windows_member_access() -> None:
+def test_local_permission_defaults_are_platform_independent() -> None:
     windows = get_local_permission_defaults("Windows")
     posix = get_local_permission_defaults("Linux")
-    assert windows["member"]["filesystem_scope"] == "none"
+    assert windows["member"]["filesystem_scope"] == "workspace"
     assert windows["admin"]["filesystem_scope"] == "host"
     assert posix["member"]["filesystem_scope"] == "workspace"
-    assert posix["admin"]["filesystem_scope"] == "workspace"
+    assert posix["admin"]["filesystem_scope"] == "host"
 
 
 @pytest.mark.asyncio
