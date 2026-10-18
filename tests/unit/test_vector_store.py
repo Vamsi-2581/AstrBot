@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,8 @@ from astrbot.core.db.vec_db import (
 from astrbot.core.db.vec_db.base import VectorStore
 from astrbot.core.db.vec_db.exact import ExactVecDB
 from astrbot.core.db.vec_db.faiss import FaissVecDB
+
+_FAISS_AVAILABLE = importlib.util.find_spec("faiss") is not None
 
 
 class _FakeEmbeddingProvider:
@@ -52,6 +55,7 @@ def test_normalize_and_filename() -> None:
     assert vector_index_filename("faiss") == "index.faiss"
 
 
+@pytest.mark.skipif(not _FAISS_AVAILABLE, reason="FAISS is not installed")
 def test_create_vector_store_selects_backend(tmp_path: Path) -> None:
     provider = _FakeEmbeddingProvider()
 

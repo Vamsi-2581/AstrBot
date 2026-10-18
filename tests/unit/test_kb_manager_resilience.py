@@ -299,14 +299,63 @@ async def test_ensure_vec_db_clears_stale_init_error(
         def __new__(cls, *args, **kwargs):
             return mock_vec_db
 
-    with patch(
-        "astrbot.core.db.vec_db.faiss.FaissVecDB",
-        FakeFaissVecDB,
+    with (
+        patch(
+            "astrbot.core.knowledge_base.kb_helper.importlib.util.find_spec",
+            return_value=object(),
+        ),
+        patch(
+            "astrbot.core.db.vec_db.faiss.FaissVecDB",
+            FakeFaissVecDB,
+        ),
     ):
         await helper._ensure_vec_db()
 
         assert helper.init_error is None
         assert helper.vec_db is mock_vec_db
+
+
+@pytest.mark.asyncio
+async def test_ensure_vec_db_falls_back_to_exact_without_faiss(
+    stub_provider_manager_module,
+    mock_provider_manager,
+    mock_kb_db,
+    mock_knowledge_base,
+    mock_embedding_provider,
+):
+    """Windows has no FAISS wheel for Python 3.15; use the exact backend."""
+
+    from astrbot.core.knowledge_base.kb_helper import KBHelper
+
+    mock_provider_manager.get_provider_by_id.return_value = mock_embedding_provider
+
+    helper = KBHelper.__new__(KBHelper)
+    helper.kb = mock_knowledge_base
+    helper.prov_mgr = mock_provider_manager
+    helper.kb_db = mock_kb_db
+    helper.kb_root_dir = "/tmp/test_kb"
+    helper.chunker = MagicMock()
+    helper.kb_dir = Path("/tmp/test_kb") / mock_knowledge_base.kb_id
+    helper.kb_medias_dir = helper.kb_dir / "medias" / mock_knowledge_base.kb_id
+    helper.kb_files_dir = helper.kb_dir / "files" / mock_knowledge_base.kb_id
+
+    mock_vec_db = MagicMock()
+    mock_vec_db.initialize = AsyncMock()
+
+    with (
+        patch(
+            "astrbot.core.knowledge_base.kb_helper.importlib.util.find_spec",
+            return_value=None,
+        ),
+        patch(
+            "astrbot.core.db.vec_db.create_vector_store",
+            return_value=mock_vec_db,
+        ) as create_vector_store,
+    ):
+        await helper._ensure_vec_db()
+
+    assert create_vector_store.call_args.args[0] == "exact"
+    assert helper.vec_db is mock_vec_db
 
 
 @pytest.mark.asyncio

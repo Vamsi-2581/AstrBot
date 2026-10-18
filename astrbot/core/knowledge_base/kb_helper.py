@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import importlib.util
 import json
 import shutil
 import uuid
@@ -164,6 +165,7 @@ class KBHelper:
     async def _ensure_vec_db(self) -> VectorStore:
         from astrbot.core.db.vec_db import (
             create_vector_store,
+            normalize_vector_store,
             vector_index_filename,
         )
         from astrbot.core.db.vec_db.base import VectorStore
@@ -186,6 +188,16 @@ class KBHelper:
             )
 
         vector_store = getattr(self, "vector_store", "faiss")
+        if (
+            normalize_vector_store(vector_store) == "faiss"
+            and importlib.util.find_spec("faiss") is None
+        ):
+            logger.warning(
+                "FAISS is not installed; using the exact NumPy vector backend for "
+                "knowledge base %s.",
+                self.kb.kb_name,
+            )
+            vector_store = "exact"
         vec_db = create_vector_store(
             vector_store,
             doc_store_path=str(self.kb_dir / "doc.db"),

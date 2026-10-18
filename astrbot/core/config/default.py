@@ -412,7 +412,7 @@ DEFAULT_CONFIG = {
             "ocr_languages": "eng",
             "tika_url": "",
         },
-        "vector_store": "faiss",
+        "vector_store": "exact" if os.name == "nt" else "faiss",
     },
     "disable_metrics": False,
 }
