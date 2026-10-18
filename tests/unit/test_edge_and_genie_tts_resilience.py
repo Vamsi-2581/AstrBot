@@ -523,3 +523,50 @@ def test_genie_tts_hides_initialization_failure(monkeypatch, caplog) -> None:
     for sensitive_value in _SENSITIVE_VALUES:
         assert sensitive_value not in str(caught.value)
         assert sensitive_value not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_edge_tts_preserves_sdk_user_agent(monkeypatch, tmp_path) -> None:
+    """The adapter must not mutate the shared Edge TTS WebSocket headers."""
+    native_headers = {"User-Agent": "edge-tts-sdk/1.0"}
+
+    class _Communicate:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        async def save(self, path: str) -> None:
+            Path(path).write_bytes(b"mp3")
+
+    fake_edge_tts = SimpleNamespace(
+        Communicate=_Communicate,
+        constants=SimpleNamespace(WSS_HEADERS=native_headers),
+    )
+    real_import_module = edge_tts_source.importlib.import_module
+
+    def fake_import_module(name: str, *args: object, **kwargs: object):
+        if name == "edge_tts":
+            return fake_edge_tts
+        if name == "pyffmpeg":
+            raise ImportError("pyffmpeg unavailable")
+        return real_import_module(name, *args, **kwargs)
+
+    async def fake_convert(_self, _mp3_path: Path, wav_path: Path) -> None:
+        wav_path.write_bytes(b"wav")
+
+    monkeypatch.setattr(
+        edge_tts_source.importlib,
+        "import_module",
+        fake_import_module,
+    )
+    monkeypatch.setattr(
+        edge_tts_source,
+        "get_astrbot_temp_path",
+        lambda: str(tmp_path),
+    )
+    monkeypatch.setattr(ProviderEdgeTTS, "_convert_with_ffmpeg", fake_convert)
+
+    result = await _edge_provider().get_audio("hello")
+
+    assert Path(result).read_bytes() == b"wav"
+    assert native_headers == {"User-Agent": "edge-tts-sdk/1.0"}
+    assert not list(tmp_path.glob("edge_tts_temp_*.mp3"))
