@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from astrbot.core.tools import web_search_route as route
 from astrbot.core.tools import web_search_router as router
 from astrbot.core.tools import web_search_tools as tools
 
@@ -363,7 +364,7 @@ def _context_with_provider_settings(provider_settings):
 
 
 def test_fetch_available_requires_configured_extraction_source():
-    assert router.fetch_available(["searxng", "duckduckgo"], {}) is False
+    assert route.fetch_available(["searxng", "duckduckgo"], {}) is False
     assert router.fetch_available(["tavily"], {}) is False
     assert router.fetch_available(["tavily"], {"websearch_tavily_key": ["k"]}) is True
     assert (
@@ -374,6 +375,10 @@ def test_fetch_available_requires_configured_extraction_source():
     assert (
         router.fetch_available(["deepseek"], {"websearch_deepseek_key": ["k"]}) is True
     )
+
+
+def test_fetch_sources_match_availability_settings():
+    assert set(router._FETCHERS) == set(route.FETCH_SOURCE_KEY_SETTINGS)
 
 
 @pytest.mark.parametrize(

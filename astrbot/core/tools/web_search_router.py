@@ -23,7 +23,11 @@ from astrbot import logger
 from astrbot.core.agent.tool import FunctionTool, ToolExecResult
 from astrbot.core.astr_agent_context import AstrAgentContext
 from astrbot.core.tools.registry import builtin_tool
-from astrbot.core.tools.web_search_route import normalize_route
+from astrbot.core.tools.web_search_route import (
+    fetch_available,
+    has_configured_keys,
+    normalize_route,
+)
 from astrbot.core.tools.web_search_tools import (
     _WEB_SEARCH_ENABLED_CONFIG,
     SearchResult,
@@ -73,13 +77,6 @@ class SearchSource:
     fetch: Callable[[dict, str, int], Awaitable[list[SearchResult]]]
     is_configured: Callable[[dict], bool]
     max_candidates: int
-
-
-def _has_keys(provider_settings: dict, setting_name: str) -> bool:
-    value = provider_settings.get(setting_name)
-    if not isinstance(value, list | tuple):
-        return False
-    return any(str(item).strip() for item in value)
 
 
 def _has_text(provider_settings: dict, setting_name: str) -> bool:
@@ -226,31 +223,31 @@ SEARCH_SOURCES: Mapping[str, SearchSource] = {
     "tavily": SearchSource(
         "tavily",
         _tavily_source,
-        lambda settings: _has_keys(settings, "websearch_tavily_key"),
+        lambda settings: has_configured_keys(settings, "websearch_tavily_key"),
         20,
     ),
     "bocha": SearchSource(
         "bocha",
         _bocha_source,
-        lambda settings: _has_keys(settings, "websearch_bocha_key"),
+        lambda settings: has_configured_keys(settings, "websearch_bocha_key"),
         50,
     ),
     "brave": SearchSource(
         "brave",
         _brave_source,
-        lambda settings: _has_keys(settings, "websearch_brave_key"),
+        lambda settings: has_configured_keys(settings, "websearch_brave_key"),
         20,
     ),
     "exa": SearchSource(
         "exa",
         _exa_source,
-        lambda settings: _has_keys(settings, "websearch_exa_key"),
+        lambda settings: has_configured_keys(settings, "websearch_exa_key"),
         20,
     ),
     "firecrawl": SearchSource(
         "firecrawl",
         _firecrawl_source,
-        lambda settings: _has_keys(settings, "websearch_firecrawl_key"),
+        lambda settings: has_configured_keys(settings, "websearch_firecrawl_key"),
         100,
     ),
     "baidu_ai_search": SearchSource(
@@ -268,13 +265,13 @@ SEARCH_SOURCES: Mapping[str, SearchSource] = {
     "deepseek": SearchSource(
         "deepseek",
         _deepseek_source,
-        lambda settings: _has_keys(settings, "websearch_deepseek_key"),
+        lambda settings: has_configured_keys(settings, "websearch_deepseek_key"),
         50,
     ),
     "serpapi": SearchSource(
         "serpapi",
         _serpapi_source,
-        lambda settings: _has_keys(settings, "websearch_serpapi_key"),
+        lambda settings: has_configured_keys(settings, "websearch_serpapi_key"),
         10,
     ),
 }
@@ -450,16 +447,6 @@ async def search(
     if not non_empty:
         return []
     return reciprocal_rank_fusion(non_empty, limit=target)
-
-
-def fetch_available(route: Sequence[str], provider_settings: dict) -> bool:
-    """Return whether the route has a configured page-extraction source."""
-
-    return any(
-        name in _WEB_FETCH_SOURCE_NAMES
-        and source_is_configured(name, provider_settings)
-        for name in route
-    )
 
 
 def validate_fetch_url(url: object) -> str:

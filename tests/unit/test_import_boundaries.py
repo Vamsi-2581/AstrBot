@@ -166,6 +166,16 @@ def test_import_scanner_resolves_relative_imports() -> None:
     assert "astrbot.core.agent.llm_types" in imports
 
 
+def test_main_agent_does_not_import_the_web_search_router() -> None:
+    """The router reaches back to this module through the execution context."""
+
+    modules = _imports(ROOT / "astrbot" / "core" / "astr_main_agent.py")
+    assert not any(
+        _is_module_or_child(module, "astrbot.core.tools.web_search_router")
+        for module in modules
+    )
+
+
 def test_agent_runtime_does_not_import_provider_implementation_layers() -> None:
     """Agent code owns LLM contracts and cannot depend on provider internals."""
     agent_runtime_paths = [
