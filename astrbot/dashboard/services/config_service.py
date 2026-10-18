@@ -11,7 +11,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from astrbot import logger
 from astrbot.core.astrbot_config_mgr import AstrBotConfigManager
 from astrbot.core.computer.booters.local import LocalShellComponent
-from astrbot.core.computer.process_sandbox import detect_local_runtime_info
 from astrbot.core.config.agent_runner import (
     get_agent_runner_config_default,
     normalize_agent_runner,
@@ -529,8 +528,6 @@ def validate_config(
     data,
     schema: dict,
     is_core: bool,
-    *,
-    runtime: dict | None = None,
 ) -> tuple[list[str], dict]:
     errors = []
 
@@ -837,7 +834,6 @@ async def save_config_async(
                 post_config,
                 CONFIG_METADATA_2,
                 is_core,
-                runtime=detect_local_runtime_info(probe=False),
             )
         else:
             errors, post_config = validate_config(
@@ -900,7 +896,6 @@ class ConfigProfileService:
         totp_runtime_state: TotpRuntimeState,
         db: DatabaseSessionStore | None = None,
         plugin_catalog=None,
-        runtime: dict | None = None,
         computer_runtime=None,
     ) -> None:
         self.core_control = core_control
@@ -909,9 +904,6 @@ class ConfigProfileService:
         self.db = db
         self.totp_runtime_state = totp_runtime_state
         self.plugin_catalog = plugin_catalog
-        self.runtime = (
-            runtime if runtime is not None else detect_local_runtime_info(probe=True)
-        )
         self.computer_runtime = computer_runtime
 
     def get_profile_schema(self) -> dict:
@@ -972,7 +964,6 @@ class ConfigProfileService:
             profile_config,
             CONFIG_METADATA_2,
             is_core=True,
-            runtime=self.runtime,
         )
         if errors:
             raise DashboardValidationError(f"格式校验未通过: {errors}")

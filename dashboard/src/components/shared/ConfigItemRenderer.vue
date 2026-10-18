@@ -528,7 +528,7 @@ function getLabel(
   option: unknown,
 ): string {
   const labels = getTranslatedLabels(itemMeta);
-  return labels ? labels[index] : (option as string);
+  return labels?.[index] ?? (option as string);
 }
 
 function getPluginI18nList(attr: 'labels' | 'subtitles'): string[] | null {
@@ -541,7 +541,7 @@ function getPluginI18nList(attr: 'labels' | 'subtitles'): string[] | null {
     return null;
   }
   const value = configValue(props.pluginI18n, props.configKey, attr);
-  return Array.isArray(value) ? (value as string[]) : null;
+  return Array.isArray(value) && value.length > 0 ? (value as string[]) : null;
 }
 
 function getTranslatedLabels(itemMeta?: ConfigItemMeta): string[] | null {

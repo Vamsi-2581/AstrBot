@@ -351,11 +351,15 @@ async def check_local_execution_permission(
                 "id",
                 None,
             )
-            identity = f" `{subject_id}`" if subject_id else " from /session info"
+            subject_hint = (
+                f"this session's Subject ID `{subject_id}`"
+                if subject_id
+                else "this session's Subject ID (see `/session info`)"
+            )
             instructions = (
                 "Ask an AstrBot administrator to either:\n"
-                f"1. Grant this session's Subject ID{identity} the "
-                "`instance_operator` role for this configuration profile in "
+                f"1. Grant {subject_hint} the `instance_operator` role with "
+                "instance scope for this configuration profile in "
                 "AstrBot WebUI -> More Features -> Authorization.\n"
                 f"2. Enable `Execute code` for members in {policy_location}."
             )
