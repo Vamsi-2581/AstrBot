@@ -68,13 +68,14 @@ AstrBot 仅支持 `zh-CN.json` 和 `en-US.json`。文件内容必须是 JSON obj
       "hint": "是否启用这个插件。"
     },
     "mode": {
-      "description": "模式"
+      "description": "模式",
+      "labels": ["快速", "安全"]
     }
   }
 }
 ```
 
-`options` 是配置保存值，不应翻译。当前 i18n 解析器只稳定返回字符串，不能翻译 `labels` 数组；下拉框的 `labels` 请直接放在 `_conf_schema.json`，或暂时保持与保存值相同。
+`options` 是配置保存值，不应翻译。`labels` 和 `subtitles` 可以在语言文件中使用数组，每项按索引对应 `options`；缺失或空项会回退到保存值。
 
 ## 指令回复
 
@@ -176,4 +177,4 @@ Python 源码不要写死用户可见中英混排。指令 handler 回复后应 
 
 插件国际化只读取 `.astrbot-plugin/i18n` 目录。语言文件必须使用嵌套 JSON object，不支持点号扁平 key。只有 `zh-CN`、`en-US` 两种 locale；其他 locale，或单个文件超过 1 MiB、文件名 locale 为空或超过 32 个字符、JSON 无效或顶层不是 object 时，运行时会跳过该文件。
 
-翻译叶子值应使用字符串。数组和对象不是当前 WebUI 的稳定翻译值；尤其不要在 locale 文件中覆盖 `labels` 数组。
+翻译叶子值应使用字符串。例外是 `labels` 和 `subtitles`，它们可以使用与配置 `options` 对齐的数组；其他数组和对象目前仍不是 WebUI 的稳定翻译值。

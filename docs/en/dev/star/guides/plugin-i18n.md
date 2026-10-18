@@ -68,13 +68,14 @@ Corresponding `.astrbot-plugin/i18n/zh-CN.json`:
       "hint": "是否启用这个插件。"
     },
     "mode": {
-      "description": "模式"
+      "description": "模式",
+      "labels": ["快速", "安全"]
     }
   }
 }
 ```
 
-`options` are stored configuration values and must not be translated. The current i18n resolver reliably returns strings only and cannot translate a `labels` array. Keep select `labels` directly in `_conf_schema.json`, or use the stored values as display text for now.
+`options` are stored configuration values and must not be translated. `labels` and `subtitles` may be arrays in the locale file; each entry maps to the option at the same index. A missing or empty entry falls back to the stored option value.
 
 ## Command Replies
 
@@ -176,4 +177,4 @@ Here is an English translation example for a real configuration:
 
 Plugin internationalization reads only `.astrbot-plugin/i18n`. Locale files must use nested JSON objects; dot-key flat entries are not supported. The runtime skips a locale file unless its name is `zh-CN` or `en-US`, or when it exceeds 1 MiB, has an empty or longer-than-32-character locale name, contains invalid JSON, or has a non-object root.
 
-Use strings for translated leaf values. Arrays and objects are not stable WebUI translation values today; in particular, do not override a `labels` array in a locale file.
+Use strings for translated leaf values. The exceptions are `labels` and `subtitles`, which may be arrays aligned with the configuration `options`; other arrays and objects are not stable WebUI translation values today.

@@ -138,8 +138,9 @@ cd ..
 ```
 
 On first backend startup the default Dashboard username is `astrbot`; a random
-password is printed only to an attached operator terminal unless
-`ASTRBOT_DASHBOARD_INITIAL_PASSWORD` is set. Runtime state lives under `data/`.
+password is printed only to an attached operator terminal, and set
+`ASTRBOT_DASHBOARD_INITIAL_PASSWORD` to supply one instead. Runtime state lives
+under `data/`.
 
 ### Dependency and lockfile matrix
 
