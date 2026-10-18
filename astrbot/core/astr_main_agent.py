@@ -1448,22 +1448,22 @@ def _assemble_request_tool_catalog(
     memory_manager = _get_context_runtime_attr(plugin_context, "memory_manager")
     tool_manager = plugin_context.get_llm_tool_manager()
     registered_tools = _registered_tools_table(tool_manager)
-    builtin_tool_names = frozenset(
-        name
-        for tool in _safe_iter_builtin_tools(tool_manager)
-        if isinstance(name := getattr(tool, "name", None), str)
-        and name
-        and registered_tools.get(name) is tool
-    )
-    session_tool_names = frozenset(registered_tools) - builtin_tool_names
+    builtin_tool_name_set: set[str] = set()
+    for tool in _safe_iter_builtin_tools(tool_manager):
+        name = getattr(tool, "name", None)
+        if isinstance(name, str) and name and registered_tools.get(name) is tool:
+            builtin_tool_name_set.add(name)
+    builtin_tool_names = frozenset(builtin_tool_name_set)
+    session_tool_names = frozenset(registered_tools) - builtin_tool_name_set
     full_set = tool_manager.get_full_tool_set()
     full_tools = getattr(full_set, "tools", None)
     if isinstance(full_tools, list):
-        session_tool_names = frozenset(
-            name
-            for tool in full_tools
-            if isinstance(name := getattr(tool, "name", None), str) and name
-        )
+        full_tool_name_set: set[str] = set()
+        for tool in full_tools:
+            name = getattr(tool, "name", None)
+            if isinstance(name, str) and name:
+                full_tool_name_set.add(name)
+        session_tool_names = frozenset(full_tool_name_set)
     surface = resolve_catalog_surface(
         source=source,
         authenticated=authenticated,
