@@ -14,10 +14,13 @@ last_synced:
     Reviewed de898afe7588e1f153beec06e24f03f6ddeae2e4..dffe922773725e9c178392c423676ad65044748c
     (7 commits). Adapted all 7; no skips. #10584 adapted the Windows workspace
     handle-relative file access (NtCreateFile with reparse/hardlink rejection),
-    unified Local permission defaults, tool-time fail-closed execution, the
-    schema_revision 3 migration, and the inactive-execution matrix UI onto the
-    fork's authorization-based role model; the fork's already-refactored stat
-    service and booter-based GrepTool were left unchanged. #10599 added DeepSeek
+    unified Local permission defaults, tool-time fail-closed execution,
+    schema_revision 3, and the inactive-execution matrix UI onto the fork's
+    authorization-based role model; schema_revision 3 is intentionally a no-op
+    for saved policies because a legacy Windows member default is
+    indistinguishable from an explicit opt-out. The fork also added a required
+    Windows Local file-security job. The fork's already-refactored stat service
+    and booter-based GrepTool were left unchanged. #10599 added DeepSeek
     as a routed search source plus deepseek_fetch_web_page using the fork's
     proxy-aware HTTP session and key rotation. #10580 added a Chinese Code of
     Conduct translated from the fork's existing document, using the fork

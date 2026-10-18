@@ -81,7 +81,9 @@ hintMarkdown.renderer.rules.link_open = (
 const renderHint = (value: unknown): string => {
   const text = translateIfKey(value);
   if (!text) return '';
-  return DOMPurify.sanitize(hintMarkdown.renderInline(text as string));
+  return DOMPurify.sanitize(hintMarkdown.renderInline(text as string), {
+    ADD_ATTR: ['target'],
+  });
 };
 
 const dialog = ref(false);

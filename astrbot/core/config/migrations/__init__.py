@@ -9,8 +9,6 @@ value survives the rename.
 
 from __future__ import annotations
 
-import platform
-
 CONFIG_SCHEMA_REVISION = 3
 
 
@@ -95,28 +93,6 @@ def _migrate_retired_gemini_embedding_model(conf: dict) -> bool:
     return changed
 
 
-def _migrate_windows_member_workspace(conf: dict) -> bool:
-    """Enable workspace files for the legacy Windows member default."""
-    if platform.system() != "Windows":
-        return False
-    provider_settings = conf.get("provider_settings")
-    if not isinstance(provider_settings, dict):
-        return False
-    permissions = provider_settings.get("computer_use_local_permissions")
-    if not isinstance(permissions, dict):
-        return False
-    member = permissions.get("member")
-    if not isinstance(member, dict) or member != {
-        "allow_execution": False,
-        "allow_network": False,
-        "filesystem_scope": "none",
-    }:
-        return False
-    # The old default and an explicit disabled policy are indistinguishable.
-    member["filesystem_scope"] = "workspace"
-    return True
-
-
 def migrate_config_dict(conf: dict) -> bool:
     """Bring a raw configuration document to the current revision.
 
@@ -150,7 +126,11 @@ def migrate_config_dict(conf: dict) -> bool:
         elif revision == 1:
             changed |= _migrate_retired_gemini_embedding_model(conf)
         elif revision == 2:
-            changed |= _migrate_windows_member_workspace(conf)
+            # Revision 3 unifies Local permission defaults for fresh installs,
+            # but saved policies must not be rewritten: the legacy Windows
+            # member default ("none") is indistinguishable from an explicit
+            # opt-out, so preserve the document as written.
+            pass
         revision += 1
         changed = True
 

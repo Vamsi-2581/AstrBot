@@ -118,49 +118,30 @@ def test_retired_gemini_embedding_model_is_migrated_without_changing_others():
     ]
 
 
-@pytest.mark.parametrize(
-    ("system", "expected_scope"),
-    [("Windows", "workspace"), ("Linux", "none")],
-)
-def test_windows_member_workspace_migration_is_platform_scoped(
-    monkeypatch, system, expected_scope
-):
-    monkeypatch.setattr(
-        "astrbot.core.config.migrations.platform.system", lambda: system
-    )
+def test_revision_three_preserves_saved_local_permission_policies():
+    permissions = {
+        "member": {
+            "allow_execution": False,
+            "allow_network": False,
+            "filesystem_scope": "none",
+        },
+        "admin": {
+            "allow_execution": True,
+            "allow_network": True,
+            "filesystem_scope": "host",
+        },
+    }
     conf = {
         "schema_revision": 2,
-        "provider_settings": {
-            "computer_use_local_permissions": {
-                "member": {
-                    "allow_execution": False,
-                    "allow_network": False,
-                    "filesystem_scope": "none",
-                },
-                "admin": {
-                    "allow_execution": True,
-                    "allow_network": True,
-                    "filesystem_scope": "host",
-                },
-            }
-        },
+        "provider_settings": {"computer_use_local_permissions": permissions},
     }
 
     assert migrate_config_dict(conf) is True
     assert conf["schema_revision"] == CONFIG_SCHEMA_REVISION
-    permissions = conf["provider_settings"]["computer_use_local_permissions"]
-    assert permissions["member"]["filesystem_scope"] == expected_scope
-    assert permissions["admin"] == {
-        "allow_execution": True,
-        "allow_network": True,
-        "filesystem_scope": "host",
-    }
+    assert conf["provider_settings"]["computer_use_local_permissions"] == permissions
 
 
-def test_windows_member_workspace_migration_preserves_other_policies(monkeypatch):
-    monkeypatch.setattr(
-        "astrbot.core.config.migrations.platform.system", lambda: "Windows"
-    )
+def test_local_permission_migration_preserves_other_policies():
     member = {
         "allow_execution": True,
         "allow_network": False,
