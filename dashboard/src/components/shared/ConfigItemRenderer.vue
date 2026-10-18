@@ -560,9 +560,7 @@ function getTranslatedLabels(itemMeta?: ConfigItemMeta): string[] | null {
   return null;
 }
 
-function getTranslatedSubtitles(
-  itemMeta?: ConfigItemMeta,
-): string[] | null {
+function getTranslatedSubtitles(itemMeta?: ConfigItemMeta): string[] | null {
   if (
     props.pluginName &&
     props.configKey &&
@@ -600,9 +598,7 @@ function getSelectItems(itemMeta?: ConfigItemMeta): unknown[] {
       value,
       props: {
         subtitle:
-          typeof subtitles?.[index] === 'string'
-            ? subtitles[index]
-            : undefined,
+          typeof subtitles?.[index] === 'string' ? subtitles[index] : undefined,
       },
     }));
   }

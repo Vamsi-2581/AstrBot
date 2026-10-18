@@ -11,6 +11,7 @@ const supportFiles = new Set(['setup.vitest.ts']);
 const nativeNodeTestFiles = new Set([
   'subsetMdiFont.test.mjs',
   'checkI18n.test.mjs',
+  'localPermissionPolicies.test.mjs',
 ]);
 
 function findTestLikeFiles(directory) {

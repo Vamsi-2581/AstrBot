@@ -25,6 +25,7 @@ export default mergeConfig(
         './tests/setup.vitest.ts',
         './tests/subsetMdiFont.test.mjs',
         './tests/checkI18n.test.mjs',
+        './tests/localPermissionPolicies.test.mjs',
       ],
       css: false,
       restoreMocks: true,

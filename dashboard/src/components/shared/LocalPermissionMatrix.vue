@@ -211,36 +211,36 @@ export const localPermissionDefaults = {
     allow_execution: true,
     allow_network: true,
   },
-}
+};
 </script>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { useModuleI18n } from '@/i18n/composables'
-import { statsApi } from '@/api/v1'
+import { computed, onMounted, ref } from 'vue';
+import { useModuleI18n } from '@/i18n/composables';
+import { statsApi } from '@/api/v1';
 
 const props = defineProps({
   modelValue: {
     type: Object,
     default: () => ({}),
   },
-})
+});
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue']);
 const { tm } = useModuleI18n(
   'features/config-metadata.ai_group.agent_computer_use.local_permissions',
-)
-const runtime = ref(null)
-const runtimeLoading = ref(true)
+);
+const runtime = ref(null);
+const runtimeLoading = ref(true);
 const unsupported = computed(
   () => runtime.value?.sandbox?.status === 'unsupported',
-)
+);
 const sandboxUnavailable = computed(() =>
   ['missing', 'unavailable'].includes(runtime.value?.sandbox?.status),
-)
+);
 const isolationUnavailable = computed(
   () => unsupported.value || sandboxUnavailable.value,
-)
+);
 const executionUnavailableHint = computed(() =>
   isolationUnavailable.value
     ? tm(`runtime.executionUnavailable.${runtime.value.sandbox.status}`, {
@@ -249,24 +249,31 @@ const executionUnavailableHint = computed(() =>
             ? 'Seatbelt'
             : 'bubblewrap',
         dependency:
-          runtime.value.sandbox.backend === 'seatbelt' ? 'sandbox-exec' : 'bwrap',
+          runtime.value.sandbox.backend === 'seatbelt'
+            ? 'sandbox-exec'
+            : 'bwrap',
       })
     : '',
-)
+);
 const isolationFailureReason = computed(() => {
-  if (!isolationUnavailable.value) return ''
-  const reason = tm(`runtime.isolationFailure.${runtime.value.sandbox.status}`, {
-    backend:
-      runtime.value.sandbox.backend === 'seatbelt' ? 'Seatbelt' : 'bubblewrap',
-    dependency:
-      runtime.value.sandbox.backend === 'seatbelt' ? 'sandbox-exec' : 'bwrap',
-  })
+  if (!isolationUnavailable.value) return '';
+  const reason = tm(
+    `runtime.isolationFailure.${runtime.value.sandbox.status}`,
+    {
+      backend:
+        runtime.value.sandbox.backend === 'seatbelt'
+          ? 'Seatbelt'
+          : 'bubblewrap',
+      dependency:
+        runtime.value.sandbox.backend === 'seatbelt' ? 'sandbox-exec' : 'bwrap',
+    },
+  );
   return runtime.value.sandbox.error
     ? `${reason} ${runtime.value.sandbox.error}`
-    : reason
-})
-const roles = ['member', 'admin']
-const defaults = computed(() => localPermissionDefaults)
+    : reason;
+});
+const roles = ['member', 'admin'];
+const defaults = computed(() => localPermissionDefaults);
 const executionBlockedRoles = computed(() =>
   roles.filter(
     (role) =>
@@ -274,72 +281,72 @@ const executionBlockedRoles = computed(() =>
       policy(role, false).allow_execution &&
       !policy(role).allow_execution,
   ),
-)
+);
 const filesystemMenuProps = computed(() => ({
   rounded: 'lg',
   maxWidth: 420,
-}))
+}));
 
 onMounted(async () => {
   try {
-    const response = await statsApi.version()
-    runtime.value = response.data?.data?.runtime ?? null
+    const response = await statsApi.version();
+    runtime.value = response.data?.data?.runtime ?? null;
   } catch (error) {
-    console.warn('Failed to load runtime information:', error)
+    console.warn('Failed to load runtime information:', error);
   } finally {
-    runtimeLoading.value = false
+    runtimeLoading.value = false;
   }
-})
+});
 
 function policy(role, applyRuntime = true) {
   const resolved = {
     ...defaults.value[role],
     ...(props.modelValue?.[role] || {}),
-  }
+  };
   if (!['none', 'workspace', 'host'].includes(resolved.filesystem_scope)) {
-    resolved.filesystem_scope = defaults.value[role].filesystem_scope
+    resolved.filesystem_scope = defaults.value[role].filesystem_scope;
   }
   resolved.allow_execution =
-    resolved.filesystem_scope !== 'none' && resolved.allow_execution === true
+    resolved.filesystem_scope !== 'none' && resolved.allow_execution === true;
   resolved.allow_network =
-    resolved.allow_execution && resolved.allow_network === true
+    resolved.allow_execution && resolved.allow_network === true;
   if (
     applyRuntime &&
     isolationUnavailable.value &&
     resolved.allow_execution &&
     (resolved.filesystem_scope !== 'host' || !resolved.allow_network)
   ) {
-    return { ...resolved, allow_execution: false, allow_network: false }
+    return { ...resolved, allow_execution: false, allow_network: false };
   }
-  return resolved
+  return resolved;
 }
 
 function updatePermission(role, changes) {
   const updatedRole = {
     ...policy(role, false),
     ...changes,
-  }
+  };
   if (updatedRole.filesystem_scope === 'none') {
-    updatedRole.allow_execution = false
+    updatedRole.allow_execution = false;
   }
   if (isolationUnavailable.value && changes.allow_execution === true) {
     // Explicitly enabling direct execution also grants its required network access.
-    updatedRole.allow_execution = updatedRole.filesystem_scope === 'host'
-    updatedRole.allow_network = updatedRole.allow_execution
+    updatedRole.allow_execution = updatedRole.filesystem_scope === 'host';
+    updatedRole.allow_network = updatedRole.allow_execution;
   }
   if (!updatedRole.allow_execution) {
-    updatedRole.allow_network = false
+    updatedRole.allow_network = false;
   }
   emit('update:modelValue', {
     ...(props.modelValue || {}),
     [role]: updatedRole,
-  })
+  });
 }
 
 const permissionLocks = computed(() =>
   Object.fromEntries(
     roles.map((role) => {
-      const current = policy(role, false)
+      const current = policy(role, false);
       return [
         role,
         {
@@ -351,14 +358,14 @@ const permissionLocks = computed(() =>
               !current.allow_execution),
           network: !runtime.value || !current.allow_execution,
         },
-      ]
+      ];
     }),
   ),
-)
+);
 const memberHasElevatedAccess = computed(() => {
-  const member = policy('member')
-  return member.allow_network || member.filesystem_scope === 'host'
-})
+  const member = policy('member');
+  return member.allow_network || member.filesystem_scope === 'host';
+});
 </script>
 
 <style scoped>
