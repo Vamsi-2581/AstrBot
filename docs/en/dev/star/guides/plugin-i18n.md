@@ -75,7 +75,7 @@ Corresponding `.astrbot-plugin/i18n/zh-CN.json`:
 }
 ```
 
-`options` are stored configuration values and must not be translated. `labels` and `subtitles` may be arrays in the locale file; each entry maps to the option at the same index. A missing or empty entry falls back to the stored option value.
+`options` are stored configuration values and must not be translated. `labels` and `subtitles` may be arrays in the locale file; each entry maps to the option at the same index. An empty array is treated as absent and falls back to the schema `labels` / `subtitles`. A missing or empty `labels` entry falls back to the stored option value; a missing or empty `subtitles` entry is not displayed.
 
 ## Command Replies
 

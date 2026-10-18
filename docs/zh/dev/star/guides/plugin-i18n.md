@@ -75,7 +75,7 @@ AstrBot 仅支持 `zh-CN.json` 和 `en-US.json`。文件内容必须是 JSON obj
 }
 ```
 
-`options` 是配置保存值，不应翻译。`labels` 和 `subtitles` 可以在语言文件中使用数组，每项按索引对应 `options`；缺失或空项会回退到保存值。
+`options` 是配置保存值，不应翻译。`labels` 和 `subtitles` 可以在语言文件中使用数组，每项按索引对应 `options`。空数组视为未提供，回退到 schema 中的 `labels` / `subtitles`；`labels` 缺失或为空项时回退到保存值，`subtitles` 缺失或为空项时不显示。
 
 ## 指令回复
 

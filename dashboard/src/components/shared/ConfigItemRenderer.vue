@@ -528,7 +528,7 @@ function getLabel(
   option: unknown,
 ): string {
   const labels = getTranslatedLabels(itemMeta);
-  return labels?.[index] ?? (option as string);
+  return labels?.[index] || (option as string);
 }
 
 function getPluginI18nList(attr: 'labels' | 'subtitles'): string[] | null {
