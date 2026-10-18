@@ -353,6 +353,10 @@
           "description": "AnySearch API Key",
           "hint": "Multiple keys can be added for rotation. Leave empty to use anonymous mode with a daily free quota."
         },
+        "websearch_deepseek_key": {
+          "description": "DeepSeek API Key",
+          "hint": "Used for DeepSeek search and page extraction. You may reuse the chat model key, but it must be entered separately. Multiple keys rotate; keys under the same account share QPS limits."
+        },
         "websearch_firecrawl_key": {
           "description": "Firecrawl API Key",
           "hint": "Multiple keys can be added for rotation."

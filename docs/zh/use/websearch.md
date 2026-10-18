@@ -21,7 +21,7 @@ AstrBot 会按 `网页搜索来源`（`websearch_route`）配置的**有序列�
 - `websearch_oversample`：每来源候选倍数，默认为 8。每个来源按 `目标结果数 × 该倍数` 取候选（并受各来源上限约束），再融合。
 - 单个来源未配置、失败或超时会被跳过，不影响其他来源；全部来源都不可用时，`web_search` 会返回明确错误。
 
-支持免 key 的 `SearXNG` 与 `DuckDuckGo`，以及需要 API Key 的 `Tavily`、`BoCha`、`百度 AI 搜索`、`Brave`、`Firecrawl`、`Exa`、`AnySearch`。
+支持免 key 的 `SearXNG` 与 `DuckDuckGo`，以及需要 API Key 的 `Tavily`、`BoCha`、`百度 AI 搜索`、`Brave`、`Firecrawl`、`Exa`、`AnySearch`、`DeepSeek`。
 
 ![image](https://files.astrbot.app/docs/source/images/websearch/image.png)
 
@@ -78,6 +78,10 @@ DuckDuckGo 无需任何配置即可使用，作为免 Key 兜底来源。它通�
 
 AnySearch 除通用网页搜索外，还可通过服务商支持的领域标签和 `params` 对象进行垂直检索。兼容的结构化结果字段会以文本保留。`max_results` 限制为 1–10，支持的结果区域为 `cn` 和 `intl`。若 API Key 留空，将以匿名模式调用，每日有免费额度。
 
+## DeepSeek
+
+前往 [DeepSeek 开放平台](https://platform.deepseek.com/api_keys) 获取 API Key，然后填写在相应的配置项。DeepSeek 搜索与对话模型独立配置：即使对话模型已使用 DeepSeek，也需要单独填写搜索 Key。搜索和正文提取接口各按账号限制 5 QPS，配置多个同账号 Key 不会增加限额。
+
 ## 正文抽取
 
-当来源列表包含 `Tavily`、`Firecrawl` 或 `Exa` 时，AstrBot 会同时提供对应的正文抽取工具（`tavily_extract_web_page`、`firecrawl_extract_web_page`、`exa_get_contents`），用于读取结果页正文。来源不在列表中时，对应抽取工具不会挂载。
+当来源列表包含 `Tavily`、`Firecrawl`、`Exa` 或 `DeepSeek` 时，AstrBot 会同时提供对应的正文抽取工具（`tavily_extract_web_page`、`firecrawl_extract_web_page`、`exa_get_contents`、`deepseek_fetch_web_page`），用于读取结果页正文。来源不在列表中时，对应抽取工具不会挂载。

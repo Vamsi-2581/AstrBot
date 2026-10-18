@@ -2,7 +2,7 @@ import asyncio
 import json
 from dataclasses import dataclass as std_dataclass
 from dataclasses import field
-from urllib.parse import parse_qsl, urljoin, urlparse
+from urllib.parse import parse_qsl, urljoin, urlparse, urlsplit
 
 import aiohttp
 from pydantic import Field
@@ -21,6 +21,7 @@ WEB_SEARCH_TOOL_NAMES = [
     "tavily_extract_web_page",
     "firecrawl_extract_web_page",
     "exa_get_contents",
+    "deepseek_fetch_web_page",
 ]
 _WEB_SEARCH_ENABLED_CONFIG = {"provider_settings.web_search": True}
 _DEFAULT_HTTP_TIMEOUT = aiohttp.ClientTimeout(total=20, connect=10, sock_read=20)
@@ -685,6 +686,69 @@ async def _baidu_search(
             ]
 
 
+async def _deepseek_search(
+    provider_settings: dict,
+    payload: dict,
+) -> list[SearchResult]:
+    """Call the DeepSeek Search API and normalize its results.
+
+    Args:
+        provider_settings: Provider settings containing DeepSeek API keys.
+        payload: Search payload with ``query`` and optional ``count`` and
+            ``need_content``.
+
+    Returns:
+        Normalized search results.
+
+    Raises:
+        ValueError: If DeepSeek API keys are not configured.
+        Exception: If the API returns a non-200 status.
+    """
+    keys = provider_settings.get("websearch_deepseek_key", [])
+    if not keys:
+        raise ValueError("Error: DeepSeek API key is not configured in AstrBot.")
+
+    key = await _get_key_rotator(
+        provider_settings,
+        "websearch_deepseek_key",
+        "DeepSeek",
+    ).get(provider_settings)
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+    async with _client_session() as session:
+        async with _post(
+            session,
+            "https://api.deepseek.com/v1/tools/search",
+            json=payload,
+            headers=headers,
+        ) as response:
+            if response.status != 200:
+                reason = await response.text()
+                raise Exception(
+                    f"DeepSeek web search failed: {reason}, status: {response.status}",
+                )
+            data = await response.json()
+
+    results: list[SearchResult] = []
+    for item in data.get("results", []):
+        if not item.get("url"):
+            continue
+        snippet = item.get("summary") or item.get("snippet") or ""
+        if payload.get("need_content") and item.get("content"):
+            snippet = "\n\n".join(filter(None, [snippet, item["content"]]))
+        results.append(
+            SearchResult(
+                title=item.get("title", ""),
+                url=item["url"],
+                snippet=snippet,
+                favicon=item.get("site_icon"),
+            )
+        )
+    return results
+
+
 async def _searxng_search(
     provider_settings: dict,
     payload: dict,
@@ -1004,6 +1068,86 @@ class ExaGetContentsTool(FunctionTool[AstrAgentContext]):
         return ret or "Error: Exa get contents does not return any results."
 
 
+@builtin_tool(config=_WEB_SEARCH_ENABLED_CONFIG, required_actions=("tool.web_search",))
+@pydantic_dataclass
+class DeepSeekFetchWebPageTool(FunctionTool[AstrAgentContext]):
+    name: str = "deepseek_fetch_web_page"
+    description: str = (
+        "Fetch a single web page using DeepSeek and return its title and "
+        "Markdown content. Use this to read a known URL, including a page "
+        "found through web search."
+    )
+    parameters: dict = Field(
+        default_factory=lambda: {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": (
+                        "Required. HTTP or HTTPS URL with a host, no embedded "
+                        "credentials, and at most 8192 characters."
+                    ),
+                },
+            },
+            "required": ["url"],
+        }
+    )
+
+    async def call(self, context, **kwargs) -> ToolExecResult:
+        _, provider_settings, _ = _get_runtime(context)
+        if not provider_settings.get("websearch_deepseek_key", []):
+            return "Error: DeepSeek API key is not configured in AstrBot."
+
+        url = kwargs.get("url")
+        if not isinstance(url, str) or not 1 <= len(url) <= 8192:
+            return "Error: url must be a string of 1-8192 characters."
+        try:
+            parsed = urlsplit(url)
+            # Port syntax and range are validated only when this property is read.
+            _ = parsed.port
+            valid_url = (
+                parsed.scheme in {"http", "https"}
+                and bool(parsed.hostname)
+                and parsed.username is None
+                and parsed.password is None
+                and not any(char.isspace() for char in url)
+            )
+        except ValueError:
+            valid_url = False
+        if not valid_url:
+            return (
+                "Error: url must be an HTTP or HTTPS URL with a host and no "
+                "embedded credentials."
+            )
+
+        key = await _get_key_rotator(
+            provider_settings,
+            "websearch_deepseek_key",
+            "DeepSeek",
+        ).get(provider_settings)
+        headers = {
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+        }
+        async with _client_session() as session:
+            async with _post(
+                session,
+                "https://api.deepseek.com/v1/tools/fetch",
+                json={"url": url},
+                headers=headers,
+            ) as response:
+                if response.status != 200:
+                    reason = await response.text()
+                    raise Exception(
+                        f"DeepSeek fetch failed: {reason}, status: {response.status}",
+                    )
+                data = await response.json()
+
+        if not data.get("content"):
+            return "Error: DeepSeek fetch does not return any content."
+        return f"URL: {url}\nTitle: {data.get('title', '')}\nContent: {data['content']}"
+
+
 async def _anysearch_search(
     provider_settings: dict,
     payload: dict,
@@ -1093,6 +1237,7 @@ async def _anysearch_search(
 
 
 __all__ = [
+    "DeepSeekFetchWebPageTool",
     "ExaGetContentsTool",
     "FirecrawlExtractWebPageTool",
     "TavilyExtractWebPageTool",

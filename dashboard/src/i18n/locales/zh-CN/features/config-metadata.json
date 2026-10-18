@@ -347,6 +347,10 @@
           "description": "AnySearch API Key",
           "hint": "可添加多个 Key 进行轮询。留空则使用匿名模式（每日免费额度）。"
         },
+        "websearch_deepseek_key": {
+          "description": "DeepSeek API Key",
+          "hint": "用于 DeepSeek 搜索和网页正文提取。可使用与对话模型相同的 Key，但需独立填写。可添加多个 Key 轮询，同账号共享 QPS 限制。"
+        },
         "websearch_firecrawl_key": {
           "description": "Firecrawl API Key",
           "hint": "可添加多个 Key 进行轮询。"

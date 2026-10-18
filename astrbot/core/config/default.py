@@ -163,6 +163,7 @@ DEFAULT_CONFIG = {
         "websearch_brave_key": [],
         "websearch_exa_key": [],
         "websearch_anysearch_key": [],
+        "websearch_deepseek_key": [],
         "websearch_baidu_app_builder_key": "",
         "websearch_firecrawl_key": [],
         "web_search_link": False,
@@ -3986,6 +3987,7 @@ CONFIG_METADATA_3 = {
                             "firecrawl",
                             "baidu_ai_search",
                             "anysearch",
+                            "deepseek",
                         ],
                         "condition": {
                             "provider_settings.web_search": True,
@@ -4065,6 +4067,16 @@ CONFIG_METADATA_3 = {
                         "type": "list",
                         "items": {"type": "string"},
                         "hint": "可添加多个 Key 进行轮询。留空则使用匿名模式（每日免费额度）。申请地址：https://anysearch.com/console/api-keys",
+                        "condition": {
+                            "provider_settings.web_search": True,
+                        },
+                    },
+                    "provider_settings.websearch_deepseek_key": {
+                        "description": "DeepSeek API Key",
+                        "type": "list",
+                        "items": {"type": "string"},
+                        "hint": "用于 DeepSeek 搜索和网页正文提取。可使用与对话模型相同的 Key，但需独立填写。可添加多个 Key 轮询，同账号共享 QPS 限制。申请地址：https://platform.deepseek.com/api_keys",
+                        "secret": True,
                         "condition": {
                             "provider_settings.web_search": True,
                         },

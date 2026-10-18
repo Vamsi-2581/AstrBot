@@ -295,3 +295,33 @@ def test_decode_duckduckgo_url_handles_wrappers_and_plain_links():
         "https://example.com/b"
     )
     assert tools._decode_duckduckgo_url("") == ""
+
+
+def test_deepseek_source_requires_api_key():
+    assert router.source_is_configured("deepseek", {}) is False
+    assert (
+        router.source_is_configured("deepseek", {"websearch_deepseek_key": ["key"]})
+        is True
+    )
+
+
+@pytest.mark.asyncio
+async def test_deepseek_source_requests_summaries(monkeypatch):
+    calls = []
+
+    async def fake_search(provider_settings, payload):
+        calls.append((provider_settings, payload))
+        return [_result("https://example.com")]
+
+    monkeypatch.setattr(router, "_deepseek_search", fake_search)
+    settings = {"websearch_deepseek_key": ["key"]}
+
+    results = await router._deepseek_source(settings, "AstrBot", 12)
+
+    assert [item.url for item in results] == ["https://example.com"]
+    assert calls == [
+        (
+            settings,
+            {"query": "AstrBot", "count": 12, "need_content": False},
+        )
+    ]

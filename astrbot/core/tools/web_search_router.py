@@ -31,6 +31,7 @@ from astrbot.core.tools.web_search_tools import (
     _baidu_search,
     _bocha_search,
     _brave_search,
+    _deepseek_search,
     _duckduckgo_search,
     _exa_search,
     _firecrawl_search,
@@ -157,6 +158,15 @@ async def _anysearch_source(
     )
 
 
+async def _deepseek_source(
+    provider_settings: dict, query: str, count: int
+) -> list[SearchResult]:
+    return await _deepseek_search(
+        provider_settings,
+        {"query": query, "count": count, "need_content": False},
+    )
+
+
 async def _searxng_source(
     provider_settings: dict, query: str, count: int
 ) -> list[SearchResult]:
@@ -234,6 +244,12 @@ SEARCH_SOURCES: Mapping[str, SearchSource] = {
         _anysearch_source,
         _anysearch_configured,
         10,
+    ),
+    "deepseek": SearchSource(
+        "deepseek",
+        _deepseek_source,
+        lambda settings: _has_keys(settings, "websearch_deepseek_key"),
+        50,
     ),
 }
 
