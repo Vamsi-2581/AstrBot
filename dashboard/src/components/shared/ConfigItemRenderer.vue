@@ -393,6 +393,7 @@ interface ConfigItemMeta {
   options?: unknown[];
   render_type?: string;
   labels?: string | string[];
+  subtitles?: string | string[];
   readonly?: boolean;
   editor_mode?: boolean;
   editor_theme?: string;
@@ -559,12 +560,50 @@ function getTranslatedLabels(itemMeta?: ConfigItemMeta): string[] | null {
   return null;
 }
 
+function getTranslatedSubtitles(
+  itemMeta?: ConfigItemMeta,
+): string[] | null {
+  if (
+    props.pluginName &&
+    props.configKey &&
+    props.pluginI18n &&
+    Object.keys(props.pluginI18n).length > 0
+  ) {
+    const translatedSubtitles = configText(
+      props.pluginI18n,
+      props.configKey,
+      'subtitles',
+    );
+    if (Array.isArray(translatedSubtitles)) {
+      return translatedSubtitles;
+    }
+  }
+  if (!itemMeta?.subtitles) return null;
+  if (typeof itemMeta.subtitles === 'string') {
+    const translatedSubtitles = getRaw(itemMeta.subtitles);
+    if (Array.isArray(translatedSubtitles)) {
+      return translatedSubtitles;
+    }
+  }
+  if (Array.isArray(itemMeta.subtitles)) {
+    return itemMeta.subtitles;
+  }
+  return null;
+}
+
 function getSelectItems(itemMeta?: ConfigItemMeta): unknown[] {
   const labels = getTranslatedLabels(itemMeta);
-  if (labels && itemMeta?.options) {
+  const subtitles = getTranslatedSubtitles(itemMeta);
+  if ((labels || subtitles) && itemMeta?.options) {
     return itemMeta.options.map((value, index) => ({
-      title: labels[index] || value,
+      title: labels?.[index] || value,
       value,
+      props: {
+        subtitle:
+          typeof subtitles?.[index] === 'string'
+            ? subtitles[index]
+            : undefined,
+      },
     }));
   }
   return itemMeta?.options || [];

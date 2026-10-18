@@ -21,7 +21,7 @@ AstrBot queries every source in the ordered `Web Search Sources` (`websearch_rou
 - `websearch_oversample`: the per-source candidate multiplier, defaulting to 8. Each source fetches `target results × this multiplier` candidates (clamped to each source's limit) before fusion.
 - A source that is unconfigured, fails, or times out is skipped without affecting the others; when no source is usable, `web_search` returns a clear error.
 
-Keyless `SearXNG` and `DuckDuckGo` are supported alongside the key-based `Tavily`, `BoCha`, `Baidu AI Search`, `Brave`, `Firecrawl`, `Exa`, `AnySearch`, and `DeepSeek`.
+Keyless `SearXNG` and `DuckDuckGo` are supported alongside the key-based `Tavily`, `BoCha`, `Baidu AI Search`, `Brave`, `Firecrawl`, `Exa`, `AnySearch`, `DeepSeek`, and `SerpApi`.
 
 ![image](https://files.astrbot.app/docs/source/images/websearch/image.png)
 
@@ -78,10 +78,14 @@ Go to the [AnySearch Console](https://anysearch.com/console/api-keys) to get you
 
 In addition to general web search, AnySearch can accept a provider-supported domain tag and a `params` object for domain-specific retrieval. Results preserve compatible structured fields as text. `max_results` is limited to 1–10 and the supported result regions are `cn` and `intl`. If the API Key is left empty, it uses anonymous mode with a daily free quota.
 
+## SerpApi
+
+Go to the [SerpApi dashboard](https://serpapi.com/manage-api-key) to get an API Key, then fill it in the corresponding configuration item. SerpApi provides Google web search and dedicated tools for Google Images Light, Google Finance, and Google Scholar. The specialist tools are available whenever the key is configured and web search is enabled; they do not need to be listed in the web search source route.
+
 ## DeepSeek
 
 Go to the [DeepSeek Platform](https://platform.deepseek.com/api_keys) to get an API Key, then fill it in the corresponding configuration item. DeepSeek search is configured independently of the chat model: even if the chat model already uses DeepSeek, enter the key separately for search. Search and page extraction each have an account-level limit of 5 QPS; adding multiple keys under the same account does not increase this limit.
 
 ## Page extraction
 
-When the source list contains `Tavily`, `Firecrawl`, `Exa`, or `DeepSeek`, AstrBot also exposes the matching page-content extract tools (`tavily_extract_web_page`, `firecrawl_extract_web_page`, `exa_get_contents`, `deepseek_fetch_web_page`). A source that is not in the list does not mount its extract tool.
+When the source list contains `Tavily`, `Firecrawl`, `Exa`, or `DeepSeek`, AstrBot also exposes the matching page-content extract tools (`tavily_extract_web_page`, `firecrawl_extract_web_page`, `exa_get_contents`, `deepseek_fetch_web_page`). A source that is not in the list does not mount its extract tool. SerpApi additionally provides `image_search_serpapi`, `finance_search_serpapi`, and `scholar_search_serpapi` whenever its key is configured.

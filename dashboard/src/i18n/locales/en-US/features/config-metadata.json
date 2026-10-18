@@ -323,7 +323,33 @@
         },
         "websearch_route": {
           "description": "Web Search Sources (ordered, multi-select)",
-          "hint": "Sources are queried in parallel, deduplicated by canonical URL, and fused with RRF. Order is priority."
+          "hint": "Sources are queried in parallel, deduplicated by canonical URL, and fused with RRF. Order is priority.",
+          "labels": [
+            "SearXNG",
+            "DuckDuckGo",
+            "SerpApi",
+            "DeepSeek Search API",
+            "Tavily",
+            "BoCha",
+            "Brave",
+            "Exa",
+            "Firecrawl",
+            "Baidu AI Search",
+            "AnySearch"
+          ],
+          "subtitles": [
+            "",
+            "",
+            "Google web, image, scholar, and finance search",
+            "DeepSeek official search API",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
         },
         "websearch_oversample": {
           "description": "Per-source candidate multiplier",
@@ -356,6 +382,10 @@
         "websearch_deepseek_key": {
           "description": "DeepSeek API Key",
           "hint": "Used for DeepSeek search and page extraction. You may reuse the chat model key, but it must be entered separately. Multiple keys rotate; keys under the same account share QPS limits."
+        },
+        "websearch_serpapi_key": {
+          "description": "SerpApi API Key",
+          "hint": "Supports Google web, image, scholar, and finance search. Multiple keys rotate. Get a key at https://serpapi.com/manage-api-key"
         },
         "websearch_firecrawl_key": {
           "description": "Firecrawl API Key",

@@ -22,7 +22,7 @@ from astrbot.core.platform.sources.napcat.napcat_platform_adapter import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 I18N_DIR = REPO_ROOT / "dashboard" / "src" / "i18n" / "locales"
-I18N_ATTRS = frozenset({"description", "hint", "labels", "name"})
+I18N_ATTRS = frozenset({"description", "hint", "labels", "subtitles", "name"})
 LOCALES = ("zh-CN", "en-US")
 
 

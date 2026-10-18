@@ -37,6 +37,7 @@ from astrbot.core.tools.web_search_tools import (
     _firecrawl_search,
     _get_runtime,
     _searxng_search,
+    _serpapi_search,
     _tavily_search,
 )
 from astrbot.core.utils.error_redaction import safe_error
@@ -167,6 +168,15 @@ async def _deepseek_source(
     )
 
 
+async def _serpapi_source(
+    provider_settings: dict, query: str, count: int
+) -> list[SearchResult]:
+    return await _serpapi_search(
+        provider_settings,
+        {"q": query, "num": count},
+    )
+
+
 async def _searxng_source(
     provider_settings: dict, query: str, count: int
 ) -> list[SearchResult]:
@@ -250,6 +260,12 @@ SEARCH_SOURCES: Mapping[str, SearchSource] = {
         _deepseek_source,
         lambda settings: _has_keys(settings, "websearch_deepseek_key"),
         50,
+    ),
+    "serpapi": SearchSource(
+        "serpapi",
+        _serpapi_source,
+        lambda settings: _has_keys(settings, "websearch_serpapi_key"),
+        10,
     ),
 }
 

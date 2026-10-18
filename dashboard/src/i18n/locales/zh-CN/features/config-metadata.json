@@ -317,7 +317,33 @@
         },
         "websearch_route": {
           "description": "网页搜索来源（按优先级排序，可多选）",
-          "hint": "并行查询所选来源，按 canonical URL 去重后以 RRF 融合。顺序即优先级。"
+          "hint": "并行查询所选来源，按 canonical URL 去重后以 RRF 融合。顺序即优先级。",
+          "labels": [
+            "SearXNG",
+            "DuckDuckGo",
+            "SerpApi",
+            "DeepSeek Search API",
+            "Tavily",
+            "BoCha",
+            "Brave",
+            "Exa",
+            "Firecrawl",
+            "百度 AI 搜索",
+            "AnySearch"
+          ],
+          "subtitles": [
+            "",
+            "",
+            "Google 网页、图片、学术和财经搜索",
+            "DeepSeek 官方搜索接口",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
         },
         "websearch_oversample": {
           "description": "每来源候选倍数",
@@ -350,6 +376,10 @@
         "websearch_deepseek_key": {
           "description": "DeepSeek API Key",
           "hint": "用于 DeepSeek 搜索和网页正文提取。可使用与对话模型相同的 Key，但需独立填写。可添加多个 Key 轮询，同账号共享 QPS 限制。"
+        },
+        "websearch_serpapi_key": {
+          "description": "SerpApi API Key",
+          "hint": "支持 Google 网页、图片、学术和财经搜索。可添加多个 Key 轮询。获取 Key：https://serpapi.com/manage-api-key"
         },
         "websearch_firecrawl_key": {
           "description": "Firecrawl API Key",

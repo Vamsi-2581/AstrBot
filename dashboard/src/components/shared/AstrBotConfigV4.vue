@@ -66,6 +66,18 @@ const hintMarkdown = new MarkdownIt({
   breaks: true,
 });
 
+hintMarkdown.renderer.rules.link_open = (
+  tokens,
+  index,
+  options,
+  _env,
+  renderer,
+) => {
+  tokens[index].attrSet('target', '_blank');
+  tokens[index].attrSet('rel', 'noopener noreferrer');
+  return renderer.renderToken(tokens, index, options);
+};
+
 const renderHint = (value: unknown): string => {
   const text = translateIfKey(value);
   if (!text) return '';
