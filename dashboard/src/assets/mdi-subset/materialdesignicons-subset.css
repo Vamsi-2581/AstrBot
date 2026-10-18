@@ -1,4 +1,4 @@
-/* Auto-generated MDI subset – 281 icons */
+/* Auto-generated MDI subset – 280 icons */
 /* Do not edit manually. Run: pnpm run subset-icons */
 
 @font-face {
@@ -946,10 +946,6 @@
 
 .mdi-shield-account-outline::before {
   content: "\F0A12";
-}
-
-.mdi-shield-alert-outline::before {
-  content: "\F0ECD";
 }
 
 .mdi-shield-check::before {

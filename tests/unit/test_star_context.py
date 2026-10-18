@@ -430,6 +430,7 @@ async def test_preference_capability_sender_get_and_put_delegate():
 @pytest.mark.parametrize(
     "tool_class", [ExecuteShellTool, LocalPythonTool, ShellSessionTool]
 )
+@pytest.mark.parametrize("isolation_status", ["detected", "unavailable"])
 @pytest.mark.parametrize(
     ("runtime", "allow_network", "tool_state", "existing_notice", "expected_count"),
     [
@@ -450,7 +451,13 @@ async def test_tool_loop_agent_adds_network_policy_to_system_prompt(
     existing_notice,
     expected_count,
     tool_class,
+    isolation_status,
 ):
+    monkeypatch.setattr(
+        "astrbot.core.tools.computer_tools.util.get_process_sandbox_status",
+        lambda: {"status": isolation_status},
+    )
+
     async def finished_steps(_max_steps):
         for response in ():
             yield response
@@ -522,6 +529,8 @@ async def test_tool_loop_agent_adds_network_policy_to_system_prompt(
 
     request = runner.reset.await_args.kwargs["request"]
     assert request.system_prompt.startswith("Agent instructions.")
+    if isolation_status != "detected" and not existing_notice:
+        expected_count = 0
     assert request.system_prompt.count(LOCAL_NETWORK_POLICY_NOTICE) == expected_count
     if tool_state == "active":
         agent_config.get_config.assert_called_with(umo="agent-test")

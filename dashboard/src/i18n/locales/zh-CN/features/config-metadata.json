@@ -317,7 +317,33 @@
         },
         "websearch_route": {
           "description": "网页搜索来源（按优先级排序，可多选）",
-          "hint": "并行查询所选来源，按 canonical URL 去重后以 RRF 融合。顺序即优先级。"
+          "hint": "并行查询所选来源，按 canonical URL 去重后以 RRF 融合。顺序即优先级。",
+          "labels": [
+            "SearXNG",
+            "DuckDuckGo",
+            "SerpApi",
+            "DeepSeek Search API",
+            "Tavily",
+            "BoCha",
+            "Brave",
+            "Exa",
+            "Firecrawl",
+            "百度 AI 搜索",
+            "AnySearch"
+          ],
+          "subtitles": [
+            "",
+            "",
+            "Google 网页、图片、学术和财经搜索",
+            "DeepSeek 官方搜索接口",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
         },
         "websearch_oversample": {
           "description": "每来源候选倍数",
@@ -346,6 +372,14 @@
         "websearch_anysearch_key": {
           "description": "AnySearch API Key",
           "hint": "可添加多个 Key 进行轮询。留空则使用匿名模式（每日免费额度）。"
+        },
+        "websearch_deepseek_key": {
+          "description": "DeepSeek API Key",
+          "hint": "用于 DeepSeek 搜索和网页正文提取。可使用与对话模型相同的 Key，但需独立填写。可添加多个 Key 轮询，同账号共享 QPS 限制。"
+        },
+        "websearch_serpapi_key": {
+          "description": "SerpApi API Key",
+          "hint": "支持 Google 网页、图片、学术和财经搜索。可添加多个 Key 轮询。获取 Key：https://serpapi.com/manage-api-key"
         },
         "websearch_firecrawl_key": {
           "description": "Firecrawl API Key",
@@ -448,6 +482,9 @@
         },
         "runtimeUnknown": "运行环境信息不可用。",
         "memberWarning": "普通成员已获得联网或整个环境访问权限。",
+        "executionInactive": "未生效",
+        "executionInactiveHelp": "查看未生效原因",
+        "executionBlocked": "{role}已开启代码执行，但当前无法满足所配置的隔离限制。原因：{reason}",
         "runtime": {
           "os": "操作系统",
           "arch": "架构",
@@ -463,6 +500,11 @@
             "missing": "安装 {dependency} 以获得完整的本地隔离功能。",
             "unavailable": "配置 {backend}，启用完整的本地隔离功能。",
             "unsupported": "了解本地隔离支持情况。"
+          },
+          "isolationFailure": {
+            "missing": "缺少 {dependency}。",
+            "unavailable": "{backend} 启动探测失败。",
+            "unsupported": "当前系统不支持本地进程隔离。"
           },
           "executionUnavailable": {
             "missing": "缺少 {dependency}，无法在“文件访问范围”选择“工作区”时允许执行代码。",

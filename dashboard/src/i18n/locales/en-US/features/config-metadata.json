@@ -323,7 +323,33 @@
         },
         "websearch_route": {
           "description": "Web Search Sources (ordered, multi-select)",
-          "hint": "Sources are queried in parallel, deduplicated by canonical URL, and fused with RRF. Order is priority."
+          "hint": "Sources are queried in parallel, deduplicated by canonical URL, and fused with RRF. Order is priority.",
+          "labels": [
+            "SearXNG",
+            "DuckDuckGo",
+            "SerpApi",
+            "DeepSeek Search API",
+            "Tavily",
+            "BoCha",
+            "Brave",
+            "Exa",
+            "Firecrawl",
+            "Baidu AI Search",
+            "AnySearch"
+          ],
+          "subtitles": [
+            "",
+            "",
+            "Google web, image, scholar, and finance search",
+            "DeepSeek official search API",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
         },
         "websearch_oversample": {
           "description": "Per-source candidate multiplier",
@@ -352,6 +378,14 @@
         "websearch_anysearch_key": {
           "description": "AnySearch API Key",
           "hint": "Multiple keys can be added for rotation. Leave empty to use anonymous mode with a daily free quota."
+        },
+        "websearch_deepseek_key": {
+          "description": "DeepSeek API Key",
+          "hint": "Used for DeepSeek search and page extraction. You may reuse the chat model key, but it must be entered separately. Multiple keys rotate; keys under the same account share QPS limits."
+        },
+        "websearch_serpapi_key": {
+          "description": "SerpApi API Key",
+          "hint": "Supports Google web, image, scholar, and finance search. Multiple keys rotate. Get a key at https://serpapi.com/manage-api-key"
         },
         "websearch_firecrawl_key": {
           "description": "Firecrawl API Key",
@@ -454,6 +488,9 @@
         },
         "runtimeUnknown": "Runtime information is unavailable.",
         "memberWarning": "Members have network access or file access across the entire environment.",
+        "executionInactive": "Inactive",
+        "executionInactiveHelp": "Why execution is inactive",
+        "executionBlocked": "Code execution is enabled for {role}, but the configured isolation requirements cannot currently be met. {reason}",
         "runtime": {
           "os": "OS",
           "arch": "Architecture",
@@ -469,6 +506,11 @@
             "missing": "Install {dependency} to enable all local isolation features.",
             "unavailable": "Configure {backend} to enable all local isolation features.",
             "unsupported": "Learn about local isolation support."
+          },
+          "isolationFailure": {
+            "missing": "Missing {dependency}.",
+            "unavailable": "{backend} failed its startup probe.",
+            "unsupported": "Local process isolation is not supported on this platform."
           },
           "executionUnavailable": {
             "missing": "Missing {dependency}; code execution cannot be enabled when File access scope is set to Workspace.",

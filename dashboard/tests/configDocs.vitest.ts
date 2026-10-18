@@ -178,6 +178,32 @@ describe('config docs links', () => {
     expect(wrapper.find('.config-hint').text()).not.toContain('/help/');
   });
 
+  it('opens links in rendered hints in a new tab', async () => {
+    await initI18n('en-US');
+
+    const wrapper = mountWithVuetify(AstrBotConfigV4, {
+      props: {
+        metadata: {
+          sample: {
+            description: 'Sample',
+            hint: 'See [the docs](https://example.com/docs).',
+            type: 'object',
+            items: {
+              enable: { description: 'Enable', type: 'bool' },
+            },
+          },
+        },
+        iterable: { enable: true },
+        metadataKey: 'sample',
+      },
+    });
+
+    const link = wrapper.get('.config-hint a');
+    expect(link.attributes('href')).toBe('https://example.com/docs');
+    expect(link.attributes('target')).toBe('_blank');
+    expect(link.attributes('rel')).toBe('noopener noreferrer');
+  });
+
   it('keeps the plugin section available while searching inside it', async () => {
     const wrapper = mountWithVuetify(AstrBotCoreConfigWrapper, {
       props: {

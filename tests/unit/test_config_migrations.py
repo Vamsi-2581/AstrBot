@@ -118,6 +118,48 @@ def test_retired_gemini_embedding_model_is_migrated_without_changing_others():
     ]
 
 
+def test_revision_three_preserves_saved_local_permission_policies():
+    permissions = {
+        "member": {
+            "allow_execution": False,
+            "allow_network": False,
+            "filesystem_scope": "none",
+        },
+        "admin": {
+            "allow_execution": True,
+            "allow_network": True,
+            "filesystem_scope": "host",
+        },
+    }
+    conf = {
+        "schema_revision": 2,
+        "provider_settings": {"computer_use_local_permissions": permissions},
+    }
+
+    assert migrate_config_dict(conf) is True
+    assert conf["schema_revision"] == CONFIG_SCHEMA_REVISION
+    assert conf["provider_settings"]["computer_use_local_permissions"] == permissions
+
+
+def test_local_permission_migration_preserves_other_policies():
+    member = {
+        "allow_execution": True,
+        "allow_network": False,
+        "filesystem_scope": "workspace",
+    }
+    conf = {
+        "schema_revision": 2,
+        "provider_settings": {
+            "computer_use_local_permissions": {"member": member.copy()}
+        },
+    }
+
+    assert migrate_config_dict(conf) is True
+    assert (
+        conf["provider_settings"]["computer_use_local_permissions"]["member"] == member
+    )
+
+
 def test_config_load_migrates_and_persists_flat_file(tmp_path):
     config_path = tmp_path / "cmd_config.json"
     config_path.write_text(

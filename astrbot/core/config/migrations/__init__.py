@@ -9,7 +9,7 @@ value survives the rename.
 
 from __future__ import annotations
 
-CONFIG_SCHEMA_REVISION = 2
+CONFIG_SCHEMA_REVISION = 3
 
 
 class ConfigMigrationError(RuntimeError):
@@ -125,6 +125,12 @@ def migrate_config_dict(conf: dict) -> bool:
             changed |= _migrate_flat_to_grouped(conf)
         elif revision == 1:
             changed |= _migrate_retired_gemini_embedding_model(conf)
+        elif revision == 2:
+            # Revision 3 unifies Local permission defaults for fresh installs,
+            # but saved policies must not be rewritten: the legacy Windows
+            # member default ("none") is indistinguishable from an explicit
+            # opt-out, so preserve the document as written.
+            pass
         revision += 1
         changed = True
 

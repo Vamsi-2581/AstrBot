@@ -525,11 +525,17 @@ async def test_restricted_local_member_rejects_workspace_hardlink_alias(
         path="linked.txt",
         content="changed\n",
     )
+    grep_result = await fs_tools.GrepTool().call(
+        _make_context(role="member"),
+        pattern="outside-secret",
+    )
 
     assert "multiple hard links" in read_result
     assert "may alias content outside allowed directories" in read_result
     assert "multiple hard links" in write_result
     assert "may alias content outside allowed directories" in write_result
+    assert "multiple hard links" in grep_result
+    assert "outside-secret" not in grep_result
     assert outside_file.read_text(encoding="utf-8") == "outside-secret\n"
 
 

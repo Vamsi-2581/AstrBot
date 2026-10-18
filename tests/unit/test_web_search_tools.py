@@ -935,3 +935,259 @@ async def test_anysearch_search_raises_for_http_200_business_error(monkeypatch):
 
     with pytest.raises(Exception, match="bad params"):
         await tools._anysearch_search({}, {"query": "test"})
+
+
+class _DeepSeekResponse:
+    def __init__(self, *, status=200, json_data=None, text=""):
+        self.status = status
+        self._json_data = json_data or {}
+        self._text = text
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return False
+
+    async def json(self):
+        return self._json_data
+
+    async def text(self):
+        return self._text
+
+
+class _DeepSeekSession:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return False
+
+
+@pytest.mark.asyncio
+async def test_deepseek_search_maps_results_and_content(monkeypatch):
+    response = _DeepSeekResponse(
+        json_data={
+            "results": [
+                {
+                    "title": "AstrBot",
+                    "url": "https://example.com",
+                    "summary": "Summary",
+                    "content": "Full content",
+                    "site_icon": "https://example.com/icon.png",
+                },
+                {"title": "Missing URL", "summary": "skip"},
+            ]
+        }
+    )
+    monkeypatch.setattr(tools, "_client_session", lambda: _DeepSeekSession())
+    monkeypatch.setattr(
+        tools,
+        "_post",
+        lambda _session, _url, *, json, headers: response,
+    )
+
+    results = await tools._deepseek_search(
+        {"websearch_deepseek_key": ["deepseek-key"]},
+        {"query": "AstrBot", "count": 3, "need_content": True},
+    )
+
+    assert results == [
+        tools.SearchResult(
+            title="AstrBot",
+            url="https://example.com",
+            snippet="Summary\n\nFull content",
+            favicon="https://example.com/icon.png",
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_deepseek_fetch_validates_url_and_returns_content(monkeypatch):
+    tool = tools.DeepSeekFetchWebPageTool()
+    context = _context_with_provider_settings(
+        {"websearch_deepseek_key": ["deepseek-key"]}
+    )
+
+    assert (await tool.call(context, url="file:///etc/passwd")).startswith("Error:")
+    assert (await tool.call(context, url="https://user:pass@example.com")).startswith(
+        "Error:"
+    )
+
+    response = _DeepSeekResponse(json_data={"title": "Example", "content": "# Example"})
+    monkeypatch.setattr(tools, "_client_session", lambda: _DeepSeekSession())
+    monkeypatch.setattr(
+        tools,
+        "_post",
+        lambda _session, _url, *, json, headers: response,
+    )
+
+    result = await tool.call(context, url="https://example.com")
+
+    assert result == "URL: https://example.com\nTitle: Example\nContent: # Example"
+
+
+@pytest.mark.asyncio
+async def test_deepseek_tools_require_api_key():
+    context = _context_with_provider_settings({})
+    assert "not configured" in await tools.DeepSeekFetchWebPageTool().call(
+        context, url="https://example.com"
+    )
+    with pytest.raises(ValueError, match="not configured"):
+        await tools._deepseek_search({}, {"query": "AstrBot"})
+
+
+class _SerpApiResponse:
+    def __init__(self, *, status=200, json_data=None, text=""):
+        self.status = status
+        self._json_data = json_data or {}
+        self._text = text
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return False
+
+    async def json(self):
+        return self._json_data
+
+    async def text(self):
+        return self._text
+
+
+class _SerpApiSession:
+    def __init__(self, responses):
+        self._responses = list(responses)
+        self.calls = []
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return False
+
+    def get(self, url, *, params, **kwargs):
+        self.calls.append({"url": url, "params": params, **kwargs})
+        return self._responses.pop(0)
+
+
+@pytest.mark.asyncio
+async def test_serpapi_search_maps_organic_results(monkeypatch):
+    session = _SerpApiSession(
+        [
+            _SerpApiResponse(
+                json_data={
+                    "search_metadata": {"status": "Success"},
+                    "organic_results": [
+                        {
+                            "title": "AstrBot",
+                            "link": "https://example.com",
+                            "snippet": "Search result",
+                            "favicon": "https://example.com/favicon.ico",
+                        }
+                    ],
+                }
+            )
+        ]
+    )
+    monkeypatch.setattr(tools, "_client_session", lambda: session)
+
+    results = await tools._serpapi_search(
+        {"websearch_serpapi_key": ["serp-key"]},
+        {"q": "AstrBot"},
+    )
+
+    assert results == [
+        tools.SearchResult(
+            title="AstrBot",
+            url="https://example.com",
+            snippet="Search result",
+            favicon="https://example.com/favicon.ico",
+        )
+    ]
+    assert session.calls[0]["url"] == "https://serpapi.com/search.json"
+    assert session.calls[0]["params"]["api_key"] == "serp-key"
+
+
+@pytest.mark.asyncio
+async def test_serpapi_search_rotates_on_auth_failure(monkeypatch):
+    session = _SerpApiSession(
+        [
+            _SerpApiResponse(status=401, text="bad key"),
+            _SerpApiResponse(
+                json_data={
+                    "search_metadata": {"status": "Success"},
+                    "organic_results": [{"title": "ok", "link": "https://example.com"}],
+                }
+            ),
+        ]
+    )
+    monkeypatch.setattr(tools, "_client_session", lambda: session)
+
+    results = await tools._serpapi_search(
+        _runtime_search_settings(
+            {"websearch_serpapi_key": ["first-key", "second-key"]}
+        ),
+        {"q": "AstrBot"},
+    )
+
+    assert [result.url for result in results] == ["https://example.com"]
+    assert [call["params"]["api_key"] for call in session.calls] == [
+        "first-key",
+        "second-key",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_serpapi_error_redacts_api_key(monkeypatch):
+    session = _SerpApiSession(
+        [_SerpApiResponse(status=500, text="failed with secret-key")]
+    )
+    monkeypatch.setattr(tools, "_client_session", lambda: session)
+
+    with pytest.raises(RuntimeError) as caught:
+        await tools._serpapi_search(
+            {"websearch_serpapi_key": ["secret-key"]},
+            {"q": "AstrBot"},
+        )
+
+    assert "secret-key" not in str(caught.value)
+    assert "[redacted]" in str(caught.value)
+
+
+@pytest.mark.asyncio
+async def test_serpapi_tools_require_key():
+    context = _context_with_provider_settings({})
+    for tool in (
+        tools.SerpApiWebSearchTool(),
+        tools.SerpApiImageSearchTool(),
+        tools.SerpApiFinanceSearchTool(),
+        tools.SerpApiScholarSearchTool(),
+    ):
+        assert "not configured" in await tool.call(context, query="AstrBot")
+
+
+@pytest.mark.asyncio
+async def test_serpapi_image_search_falls_back_to_thumbnail(monkeypatch):
+    response = _SerpApiResponse(
+        json_data={
+            "images_results": [
+                {
+                    "title": "PDF image",
+                    "original": "x-raw-image:///tmp/image",
+                    "thumbnail": "https://example.com/thumb.png",
+                    "link": "https://example.com/source",
+                }
+            ]
+        }
+    )
+    session = _SerpApiSession([response])
+    monkeypatch.setattr(tools, "_client_session", lambda: session)
+    tool = tools.SerpApiImageSearchTool()
+    context = _context_with_provider_settings({"websearch_serpapi_key": ["serp-key"]})
+
+    result = json.loads(await tool.call(context, query="diagram", max_results=1))
+
+    assert result["results"][0]["image_url"] == "https://example.com/thumb.png"
+    assert result["results"][0]["url"] == "https://example.com/source"

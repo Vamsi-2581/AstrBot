@@ -5,26 +5,32 @@ upstream:
   branch: master
 
 last_synced:
-  commit: de898afe7588e1f153beec06e24f03f6ddeae2e4
-  synced_at_utc: 2026-10-16T12:21:30Z
+  commit: dffe922773725e9c178392c423676ad65044748c
+  synced_at_utc: 2026-10-18T05:00:23Z
   sync_method: adapt
   source_pr: >-
-    10557, 10563, 10562, 10581
+    10584, 10599, 10580, 10588, 10591, 10601, 10602
   note: >-
-    Reviewed db4ce0c4b0ae94f443c641f0f78cc9228ddabbeb..de898afe7588e1f153beec06e24f03f6ddeae2e4
-    (4 commits). Adapted 2 and skipped 2. #10557 adapted: extended
-    _normalize_telegram_mentions to insert text_link URLs with UTF-16 boundaries
-    and added _apply_quote_hidden_links for partial quotes, with tests in the
-    fork test tree using Comp.Mention. #10581 adapted: moved
-    UNIQUE_SESSION_ID_BUILDERS and session isolation from WakingCheckStage into
-    EventBus so the unified message origin used for ActiveEventRegistry
-    registration matches stop lookup and unregistration; kept the fork onebot
-    notice/request group-session exception and did not add the unused
-    _session_isolated extra. Skipped #10563 (the fork already maps MentionAll to
-    @everyone and deliberately refuses to map Mention target=all) and #10562
-    (the fork NavItem.vue has no plugin view info button, same as the recorded
-    #10519 skip). No upstream version change in this interval. Review hardening
-    beyond upstream: EventBus isolation now also refreshes the event trace UMO to
-    the isolated session, and the Telegram normalizer keeps a text_link URL whose
-    offset falls inside a removed self mention. Focused Python suites for the
-    touched modules passed; repository-wide gates run separately.
+    Reviewed de898afe7588e1f153beec06e24f03f6ddeae2e4..dffe922773725e9c178392c423676ad65044748c
+    (7 commits). Adapted all 7; no skips. #10584 adapted the Windows workspace
+    handle-relative file access (NtCreateFile with reparse/hardlink rejection),
+    unified Local permission defaults, tool-time fail-closed execution,
+    schema_revision 3, and the inactive-execution matrix UI onto the fork's
+    authorization-based role model; schema_revision 3 is intentionally a no-op
+    for saved policies because a legacy Windows member default is
+    indistinguishable from an explicit opt-out. The fork also added a required
+    Windows Local file-security job. The fork's already-refactored stat service
+    and booter-based GrepTool were left unchanged. #10599 added DeepSeek
+    as a routed search source plus deepseek_fetch_web_page using the fork's
+    proxy-aware HTTP session and key rotation. #10580 added a Chinese Code of
+    Conduct translated from the fork's existing document, using the fork
+    maintainers as the report path; the upstream Chinese issue-template links and
+    contact address were not adopted because the fork has no such templates.
+    #10588 removed the runtime Edge TTS WSS_HEADERS override. #10591 added OSError
+    isolation to the fork's split skill discovery/listing mixins and guarded the
+    prompt build. #10601 added SerpApi as a routed source plus key-gated
+    image/finance/scholar builtins, route labels/subtitles, and subtitles support
+    in configuration metadata. #10602 bumped the synchronized version to 4.29.1
+    and wrote a fork-specific bilingual changelog covering only absorbed changes;
+    upstream changelogs/unreleased.md was not recreated. Windows-only tests were
+    skipped on macOS; focused Python, Dashboard node, and i18n checks passed.

@@ -4,6 +4,7 @@ import platform
 import shutil
 import sys
 import tempfile
+from functools import lru_cache
 from pathlib import Path
 
 from astrbot.core.utils.astrbot_path import get_astrbot_temp_path
@@ -48,19 +49,7 @@ def create_process_sandbox() -> ProcessSandbox:
     raise RuntimeError("No Local process sandbox backend is available.")
 
 
-def detect_local_runtime_info(*, probe: bool = False) -> dict:
-    """Probe OS, architecture, and Local sandbox availability once.
-
-    Args:
-        probe: When True, launch a 5s sandbox no-op if the backend is present.
-            Config saves should leave this false; the Dashboard version snapshot
-            can afford the extra process.
-
-    Returns:
-        Runtime snapshot consumed by the Dashboard version API and Local
-        permission validation. Restart AstrBot after installing sandbox
-        dependencies to refresh it.
-    """
+def _detect_sandbox_status(*, probe: bool) -> dict:
     system = platform.system().lower()
     sandbox: dict = {"backend": None, "status": "unsupported"}
     if system == "linux":
@@ -96,10 +85,43 @@ def detect_local_runtime_info(*, probe: bool = False) -> dict:
                     result.stderr.decode("utf-8", errors="replace").strip()
                     or f"Sandbox probe exited with code {result.returncode}."
                 )
-        except (OSError, RuntimeError) as exc:
+        except (OSError, RuntimeError, TimeoutError) as exc:
             sandbox.update(
                 status="unavailable", error=str(exc)[:1024] or type(exc).__name__
             )
+    return sandbox
+
+
+@lru_cache(maxsize=1)
+def get_process_sandbox_status() -> dict:
+    """Probe Local isolation once per process, including container restrictions.
+
+    Returns:
+        Backend, availability status, and optional startup error. Restart AstrBot
+        after changing the isolation environment to refresh the cached result.
+    """
+    return _detect_sandbox_status(probe=True)
+
+
+def detect_local_runtime_info(*, probe: bool = False) -> dict:
+    """Probe OS, architecture, and Local sandbox availability once.
+
+    Args:
+        probe: When True, launch a 5s sandbox no-op if the backend is present.
+            Config saves should leave this false; the Dashboard version snapshot
+            can afford the extra process.
+
+    Returns:
+        Runtime snapshot consumed by the Dashboard version API and Local
+        permission validation. Restart AstrBot after installing sandbox
+        dependencies to refresh it.
+    """
+    system = platform.system().lower()
+    sandbox = (
+        get_process_sandbox_status().copy()
+        if probe
+        else _detect_sandbox_status(probe=False)
+    )
     return {
         "os": system,
         "arch": platform.machine(),
@@ -116,4 +138,5 @@ __all__ = (
     "SandboxTimeoutError",
     "create_process_sandbox",
     "detect_local_runtime_info",
+    "get_process_sandbox_status",
 )

@@ -675,7 +675,7 @@ def _build_local_mode_prompt() -> str:
             "PowerShell 7-only syntax or assume Unix commands like cat/ls/grep are available."
         )
     return (
-        "You have access to the host local environment and can execute shell commands and Python code. "
+        "Local computer tools are available subject to your role's file and execution permissions. "
         f"Current operating system: {system_name}. "
         f"{shell_hint} "
         "Long-running commands return managed sessions; use astrbot_shell_session "
@@ -749,14 +749,19 @@ def _append_skills_prompt(
     btw_config = btw_config if isinstance(btw_config, dict) else {}
     btw_enabled = bool(btw_config.get("enabled", False))
     loop_mode = "work" if event.get_extra("btw_loop") == "work" else "conversation"
-    skill_manager = plugin_context.skill_manager or SkillManager(
-        builtin_skill_catalog=plugin_context.catalogs.builtin_skills,
-    )
-    skills = _filter_skills_for_current_config(
-        skill_manager.list_skills(active_only=True, runtime=runtime),
-        profile,
-        plugin_context.catalogs.plugins,
-    )
+    skills: list[SkillInfo] = []
+    skill_manager: SkillManager | None = None
+    try:
+        skill_manager = plugin_context.skill_manager or SkillManager(
+            builtin_skill_catalog=plugin_context.catalogs.builtin_skills,
+        )
+        skills = _filter_skills_for_current_config(
+            skill_manager.list_skills(active_only=True, runtime=runtime),
+            profile,
+            plugin_context.catalogs.plugins,
+        )
+    except Exception:
+        logger.exception("Failed to list skills while preparing LLM request.")
     if btw_enabled:
         skills = [
             skill
@@ -772,7 +777,9 @@ def _append_skills_prompt(
         skill_manager.list_workspace_skills(
             _get_workspace_path_for_umo(event.unified_msg_origin)
         )
-        if runtime == "local" and (not btw_enabled or loop_mode == "work")
+        if skill_manager
+        and runtime == "local"
+        and (not btw_enabled or loop_mode == "work")
         else []
     )
     if prompt and prompt.get("skills") is not None:
@@ -1393,6 +1400,15 @@ def _registered_tools_table(
     return registered
 
 
+def _configured_web_search_providers(provider_settings: dict) -> tuple[str, ...]:
+    serpapi_keys = provider_settings.get("websearch_serpapi_key")
+    if isinstance(serpapi_keys, list | tuple) and any(
+        str(key).strip() for key in serpapi_keys
+    ):
+        return ("serpapi",)
+    return ()
+
+
 def _assemble_request_tool_catalog(
     event: AstrMessageEvent,
     req: ProviderRequest,
@@ -1463,6 +1479,9 @@ def _assemble_request_tool_catalog(
         memory_enabled=memory_manager is not None,
         web_search_enabled=bool(provider_settings.get("web_search", False)),
         web_search_route=normalize_route(provider_settings.get("websearch_route")),
+        web_search_configured_providers=_configured_web_search_providers(
+            provider_settings
+        ),
         group_history_enabled=bool(
             event.get_message_type() == MessageType.GROUP_MESSAGE
             and ltm_settings.get("group_message_history_enable", False)

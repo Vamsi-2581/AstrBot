@@ -1544,6 +1544,71 @@ class TestBuiltinToolInjection:
         assert req.func_tool.get_tool("web_search") is search_tool
         assert req.func_tool.get_tool("exa_get_contents") is None
 
+    def test_catalog_includes_deepseek_extract_tool_for_route(
+        self, mock_event, mock_context
+    ):
+        search_tool = _named_tool("web_search")
+        extract_tool = _named_tool("deepseek_fetch_web_page")
+        tmgr = mock_context.get_llm_tool_manager.return_value
+        tmgr.get_full_tool_set.return_value = ToolSet()
+        tmgr.iter_builtin_tools.return_value = [search_tool, extract_tool]
+        mock_context.get_config.return_value = {
+            "provider_settings": {
+                "web_search": True,
+                "websearch_route": ["deepseek"],
+            }
+        }
+        req = ProviderRequest()
+        ama._assemble_request_tool_catalog(
+            mock_event, req, mock_context, _catalog_config()
+        )
+        assert req.func_tool is not None
+        assert req.func_tool.get_tool("deepseek_fetch_web_page") is extract_tool
+
+    def test_catalog_includes_configured_serpapi_tools(self, mock_event, mock_context):
+        serpapi_tools = [
+            _named_tool("web_search_serpapi"),
+            _named_tool("image_search_serpapi"),
+            _named_tool("finance_search_serpapi"),
+            _named_tool("scholar_search_serpapi"),
+        ]
+        tmgr = mock_context.get_llm_tool_manager.return_value
+        tmgr.get_full_tool_set.return_value = ToolSet()
+        tmgr.iter_builtin_tools.return_value = serpapi_tools
+        mock_context.get_config.return_value = {
+            "provider_settings": {
+                "web_search": True,
+                "websearch_route": ["duckduckgo"],
+                "websearch_serpapi_key": ["serpapi-key"],
+            }
+        }
+        req = ProviderRequest()
+        ama._assemble_request_tool_catalog(
+            mock_event, req, mock_context, _catalog_config()
+        )
+        assert req.func_tool is not None
+        for tool in serpapi_tools:
+            assert req.func_tool.get_tool(tool.name) is tool
+
+    def test_catalog_omits_serpapi_tools_without_key(self, mock_event, mock_context):
+        serpapi_tools = [_named_tool("web_search_serpapi")]
+        tmgr = mock_context.get_llm_tool_manager.return_value
+        tmgr.get_full_tool_set.return_value = ToolSet()
+        tmgr.iter_builtin_tools.return_value = serpapi_tools
+        mock_context.get_config.return_value = {
+            "provider_settings": {
+                "web_search": True,
+                "websearch_route": ["duckduckgo"],
+                "websearch_serpapi_key": [],
+            }
+        }
+        req = ProviderRequest()
+        ama._assemble_request_tool_catalog(
+            mock_event, req, mock_context, _catalog_config()
+        )
+        assert req.func_tool is not None
+        assert req.func_tool.get_tool("web_search_serpapi") is None
+
     def test_apply_web_search_citation_prompt_for_webchat(self, mock_event):
         module = ama
         req = ProviderRequest(system_prompt="base")
@@ -2004,18 +2069,27 @@ class TestEnsurePromptAndSkills:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("role", ["admin", "member"])
     @pytest.mark.parametrize(
+        "isolation_status", ["detected", "missing", "unavailable", "unsupported"]
+    )
+    @pytest.mark.parametrize(
         ("allow_execution", "allow_network"),
         [(True, False), (True, True), (False, False)],
     )
     async def test_prompt_empty_tools_keeps_local_runtime_builtin_tools(
         self,
+        monkeypatch,
         mock_event,
         mock_context,
         mock_provider,
         role,
         allow_execution,
         allow_network,
+        isolation_status,
     ):
+        monkeypatch.setattr(
+            "astrbot.core.tools.computer_tools.util.get_process_sandbox_status",
+            lambda: {"status": isolation_status},
+        )
         module = ama
         prompt = {"name": "locked", "prompt": "No tools.", "tools": []}
         mock_context.prompt_manager.resolve_selected_prompt = AsyncMock(
@@ -2070,7 +2144,9 @@ class TestEnsurePromptAndSkills:
             assert "astrbot_execute_python" not in tool_names
             assert result.provider_request.system_prompt.count(
                 module.LOCAL_NETWORK_POLICY_NOTICE
-            ) == int(allow_execution and not allow_network)
+            ) == int(
+                allow_execution and not allow_network and isolation_status == "detected"
+            )
         finally:
             if result.reset_coro:
                 result.reset_coro.close()

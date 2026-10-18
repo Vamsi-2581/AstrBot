@@ -531,7 +531,6 @@ def validate_config(
     is_core: bool,
     *,
     runtime: dict | None = None,
-    current_config: dict | None = None,
 ) -> tuple[list[str], dict]:
     errors = []
 
@@ -637,7 +636,6 @@ def validate_config(
             data,
             errors,
             runtime=runtime,
-            current_config=current_config,
         )
     else:
         validate(data, schema)
@@ -650,7 +648,6 @@ def _validate_local_permissions(
     errors: list[str],
     *,
     runtime: dict | None,
-    current_config: dict | None,
 ) -> None:
     provider_settings = data.get("provider_settings", {})
     defaults = get_local_permission_defaults(runtime.get("os") if runtime else None)
@@ -659,7 +656,6 @@ def _validate_local_permissions(
         if isinstance(provider_settings, dict)
         else {}
     )
-    submitted_permissions = copy.deepcopy(permissions)
     if not isinstance(permissions, dict):
         errors.append("Local computer permissions must be an object.")
         return
@@ -681,55 +677,6 @@ def _validate_local_permissions(
             policy["allow_network"] = False
         elif policy.get("allow_execution", defaults[role]["allow_execution"]) is False:
             policy["allow_network"] = False
-
-    if (
-        errors
-        or runtime is None
-        or not isinstance(provider_settings, dict)
-        or provider_settings.get("computer_use_runtime") != "local"
-        or runtime["sandbox"]["status"] == "detected"
-    ):
-        return
-    old_settings = (current_config or {}).get("provider_settings", {})
-    old_permissions = old_settings.get("computer_use_local_permissions", {})
-    was_local = old_settings.get("computer_use_runtime") == "local"
-    for role in ("member", "admin"):
-        if was_local and submitted_permissions.get(role, {}) == old_permissions.get(
-            role, {}
-        ):
-            continue
-        policy = {**defaults[role], **permissions.get(role, {})}
-        scope = policy["filesystem_scope"]
-        if scope == "none":
-            continue
-        unsupported = runtime["sandbox"]["status"] == "unsupported"
-        if not (
-            (unsupported and scope == "workspace")
-            or (
-                policy["allow_execution"]
-                and (scope == "workspace" or not policy["allow_network"])
-            )
-        ):
-            continue
-        if unsupported:
-            reason = f"Local isolation is not supported on {runtime['os']}."
-        else:
-            dependency = (
-                "Seatbelt (/usr/bin/sandbox-exec)"
-                if runtime["sandbox"]["backend"] == "seatbelt"
-                else "bubblewrap (bwrap)"
-            )
-            if runtime["sandbox"]["status"] == "unavailable":
-                detail = runtime["sandbox"].get("error", "Sandbox startup failed.")
-                reason = (
-                    f"{dependency} is installed but cannot start a sandbox: "
-                    f"{detail} Restricted Local execution is unavailable."
-                )
-            else:
-                reason = (
-                    f"Missing {dependency}; restricted Local execution is unavailable."
-                )
-        errors.append(f"Local permission {role}: {reason}")
 
 
 def _log_computer_config_changes(
@@ -897,7 +844,6 @@ async def save_config_async(
                 CONFIG_METADATA_2,
                 is_core,
                 runtime=detect_local_runtime_info(probe=False),
-                current_config=current_config,
             )
         else:
             errors, post_config = validate_config(

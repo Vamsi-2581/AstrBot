@@ -1,7 +1,6 @@
 """如需修改配置，请在 `data/cmd_config.json` 中修改或者在管理面板中可视化修改。"""
 
 import os
-import platform
 
 from astrbot import __version__
 from astrbot.core.computer.booters.cua_defaults import CUA_DEFAULT_CONFIG
@@ -27,26 +26,25 @@ JEV_SYSTEMONE_TEMPLATE = {
 
 
 def get_local_permission_defaults(system: str | None = None) -> dict:
-    """Return fresh Local permission defaults for the operating system.
+    """Return fresh Local permission defaults shared by all operating systems.
 
     Args:
-        system: Operating system name, or None to use the current system.
+        system: Retained for callers supplying an operating system name.
 
     Returns:
-        Per-role policies. Windows disables member access and gives admins
-        unrestricted access because workspace isolation is unavailable.
+        Workspace files without execution for members and unrestricted local
+        execution for administrators. Neither policy requires process isolation.
     """
-    windows = (system or platform.system()).lower() == "windows"
     return {
         "member": {
             "allow_execution": False,
             "allow_network": False,
-            "filesystem_scope": "none" if windows else "workspace",
+            "filesystem_scope": "workspace",
         },
         "admin": {
             "allow_execution": True,
             "allow_network": True,
-            "filesystem_scope": "host" if windows else "workspace",
+            "filesystem_scope": "host",
         },
     }
 
@@ -165,6 +163,8 @@ DEFAULT_CONFIG = {
         "websearch_brave_key": [],
         "websearch_exa_key": [],
         "websearch_anysearch_key": [],
+        "websearch_deepseek_key": [],
+        "websearch_serpapi_key": [],
         "websearch_baidu_app_builder_key": "",
         "websearch_firecrawl_key": [],
         "web_search_link": False,
@@ -3981,6 +3981,8 @@ CONFIG_METADATA_3 = {
                         "options": [
                             "searxng",
                             "duckduckgo",
+                            "serpapi",
+                            "deepseek",
                             "tavily",
                             "bocha",
                             "brave",
@@ -3988,6 +3990,32 @@ CONFIG_METADATA_3 = {
                             "firecrawl",
                             "baidu_ai_search",
                             "anysearch",
+                        ],
+                        "labels": [
+                            "SearXNG",
+                            "DuckDuckGo",
+                            "SerpApi",
+                            "DeepSeek Search API",
+                            "Tavily",
+                            "BoCha",
+                            "Brave",
+                            "Exa",
+                            "Firecrawl",
+                            "Baidu AI Search",
+                            "AnySearch",
+                        ],
+                        "subtitles": [
+                            "",
+                            "",
+                            "Google 网页、图片、学术和财经搜索",
+                            "DeepSeek 官方搜索接口",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
                         ],
                         "condition": {
                             "provider_settings.web_search": True,
@@ -4067,6 +4095,26 @@ CONFIG_METADATA_3 = {
                         "type": "list",
                         "items": {"type": "string"},
                         "hint": "可添加多个 Key 进行轮询。留空则使用匿名模式（每日免费额度）。申请地址：https://anysearch.com/console/api-keys",
+                        "condition": {
+                            "provider_settings.web_search": True,
+                        },
+                    },
+                    "provider_settings.websearch_deepseek_key": {
+                        "description": "DeepSeek API Key",
+                        "type": "list",
+                        "items": {"type": "string"},
+                        "hint": "用于 DeepSeek 搜索和网页正文提取。可使用与对话模型相同的 Key，但需独立填写。可添加多个 Key 轮询，同账号共享 QPS 限制。申请地址：https://platform.deepseek.com/api_keys",
+                        "secret": True,
+                        "condition": {
+                            "provider_settings.web_search": True,
+                        },
+                    },
+                    "provider_settings.websearch_serpapi_key": {
+                        "description": "SerpApi API Key",
+                        "type": "list",
+                        "items": {"type": "string"},
+                        "hint": "支持 Google 网页、图片、学术和财经搜索。可添加多个 Key 轮询。获取 Key：https://serpapi.com/manage-api-key",
+                        "secret": True,
                         "condition": {
                             "provider_settings.web_search": True,
                         },

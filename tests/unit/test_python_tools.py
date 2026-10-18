@@ -204,8 +204,8 @@ async def test_local_python_omits_network_policy_notice(tmp_path, monkeypatch):
         lambda umo: tmp_path / umo.replace(":", "_"),
     )
     monkeypatch.setattr(
-        "astrbot.core.tools.computer_tools.util.create_process_sandbox",
-        object,
+        "astrbot.core.tools.computer_tools.util.get_process_sandbox_status",
+        lambda: {"status": "detected"},
     )
     event = SimpleNamespace(
         unified_msg_origin="onebot:GroupMessage:12345",
