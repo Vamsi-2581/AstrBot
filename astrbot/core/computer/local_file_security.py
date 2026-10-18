@@ -317,6 +317,15 @@ def open_file_in_allowed_roots(
         ValueError: If an unsupported access mode is requested.
     """
     root, parts = _match_allowed_root(Path(path), allowed_roots, path)
+    if os.name == "nt":
+        from .local_file_security_windows import open_windows_file
+
+        return open_windows_file(
+            root,
+            parts,
+            access=access,
+            create_parents=create_parents,
+        )
     if not _descriptor_relative_access_available():
         return _open_file_without_dir_fd(
             path,

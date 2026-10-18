@@ -7,6 +7,7 @@ const dashboardRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const testFiles = [
   resolve(dashboardRoot, 'tests/subsetMdiFont.test.mjs'),
   resolve(dashboardRoot, 'tests/checkI18n.test.mjs'),
+  resolve(dashboardRoot, 'tests/localPermissionPolicies.test.mjs'),
 ];
 
 for (const testFile of testFiles) {

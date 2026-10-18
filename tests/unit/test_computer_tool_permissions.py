@@ -104,12 +104,19 @@ async def test_browser_tool_without_runtime_context_is_not_gated_by_legacy_confi
 
 @pytest.mark.asyncio
 async def test_local_permission_error_names_capabilities_tab(monkeypatch):
-    policy = SimpleNamespace(allow_execution=False)
+    policy = SimpleNamespace(
+        allow_execution=False,
+        execution_disabled_reason=None,
+        filesystem_scope="workspace",
+    )
     monkeypatch.setattr(computer_util, "is_local_runtime", lambda _context: True)
+    monkeypatch.setattr(
+        computer_util, "_local_permission_role", lambda _context: "member"
+    )
     monkeypatch.setattr(
         computer_util,
         "get_local_permission_policy",
-        lambda _context: policy,
+        lambda _context, **_kwargs: policy,
     )
 
     async def allow_operation(_context, _operation_name):

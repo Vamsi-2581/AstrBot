@@ -118,6 +118,67 @@ def test_retired_gemini_embedding_model_is_migrated_without_changing_others():
     ]
 
 
+@pytest.mark.parametrize(
+    ("system", "expected_scope"),
+    [("Windows", "workspace"), ("Linux", "none")],
+)
+def test_windows_member_workspace_migration_is_platform_scoped(
+    monkeypatch, system, expected_scope
+):
+    monkeypatch.setattr(
+        "astrbot.core.config.migrations.platform.system", lambda: system
+    )
+    conf = {
+        "schema_revision": 2,
+        "provider_settings": {
+            "computer_use_local_permissions": {
+                "member": {
+                    "allow_execution": False,
+                    "allow_network": False,
+                    "filesystem_scope": "none",
+                },
+                "admin": {
+                    "allow_execution": True,
+                    "allow_network": True,
+                    "filesystem_scope": "host",
+                },
+            }
+        },
+    }
+
+    assert migrate_config_dict(conf) is True
+    assert conf["schema_revision"] == CONFIG_SCHEMA_REVISION
+    permissions = conf["provider_settings"]["computer_use_local_permissions"]
+    assert permissions["member"]["filesystem_scope"] == expected_scope
+    assert permissions["admin"] == {
+        "allow_execution": True,
+        "allow_network": True,
+        "filesystem_scope": "host",
+    }
+
+
+def test_windows_member_workspace_migration_preserves_other_policies(monkeypatch):
+    monkeypatch.setattr(
+        "astrbot.core.config.migrations.platform.system", lambda: "Windows"
+    )
+    member = {
+        "allow_execution": True,
+        "allow_network": False,
+        "filesystem_scope": "workspace",
+    }
+    conf = {
+        "schema_revision": 2,
+        "provider_settings": {
+            "computer_use_local_permissions": {"member": member.copy()}
+        },
+    }
+
+    assert migrate_config_dict(conf) is True
+    assert (
+        conf["provider_settings"]["computer_use_local_permissions"]["member"] == member
+    )
+
+
 def test_config_load_migrates_and_persists_flat_file(tmp_path):
     config_path = tmp_path / "cmd_config.json"
     config_path.write_text(

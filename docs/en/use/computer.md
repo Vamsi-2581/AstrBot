@@ -68,6 +68,12 @@ The local Shell tool includes basic blocking for dangerous commands such as `rm 
 
 In the local permission table, open the **File access scope** menu to read each option's description. **Workspace** restricts access to the session workspace, temporary directories, and skill files. **Entire environment** (formerly **Host files**) allows access to files permitted by the account running AstrBot. In Docker, this means files inside the container and mounted files, not all files on the Docker host. **Disabled** prevents file access through local Computer Use tools. These descriptions now appear under the corresponding menu options instead of below the table. Hover over or tap the question mark after “All files in the environment where AstrBot runs.” for details about account permissions and Docker file access.
 
+New installations use the same defaults on Windows, Linux, and macOS: members get workspace files without execution, while administrators get entire-environment execution with networking. Existing saved permissions are preserved. On Windows, an older member policy with execution, execution networking, and file access all disabled is migrated once to workspace file access; the old default and a manually disabled policy have identical saved values, so both are migrated. Disabling member file access again after the upgrade is respected on subsequent restarts.
+
+If a saved policy requires Local process isolation but isolation is unavailable, code execution and execution network access are disabled without widening file access or rewriting the saved policy. Workspace files without execution and entire-environment execution with networking remain available. The permission matrix keeps saved checks and marks unavailable execution as **Inactive**; hover over or select the adjacent help icon to see the cause. Restoring isolation and restarting AstrBot makes the saved policy effective again.
+
+Windows supports workspace-scoped file reading, writing, and editing through native file handles. File operations reject symbolic links, directory junctions, and multiply linked files. Local process isolation is still unsupported on native Windows; administrators can execute code with entire-environment access and networking, and isolated execution requires a sandbox runtime.
+
 Computer Use uses the unified authorization service. There is no “Require AstrBot admin permission” switch. Typical actions include:
 
 - `tool.computer_use`

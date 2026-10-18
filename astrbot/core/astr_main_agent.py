@@ -675,7 +675,7 @@ def _build_local_mode_prompt() -> str:
             "PowerShell 7-only syntax or assume Unix commands like cat/ls/grep are available."
         )
     return (
-        "You have access to the host local environment and can execute shell commands and Python code. "
+        "Local computer tools are available subject to your role's file and execution permissions. "
         f"Current operating system: {system_name}. "
         f"{shell_hint} "
         "Long-running commands return managed sessions; use astrbot_shell_session "
