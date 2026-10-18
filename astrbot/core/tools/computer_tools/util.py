@@ -278,7 +278,6 @@ async def check_admin_permission(
         "Using CUA keyboard": ("tool.computer_use", "cua-keyboard"),
         "Using browser tools": ("tool.browser_control", "browser"),
         "Using skill lifecycle tools": ("extension.manage", "skill-lifecycle"),
-        "Send a poke to another user": ("agent.manage", "send-poke"),
         "Send message to another session": ("agent.manage", "send-message"),
     }.get(operation_name)
     if mapped is None:

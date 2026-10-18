@@ -304,7 +304,7 @@ def tool_required_actions(tool: FunctionTool) -> tuple[str, ...]:
         return ("tool.browser_control",)
     if "skill" in name and name.startswith("astrbot_"):
         return ("extension.manage",)
-    if name in {"send_message_to_user", "send_poke_to_user"}:
+    if name == "send_message_to_user":
         return ("agent.manage",)
     declared = getattr(tool, "required_actions", ())
     if (
