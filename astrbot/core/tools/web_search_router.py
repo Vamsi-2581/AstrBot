@@ -52,10 +52,9 @@ SOURCE_TIMEOUT_SECONDS = 20.0
 MAX_FETCH_URL_LENGTH = 8192
 _WEB_SEARCH_DEFAULT_MAX_RESULTS = 7
 _WEB_FETCH_DEFAULT_MAX_CHARACTERS = 3000
-_WEB_FETCH_SOURCE_NAMES = frozenset({"tavily", "firecrawl", "exa", "deepseek"})
 _FETCH_URL_ERROR = (
     "Error: url must be an HTTP or HTTPS URL with a host, no embedded "
-    "credentials, and at most 8192 characters."
+    f"credentials, and at most {MAX_FETCH_URL_LENGTH} characters."
 )
 
 _TRACKING_QUERY_KEYS = frozenset({"gclid", "fbclid"})
@@ -581,6 +580,7 @@ _FETCHERS: Mapping[str, Callable[[dict, str], Awaitable[str | None]]] = {
     "exa": _exa_fetch,
     "deepseek": _deepseek_fetch_page,
 }
+_WEB_FETCH_SOURCE_NAMES = frozenset(_FETCHERS)
 
 
 async def fetch_page(
@@ -731,7 +731,7 @@ class WebFetchTool(FunctionTool[AstrAgentContext]):
                     "type": "string",
                     "description": (
                         "Required. HTTP or HTTPS URL with a host, no embedded "
-                        "credentials, and at most 8192 characters."
+                        f"credentials, and at most {MAX_FETCH_URL_LENGTH} characters."
                     ),
                 },
             },

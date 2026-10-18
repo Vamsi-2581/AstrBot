@@ -36,7 +36,6 @@ class URLExtractor:
     ) -> str:
         """
         使用 Tavily API 从 URL 提取主要文本内容。
-        这是 web_searcher 插件中 tavily_extract_web_page 方法的简化版本，
         专门为知识库模块设计，不依赖 AstrMessageEvent。
 
         Args:

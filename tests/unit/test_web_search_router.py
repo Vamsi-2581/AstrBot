@@ -496,6 +496,36 @@ async def test_fetch_page_follows_route_order_and_fails_over(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_fetch_page_fails_over_after_empty_source_result(monkeypatch):
+    calls = []
+
+    async def empty_tavily(settings, payload):
+        calls.append("tavily")
+        return [{"url": "https://example.com/page", "raw_content": ""}]
+
+    async def working_firecrawl(settings, payload):
+        calls.append("firecrawl")
+        return {"markdown": "fallback content"}
+
+    monkeypatch.setattr(router, "_tavily_extract", empty_tavily)
+    monkeypatch.setattr(router, "_firecrawl_scrape", working_firecrawl)
+
+    settings = {
+        "websearch_tavily_key": ["k"],
+        "websearch_firecrawl_key": ["k"],
+    }
+
+    result = await router.fetch_page(
+        ["tavily", "firecrawl"],
+        settings,
+        "https://example.com/page",
+    )
+
+    assert result == "URL: https://example.com/page\nContent: fallback content"
+    assert calls == ["tavily", "firecrawl"]
+
+
+@pytest.mark.asyncio
 async def test_fetch_page_skips_unconfigured_extraction_sources(monkeypatch):
     calls = []
 
