@@ -136,9 +136,30 @@ def test_allows_clash_fake_ip_for_resolved_hostnames() -> None:
     )
 
 
+def test_allows_clash_fake_ipv6_for_resolved_hostnames() -> None:
+    fake_ip = _resolver(
+        {
+            "cloud.astrbot.app": ["2001:2::2a"],
+            "raw.githubusercontent.com": ["2001:2::1d"],
+        }
+    )
+    validate_outbound_url(
+        "https://cloud.astrbot.app/api/v1/market/plugins.json",
+        PLUGIN_REGISTRY,
+        resolve_addresses=fake_ip,
+    )
+    validate_outbound_url(
+        "https://raw.githubusercontent.com/AstrBotDevs/x/main/y.json",
+        JSON_FETCH,
+        resolve_addresses=fake_ip,
+    )
+
+
 def test_still_rejects_literal_fake_ip_urls() -> None:
     with pytest.raises(OutboundRequestError, match="private or reserved"):
         validate_outbound_url("https://198.18.0.57/x", PLUGIN_DOWNLOAD_URL)
+    with pytest.raises(OutboundRequestError, match="private or reserved"):
+        validate_outbound_url("https://[2001:2::2a]/x", PLUGIN_DOWNLOAD_URL)
 
 
 def test_rejects_mixed_public_and_private_dns() -> None:
