@@ -749,14 +749,19 @@ def _append_skills_prompt(
     btw_config = btw_config if isinstance(btw_config, dict) else {}
     btw_enabled = bool(btw_config.get("enabled", False))
     loop_mode = "work" if event.get_extra("btw_loop") == "work" else "conversation"
-    skill_manager = plugin_context.skill_manager or SkillManager(
-        builtin_skill_catalog=plugin_context.catalogs.builtin_skills,
-    )
-    skills = _filter_skills_for_current_config(
-        skill_manager.list_skills(active_only=True, runtime=runtime),
-        profile,
-        plugin_context.catalogs.plugins,
-    )
+    skills: list[SkillInfo] = []
+    skill_manager: SkillManager | None = None
+    try:
+        skill_manager = plugin_context.skill_manager or SkillManager(
+            builtin_skill_catalog=plugin_context.catalogs.builtin_skills,
+        )
+        skills = _filter_skills_for_current_config(
+            skill_manager.list_skills(active_only=True, runtime=runtime),
+            profile,
+            plugin_context.catalogs.plugins,
+        )
+    except Exception:
+        logger.exception("Failed to list skills while preparing LLM request.")
     if btw_enabled:
         skills = [
             skill
@@ -772,7 +777,9 @@ def _append_skills_prompt(
         skill_manager.list_workspace_skills(
             _get_workspace_path_for_umo(event.unified_msg_origin)
         )
-        if runtime == "local" and (not btw_enabled or loop_mode == "work")
+        if skill_manager
+        and runtime == "local"
+        and (not btw_enabled or loop_mode == "work")
         else []
     )
     if prompt and prompt.get("skills") is not None:

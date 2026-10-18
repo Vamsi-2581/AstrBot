@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from astrbot import logger
 from astrbot.core.skills._skill_inventory import (
     _SKILL_NAME_RE,
     SkillInfo,
@@ -255,12 +256,26 @@ class SkillManagerListingMixin:
         show_sandbox_path: bool,
     ) -> bool:
         modified = False
-        for entry in sorted(Path(self.skills_root).iterdir()):
-            if not entry.is_dir():
-                continue
-            skill_name = entry.name
-            skill_md = _normalize_skill_markdown_path(entry)
-            if skill_md is None:
+        try:
+            local_entries = sorted(Path(self.skills_root).iterdir())
+        except OSError as exc:
+            # An unreadable skills root must not kill the whole agent request;
+            # mirror list_workspace_skills and continue with other sources.
+            logger.warning(
+                f"Skill root {self.skills_root} is not readable, "
+                f"skipping local skills: {exc}"
+            )
+            local_entries = []
+        for entry in local_entries:
+            try:
+                if not entry.is_dir():
+                    continue
+                skill_name = entry.name
+                skill_md = _normalize_skill_markdown_path(entry)
+                if skill_md is None:
+                    continue
+            except OSError as exc:
+                logger.warning(f"Skip unreadable skill directory {entry}: {exc}")
                 continue
             modified = (
                 self._add_markdown_backed_skill(
@@ -293,7 +308,13 @@ class SkillManagerListingMixin:
         for skill_name, plugin_name, skill_dir in self._iter_plugin_skill_dirs():
             if skill_name in skills_by_name:
                 continue
-            skill_md = _normalize_skill_markdown_path(skill_dir)
+            try:
+                skill_md = _normalize_skill_markdown_path(skill_dir)
+            except OSError as exc:
+                logger.warning(
+                    f"Skip unreadable plugin skill directory {skill_dir}: {exc}"
+                )
+                continue
             if skill_md is None:
                 continue
             modified = (
@@ -329,7 +350,13 @@ class SkillManagerListingMixin:
         for skill_name, source_label, skill_dir in self._iter_builtin_skill_dirs():
             if skill_name in skills_by_name:
                 continue
-            skill_md = _normalize_skill_markdown_path(skill_dir)
+            try:
+                skill_md = _normalize_skill_markdown_path(skill_dir)
+            except OSError as exc:
+                logger.warning(
+                    f"Skip unreadable builtin skill directory {skill_dir}: {exc}"
+                )
+                continue
             if skill_md is None:
                 continue
             modified = (

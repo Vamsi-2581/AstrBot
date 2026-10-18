@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from astrbot import logger
 from astrbot.core.skills._skill_inventory import (
     _SKILL_NAME_RE,
     WORKSPACE_SKILL_FRONTMATTER_MAX_CHARS,
@@ -23,12 +24,18 @@ class SkillManagerDiscoveryMixin:
         result: list[tuple[str, str, Path]] = []
         for source in catalog.sources():
             skills_dir = source.root_path / "skills"
-            if not skills_dir.is_dir():
+            try:
+                if not skills_dir.is_dir():
+                    continue
+                root_entry = self._build_root_plugin_skill_entry(
+                    skills_dir,
+                    source.root_dir_name,
+                )
+            except OSError as exc:
+                logger.warning(
+                    f"Skip unreadable builtin skills directory {skills_dir}: {exc}"
+                )
                 continue
-            root_entry = self._build_root_plugin_skill_entry(
-                skills_dir,
-                source.root_dir_name,
-            )
             if root_entry is not None:
                 skill_name, _unused, skill_dir = root_entry
                 result.append((skill_name, source.source_label, skill_dir))
@@ -43,12 +50,21 @@ class SkillManagerDiscoveryMixin:
     def _iter_plugin_skill_dirs(self) -> list[tuple[str, str, Path]]:
         """Return plugin-provided skill directories as (skill, plugin, dir)."""
         plugins_root = Path(self.plugins_root)
-        if not plugins_root.is_dir():
+        try:
+            if not plugins_root.is_dir():
+                return []
+            plugin_dirs = sorted(plugins_root.iterdir(), key=lambda item: item.name)
+        except OSError as exc:
+            logger.warning(f"Cannot list plugin directory {plugins_root}: {exc}")
             return []
 
         result: list[tuple[str, str, Path]] = []
-        for plugin_dir in sorted(plugins_root.iterdir(), key=lambda item: item.name):
-            plugin_entries = self._collect_plugin_skill_dirs(plugin_dir)
+        for plugin_dir in plugin_dirs:
+            try:
+                plugin_entries = self._collect_plugin_skill_dirs(plugin_dir)
+            except OSError as exc:
+                logger.warning(f"Skip unreadable plugin directory {plugin_dir}: {exc}")
+                continue
             if plugin_entries:
                 result.extend(plugin_entries)
         return result
@@ -57,19 +73,27 @@ class SkillManagerDiscoveryMixin:
         self,
         plugin_dir: Path,
     ) -> list[tuple[str, str, Path]]:
-        if not plugin_dir.is_dir():
-            return []
-        plugin_name = plugin_dir.name
-        skills_dir = plugin_dir / "skills"
-        if not skills_dir.is_dir():
-            return []
+        try:
+            if not plugin_dir.is_dir():
+                return []
+            plugin_name = plugin_dir.name
+            skills_dir = plugin_dir / "skills"
+            if not skills_dir.is_dir():
+                return []
 
-        result: list[tuple[str, str, Path]] = []
-        root_entry = self._build_root_plugin_skill_entry(skills_dir, plugin_name)
-        if root_entry is not None:
-            result.append(root_entry)
-        result.extend(self._iter_nested_plugin_skill_entries(skills_dir, plugin_name))
-        return result
+            result: list[tuple[str, str, Path]] = []
+            root_entry = self._build_root_plugin_skill_entry(skills_dir, plugin_name)
+            if root_entry is not None:
+                result.append(root_entry)
+            result.extend(
+                self._iter_nested_plugin_skill_entries(skills_dir, plugin_name)
+            )
+            return result
+        except OSError as exc:
+            logger.warning(
+                f"Skip unreadable plugin skills directory {plugin_dir}: {exc}"
+            )
+            return []
 
     @staticmethod
     def _build_root_plugin_skill_entry(
@@ -88,8 +112,23 @@ class SkillManagerDiscoveryMixin:
         plugin_name: str,
     ) -> list[tuple[str, str, Path]]:
         result: list[tuple[str, str, Path]] = []
-        for skill_dir in sorted(skills_dir.iterdir(), key=lambda item: item.name):
-            nested_entry = self._build_nested_plugin_skill_entry(skill_dir, plugin_name)
+        try:
+            skill_dirs = sorted(skills_dir.iterdir(), key=lambda item: item.name)
+        except OSError as exc:
+            logger.warning(
+                f"Skip unreadable plugin skills directory {skills_dir}: {exc}"
+            )
+            return result
+        for skill_dir in skill_dirs:
+            try:
+                nested_entry = self._build_nested_plugin_skill_entry(
+                    skill_dir, plugin_name
+                )
+            except OSError as exc:
+                logger.warning(
+                    f"Skip unreadable plugin skill directory {skill_dir}: {exc}"
+                )
+                continue
             if nested_entry is not None:
                 result.append(nested_entry)
         return result
