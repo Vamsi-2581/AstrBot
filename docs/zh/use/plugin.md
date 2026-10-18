@@ -23,7 +23,7 @@ AstrBot 把插件称为 Star。插件可以注册指令、工具、事件监听�
 1. 先请求上游 `cloud.astrbot.app` 市场 JSON；
 2. 失败后再回退到 `AstrBotDevs/AstrBot_Plugins_Collection` 及其 CDN。
 
-能在市场里搜到，不等于能在本分支运行。本 fork 要求 Python 3.14+，并且不兼容旧插件 API。
+能在市场里搜到，不等于能在本分支运行。本 fork 要求 Python 3.15+，并且不兼容旧插件 API。
 
 安装前检查插件元数据里的 `astrbot_version`。需要 Dashboard 页面的插件必须同时声明：
 

@@ -20,6 +20,7 @@ export default mergeConfig(
     test: {
       environment: 'jsdom',
       setupFiles: ['./tests/setup.vitest.ts'],
+      fsModuleCache: false,
       include: ['./tests/**/*.{vitest.ts,test.mjs}'],
       exclude: [
         './tests/setup.vitest.ts',

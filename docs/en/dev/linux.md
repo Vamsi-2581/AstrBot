@@ -1,13 +1,13 @@
 # Linux Development
 
 This is the supported source-development workflow for Linux. It uses Python
-3.14.8, `uv`, Node.js 26, and pnpm. The commands below do
+3.15.0, `uv`, Node.js 26, and pnpm. The commands below do
 not require PowerShell.
 
 ## Prerequisites
 
 Install the base tools with your distribution package manager, then install
-Python 3.14.8, `uv`, and Node.js 26 using the method your distribution
+Python 3.15.0, `uv`, and Node.js 26 using the method your distribution
 recommends. CI uses Node.js 26.11.1; `make doctor` accepts compatible Node 26
 releases.
 

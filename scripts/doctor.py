@@ -53,7 +53,7 @@ def main() -> None:
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     required = [
-        Check("Python", (sys.executable, "--version"), expected_prefix="Python 3.14."),
+        Check("Python", (sys.executable, "--version"), expected_prefix="Python 3.15."),
         Check("uv", ("uv", "--version")),
         Check("Node.js", ("node", "--version"), expected_prefix="v26."),
     ]

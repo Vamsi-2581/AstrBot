@@ -6,7 +6,7 @@
 <a href="./README_zh.md">简体中文</a>
 
 <div>
-<img src="https://img.shields.io/badge/python-3.14+-blue.svg" alt="python">
+<img src="https://img.shields.io/badge/python-3.15+-blue.svg" alt="python">
 <img src="https://img.shields.io/badge/deployment-source%20build-76bad9" alt="source build">
 </div>
 
@@ -19,7 +19,7 @@
 
 AstrBot 是一个开源的一站式 Agentic 个人和群聊助手，可在 QQ、Telegram、企业微信、飞书、钉钉、Slack 等数十款主流即时通讯软件上部署，此外还内置类似 OpenWebUI 的轻量化 ChatUI，为个人、开发者和团队打造可靠、可扩展的对话式智能基础设施。无论是个人 AI 伙伴、智能客服、自动化助手，还是本地知识库检索，都能在即时通讯软件的工作流中构建 AI 应用。知识库当前是单机 SQLite 加本地向量索引（默认 FAISS，另提供可选的纯 NumPy 精确检索后端），不是托管式企业检索服务。
 
-这个仓库是 AstrBot 的现代化 fork。这里记录的命令、部署文件和兼容性边界均以当前分支为准：Python 3.14+、后端使用 `uv`、前端使用 `pnpm`，并且不再为旧兼容路径背书。
+这个仓库是 AstrBot 的现代化 fork。这里记录的命令、部署文件和兼容性边界均以当前分支为准：Python 3.15+、后端使用 `uv`、前端使用 `pnpm`，并且不再为旧兼容路径背书。
 
 ![landingpage](https://github.com/user-attachments/assets/45fc5699-cddf-4e21-af35-13040706f6c0)
 
@@ -70,7 +70,7 @@ uv run python scripts/sync_dashboard_dist.py
 uv run main.py
 ```
 
-请先安装 [uv](https://docs.astral.sh/uv/)、Node.js 26.11.1 和 pnpm 12.11.2。仓库固定使用 Python 3.14.8 和对应的 pnpm 版本。首次启动后访问 `http://localhost:6185`，默认用户名为 `astrbot`，随机初始密码会显示在连接的运维终端中，不会写入启动日志。
+请先安装 [uv](https://docs.astral.sh/uv/)、Node.js 26.11.1 和 pnpm 12.11.2。仓库固定使用 Python 3.15.0 和对应的 pnpm 版本。首次启动后访问 `http://localhost:6185`，默认用户名为 `astrbot`，随机初始密码会显示在连接的运维终端中，不会写入启动日志。
 
 如果启用本地文转图或插件 HTML 渲染，还需执行一次 `uv run astrbot install-browser`。更新、远程访问和安全配置请参阅[从源码部署 AstrBot](docs/zh/deploy/astrbot/cli.md)。
 

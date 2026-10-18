@@ -25,6 +25,8 @@ if TYPE_CHECKING:
     from .session_status_check.stage import SessionStatusCheckStage
     from .waking_check.stage import WakingCheckStage
 
+    STAGES_ORDER: tuple[str, ...]
+
 _LAZY_EXPORTS = {
     "AdmissionCheckStage": (
         "astrbot.core.pipeline.admission_check.stage",

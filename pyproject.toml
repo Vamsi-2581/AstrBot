@@ -4,7 +4,7 @@ version = "4.29.1"
 description = "Easy-to-use multi-platform LLM chatbot and development framework"
 readme = "README.md"
 license = { text = "AGPL-3.0-or-later" }
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 
 keywords = ["AstrBot", "Agent", "Chatbot", "IM"]
 
@@ -47,7 +47,7 @@ dependencies = [
   "opencv-python-headless>=5.0.0.93",
   "pandas>=3.0.5",
   "pillow>=12.3.0",
-  "playwright>=1.63.0",
+  "playwright>=1.64.0",
   "pip>=26.2.1",
   "paramiko>=5.0.0",
   "psutil>=7.2.2",
@@ -64,7 +64,7 @@ dependencies = [
   "qq-botpy==1.2.1",
   "rapidfuzz>=3.14.6",
   "rich>=15.0.0",
-  "silk-python>=0.2.8",
+  "silk-python @ git+https://github.com/synodriver/pysilk.git@b0fbba74506bb8be23ef5e120b983bbb2f70ac19",
   "slack-sdk>=3.44.1",
   "sqlalchemy[asyncio]>=2.0.54",
   "sqlmodel>=0.0.42",
@@ -123,6 +123,12 @@ astrbot = "astrbot.cli.__main__:cli"
 [project.urls]
 Repository = "https://github.com/Xero-Team/AstrBot"
 
+[tool.uv]
+# PyPI publishes no cp315 wheel for silk-python and its sdist omits the
+# silk-v3-decoder sources. Build the pinned Git source (which includes the
+# submodule) with its Cython backend instead of the broken pure-Python wheel.
+extra-build-variables = { silk-python = { "USE-CYTHON" = "1" } }
+
 [[tool.uv.index]]
 name = "aliyun"
 url = "https://mirrors.aliyun.com/pypi/simple"
@@ -130,7 +136,7 @@ default = true
 
 [tool.ruff]
 line-length = 88
-target-version = "py314"
+target-version = "py315"
 
 [tool.ruff.lint]
 select = [
@@ -198,6 +204,7 @@ filterwarnings = [
   "ignore:The default datetime adapter is deprecated as of Python 3\\.12.*:DeprecationWarning:aiosqlite\\.core",
   "ignore:Use 'content=<\\.\\.\\.>' to upload raw bytes/text content\\.:DeprecationWarning:httpx\\._models",
   "ignore:The Assistants API \\(dashscope\\.assistants\\) is deprecated.*:DeprecationWarning:dashscope",
+  "ignore:'asyncio\\.iscoroutinefunction' is deprecated.*:DeprecationWarning:aiocqhttp\\.utils",
 ]
 
 [tool.hatch.metadata]

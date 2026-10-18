@@ -66,7 +66,7 @@ PR / Issue 正文末尾必须有一段**意图说明**，且必须由实际作�
 
 AI 生成内容常在这些地方出错，提交前核对：
 
-- 是否复活了废弃 API、旧插件格式、旧知识库布局，或 Python 3.10–3.13 回退。
+- 是否复活了废弃 API、旧插件格式、旧知识库布局，或 Python 3.10–3.14 回退。
 - 是否绕过证书校验、MCP 私网默认拒绝、DOMPurify、`defusedxml`、配置脱敏。
 - 用户可见失败是否仍是泛化错误；日志与 API 是否泄漏密钥、URL、token。
 - OpenAPI、生成客户端、`docs/public/openapi.json`、测试是否一起改。
@@ -168,7 +168,7 @@ author:
 AI output often fails here. Check before submitting:
 
 - Restoring deprecated APIs, old plugin formats, old knowledge-base layouts, or
-  Python 3.10–3.13 fallbacks.
+  Python 3.10–3.14 fallbacks.
 - Weakening certificate verification, the MCP private-network default, DOMPurify,
   `defusedxml`, or config redaction.
 - Leaking secrets, URLs, or tokens in user-facing errors, logs, or API responses.

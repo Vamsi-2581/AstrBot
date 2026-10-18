@@ -61,9 +61,9 @@ rules, and AI-assisted footer policy are in CONTRIBUTING.md and
 - Match the **current branch**, not upstream historical behavior.
 - Do **not** add or preserve compatibility shims for deprecated APIs, plugin
   formats, or old knowledge-base layouts.
-- Python baseline `3.14+`; backend uses `uv`; dashboard uses `pnpm`.
+- Python baseline `3.15+`; backend uses `uv`; dashboard uses `pnpm`.
 
-> 范围：以**当前分支**为准，不沿用上游历史行为；**不**为废弃 API、插件格式或旧知识库布局补兼容；Python `3.14+`；后端 `uv`；前端 `pnpm`。
+> 范围：以**当前分支**为准，不沿用上游历史行为；**不**为废弃 API、插件格式或旧知识库布局补兼容；Python `3.15+`；后端 `uv`；前端 `pnpm`。
 
 ## Changes to this policy / 修改本政策
 

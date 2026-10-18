@@ -296,7 +296,7 @@ export async function runMdiSubset() {
         }
 
         const outCSS = join(OUT_DIR, "materialdesignicons-subset.css");
-        writeFileSync(outCSS, css);
+        writeFileSync(outCSS, css.replace(/\r\n?/g, "\n"));
 
         // Report
         const origSize = statSync(MDI_TTF_PATH).size;

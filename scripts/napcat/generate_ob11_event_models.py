@@ -19,8 +19,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    if sys.version_info[:2] != (3, 14):
-        raise SystemExit("NapCat model generation requires Python 3.14.")
+    if sys.version_info[:2] != (3, 15):
+        raise SystemExit("NapCat model generation requires Python 3.15.")
     args = parse_args()
     repo_root = Path(__file__).resolve().parents[2]
     schema_path = (
@@ -54,7 +54,7 @@ def main() -> None:
             [
                 "uvx",
                 "--python",
-                "3.14",
+                "3.15",
                 "--from",
                 "datamodel-code-generator",
                 "datamodel-codegen",
@@ -67,7 +67,7 @@ def main() -> None:
                 "--output-model-type",
                 "pydantic_v2.BaseModel",
                 "--target-python-version",
-                "3.14",
+                "3.15",
                 "--formatters",
                 "builtin",
                 "--disable-timestamp",

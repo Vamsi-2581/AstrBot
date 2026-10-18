@@ -13,7 +13,7 @@ commands below work through either Codex CLI or OpenCode.
 ## Locked
 
 - Public SDK only (`astrbot.api`). No `astrbot.core`, Dashboard, or concrete adapter/provider imports.
-- Python floor from this checkout's `pyproject.toml`. No 3.10–3.13 branches.
+- Python floor from this checkout's `pyproject.toml`. No 3.10–3.14 branches.
 - In-app docs at `/help/`. Do not point READMEs at `docs.astrbot.app`.
 - Do not claim this fork publishes PyPI packages, images, or an official plugin market.
 - Agents may commit the plugin tree only when the user asked and the files are inside this checkout. They must not merge. See `.agents/shared/ai-contribution/REFERENCE.md` and `AI_POLICY.md`.
@@ -45,7 +45,7 @@ user to paste secrets into chat.
 ## Required preflight
 
 1. Read the repository `README.md` or `README_zh.md` and `pyproject.toml` before writing code.
-2. Treat `[project].requires-python` in `pyproject.toml` as the source of truth for the plugin's minimum Python version. Also read `.python-version` for the repository's tested interpreter pin. Never add Python 3.10–3.13 compatibility branches or hardcode a different floor.
+2. Treat `[project].requires-python` in `pyproject.toml` as the source of truth for the plugin's minimum Python version. Also read `.python-version` for the repository's tested interpreter pin. Never add Python 3.10–3.14 compatibility branches or hardcode a different floor.
 3. Read the relevant current-fork guide before choosing an API. Sources live under `docs/zh/dev/star/` in this checkout and are served in-app at `/help/dev/star/` after `make run`. Do not point generated READMEs at `docs.astrbot.app`.
    - [plugin development](../../../docs/zh/dev/star/plugin-new.md)
    - [minimal plugin](../../../docs/zh/dev/star/guides/simple.md)
@@ -124,7 +124,7 @@ For commands, follow the Orbit conventions: use a short lowercase root, explicit
 
 ### 4. Handle dependencies, data, and errors safely
 
-- Add only Python 3.14+-compatible runtime dependencies to `requirements.txt`.
+- Add only Python 3.15+-compatible runtime dependencies to `requirements.txt`.
 - Use `aiohttp` or `httpx` for network I/O; set timeouts and handle cancellation.
 - Keep secrets in plugin configuration, mark sensitive hints appropriately, and never log them.
 - Return short, generic user-facing failures; log only redacted diagnostic details.

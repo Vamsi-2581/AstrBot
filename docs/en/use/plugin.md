@@ -23,7 +23,7 @@ The **AstrBot Plugin Market** tab uses an upstream compatibility source, not an 
 1. It requests the upstream `cloud.astrbot.app` market JSON first;
 2. On failure it falls back to `AstrBotDevs/AstrBot_Plugins_Collection` and its CDN.
 
-Appearing in that list does not mean the plugin runs on this branch. This fork requires Python 3.14+ and does not support the old plugin API.
+Appearing in that list does not mean the plugin runs on this branch. This fork requires Python 3.15+ and does not support the old plugin API.
 
 Check `astrbot_version` in the plugin metadata before installing. Plugins that need a Dashboard page must declare both:
 

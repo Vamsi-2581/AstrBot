@@ -53,7 +53,7 @@ make check
 - [ ] User-visible behavior updates both `docs/zh/` and `docs/en/` when needed.
 - [ ] OpenAPI, generated client, `docs/public/openapi.json`, and tests change together when routes or schemas change.
 - [ ] No secrets committed. Runtime Python deps update `pyproject.toml`, `requirements.txt`, and `uv.lock` together.
-- [ ] I did not restore legacy shims, Python &lt;3.14 fallbacks, or upstream publish/docs URLs as fork artifacts.
+- [ ] I did not restore legacy shims, Python &lt;3.15 fallbacks, or upstream publish/docs URLs as fork artifacts.
 - [ ] Breaking API or behavior changes use `!` and a `BREAKING CHANGE:` footer.
 - [ ] I will not merge this PR myself. Merge needs a human maintainer review plus a separate AI-assisted review ([AI_POLICY.md](../AI_POLICY.md)).
 - [ ] AI use follows [AI_POLICY.md](../AI_POLICY.md). Keep exactly one author note below. Do not fabricate the other.

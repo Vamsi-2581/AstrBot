@@ -31,8 +31,8 @@ def run(
 
 
 def main() -> None:
-    if sys.version_info[:2] != (3, 14):
-        raise SystemExit("NapCat schema generation requires Python 3.14.")
+    if sys.version_info[:2] != (3, 15):
+        raise SystemExit("NapCat schema generation requires Python 3.15.")
     args = parse_args()
     if not args.type_name.strip():
         raise SystemExit("TypeName must not be empty.")

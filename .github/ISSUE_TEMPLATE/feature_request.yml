@@ -19,7 +19,7 @@ body:
       options:
         - label: I searched existing Issues and PRs.
           required: true
-        - label: This matches the current-branch, no-legacy, Python 3.14+ policy.
+        - label: This matches the current-branch, no-legacy, Python 3.15+ policy.
           required: true
         - label: I filled exactly one of Human note or Agent note, matching who wrote this Issue.
           required: true

@@ -10,7 +10,7 @@ AstrBot is an open-source, all-in-one Agentic assistant for personal and group c
 
 This documentation tracks the current fork branch. When this fork diverges from upstream, the behavior documented here follows this repository.
 
-The current branch targets Python 3.14+, uses a FastAPI Dashboard backend, and organizes platforms, providers, plugins, and Agents through explicit runtime services, lifecycle ownership, an event bus, and an ordered pipeline. Text-to-image rendering is local through Playwright Chromium rather than the removed remote rendering path.
+The current branch targets Python 3.15+, uses a FastAPI Dashboard backend, and organizes platforms, providers, plugins, and Agents through explicit runtime services, lifecycle ownership, an event bus, and an ordered pipeline. Text-to-image rendering is local through Playwright Chromium rather than the removed remote rendering path.
 
 ## Documentation Overview
 

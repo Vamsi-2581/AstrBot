@@ -59,12 +59,12 @@ catch {
 Ensure-Directory -Path (Split-Path -Parent $OutputPath)
 $temporaryOutputPath = "$OutputPath.tmp.py"
 
-& uvx --python 3.14 --from datamodel-code-generator datamodel-codegen `
+& uvx --python 3.15 --from datamodel-code-generator datamodel-codegen `
     --input $SchemaPath `
     --input-file-type jsonschema `
     --output $temporaryOutputPath `
     --output-model-type pydantic_v2.BaseModel `
-    --target-python-version 3.14 `
+    --target-python-version 3.15 `
     --formatters builtin `
     --disable-timestamp `
     --extra-fields forbid `

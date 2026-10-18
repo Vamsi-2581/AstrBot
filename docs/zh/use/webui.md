@@ -232,7 +232,7 @@ WebUI 支持多个 Dashboard 账户。首次启动会创建 bootstrap `root` 账
 
 在管理面板中，你可以通过左栏的 `插件` 来查看已安装的插件，以及安装新插件。市场源、`astrbot_version` 和 Dashboard Extension 见 [插件](./plugin)。
 
-点击插件市场标签栏，可以浏览默认市场源中的插件。该源先指向上游 `cloud.astrbot.app` 市场 JSON，失败后再回退到 `AstrBotDevs/AstrBot_Plugins_Collection` 及其 CDN；不是 Xero-Team 运营或审核的市场。本 fork 要求 Python 3.14+ 且不兼容旧插件 API，因此列表里的插件可能安装失败或加载失败。
+点击插件市场标签栏，可以浏览默认市场源中的插件。该源先指向上游 `cloud.astrbot.app` 市场 JSON，失败后再回退到 `AstrBotDevs/AstrBot_Plugins_Collection` 及其 CDN；不是 Xero-Team 运营或审核的市场。本 fork 要求 Python 3.15+ 且不兼容旧插件 API，因此列表里的插件可能安装失败或加载失败。
 
 ![image](https://files.astrbot.app/docs/source/images/webui/image-1.png)
 

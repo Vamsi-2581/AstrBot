@@ -20,7 +20,7 @@ features:
     details: 可集成到 QQ、企业微信、飞书、Telegram、Discord 等多个聊天平台
   - icon: 😌
     title: 当前分支可复现
-    details: 使用 Python 3.14、uv 与锁定的前端工具链，可通过源码或本地容器构建部署
+    details: 使用 Python 3.15、uv 与锁定的前端工具链，可通过源码或本地容器构建部署
   - icon: 🧩
     title: 高扩展性
     details: 提供插件、MCP、Skills、SubAgent、知识库与 Agent 沙箱能力

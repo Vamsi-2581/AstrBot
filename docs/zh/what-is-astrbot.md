@@ -10,7 +10,7 @@ AstrBot 是一个开源的一站式 Agentic 个人和群聊助手，可在 QQ、
 
 本文档描述的是当前 fork 分支的真实行为。这个仓库会选择性同步上游，但一旦与上游存在差异，以当前仓库中的代码、配置、API 和部署文件为准。
 
-当前分支使用 Python 3.14+，Dashboard 后端已经迁移到 FastAPI，并通过显式运行时服务、生命周期管理器、事件总线和有序 Pipeline 组织平台、Provider、插件与 Agent。文本转图片使用本地 Playwright Chromium，不再依赖旧的远程文转图服务。
+当前分支使用 Python 3.15+，Dashboard 后端已经迁移到 FastAPI，并通过显式运行时服务、生命周期管理器、事件总线和有序 Pipeline 组织平台、Provider、插件与 Agent。文本转图片使用本地 Playwright Chromium，不再依赖旧的远程文转图服务。
 
 ## 文档概览
 

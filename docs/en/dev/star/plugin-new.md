@@ -11,7 +11,7 @@ provider implementations.
 
 ## Prepare the Environment
 
-This repository and its plugins target Python 3.14+. Prepare an AstrBot source
+This repository and its plugins target Python 3.15+. Prepare an AstrBot source
 checkout first:
 
 ```bash
@@ -140,7 +140,7 @@ astrbot_version: '>=4.26,<5'
 
 Plugins targeting this fork should declare `astrbot_version`, for example
 `>=4.26`. Metadata currently has no separate `python_requires` field; write for
-Python 3.14+ and do not depend on 3.10–3.13 patterns or removed legacy APIs.
+Python 3.15+ and do not depend on 3.10–3.14 patterns or removed legacy APIs.
 AstrBot normally blocks the plugin when the running version does not satisfy
 the constraint. The WebUI install flow can explicitly override that warning,
 so plugin code still must not depend on undeclared internal modules.
@@ -230,8 +230,8 @@ imports such as `from .util import helper`. Do not write a top-level
 ## Dependencies and Data
 
 Add `requirements.txt` to the plugin root when third-party packages are needed.
-Those packages must support Python 3.14; do not add compatibility branches for
-Python 3.10–3.13.
+Those packages must support Python 3.15; do not add compatibility branches for
+Python 3.10–3.14.
 
 Do not write persistent data into the plugin source directory because an update
 or reinstall can replace it. Use `self.context.storage.data_directory()` as
