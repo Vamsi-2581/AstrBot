@@ -23,7 +23,9 @@ jobs:
   smoke-test:
     name: Smoke test (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    # Python 3.15 has no wheels for several pinned packages yet, so the smoke
+    # install builds duckdb and scikit-image from source on Linux/Windows.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -57,7 +59,7 @@ jobs:
           USE-CYTHON: 1
         run: |
           uv pip install --system --no-config -r requirements.txt
-        timeout-minutes: 15
+        timeout-minutes: 40
 
       - name: Run smoke tests
         run: |
