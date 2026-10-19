@@ -64,10 +64,17 @@ def provenance_commits(body: str) -> set[str]:
     )
 
 
-def is_legacy_review_record(origin_recorded_at_utc: str | None) -> bool:
+def is_legacy_review_record(
+    origin_recorded_at_utc: str | None,
+    *,
+    disposition: str = "",
+    baseline_disposition: str | None = None,
+) -> bool:
     if not origin_recorded_at_utc:
         return False
-    return origin_recorded_at_utc < LEGACY_REVIEW_CUTOFF_UTC
+    if origin_recorded_at_utc >= LEGACY_REVIEW_CUTOFF_UTC:
+        return False
+    return baseline_disposition is None or disposition == baseline_disposition
 
 
 def add_finding(
@@ -97,6 +104,7 @@ def audit_record(
     require_review: bool,
     strict_provenance: bool,
     origin_recorded_at_utc: str | None = None,
+    baseline_disposition: str | None = None,
     ref: str = "HEAD",
 ) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
@@ -150,7 +158,11 @@ def audit_record(
 
     present_review_fields = [key for key in REVIEW_FIELDS if key in record]
     if not present_review_fields:
-        if is_legacy_review_record(origin_recorded_at_utc):
+        if is_legacy_review_record(
+            origin_recorded_at_utc,
+            disposition=disposition,
+            baseline_disposition=baseline_disposition,
+        ):
             add(
                 "info",
                 "legacy-review-exempt",
@@ -373,8 +385,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     first_recorded: dict[str, str] = {}
+    baseline_disposition: dict[str, str] = {}
     for event in events:
-        first_recorded.setdefault(event["upstream_commit"], event["recorded_at_utc"])
+        commit = event["upstream_commit"]
+        if event["event_type"] == "delete":
+            first_recorded.pop(commit, None)
+            baseline_disposition.pop(commit, None)
+            continue
+        first_recorded.setdefault(commit, event["recorded_at_utc"])
+        if event["recorded_at_utc"] < LEGACY_REVIEW_CUTOFF_UTC:
+            baseline_disposition[commit] = event.get("disposition", "")
     records = [
         record
         for record in latest_by_commit(events).values()
@@ -400,6 +420,9 @@ def main(argv: list[str] | None = None) -> int:
                 require_review=args.require_review,
                 strict_provenance=args.strict_provenance,
                 origin_recorded_at_utc=first_recorded.get(record["upstream_commit"]),
+                baseline_disposition=baseline_disposition.get(
+                    record["upstream_commit"]
+                ),
                 ref=args.ref,
             )
         )

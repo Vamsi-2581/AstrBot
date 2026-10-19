@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -88,6 +89,82 @@ def test_legacy_decision_reports_review_exemption():
     )
     assert [item["code"] for item in findings] == ["legacy-review-exempt"]
     assert findings[0]["severity"] == "info"
+
+
+def test_post_cutoff_revisit_is_not_legacy_review_exempt():
+    record = _record(
+        disposition="revisit",
+        integration_commits=[],
+        recorded_at_utc="2026-10-20T00:00:00Z",
+        revisit_when="fork architecture changed",
+    )
+    for key in (
+        "review_verdict",
+        "reviewer",
+        "review_notes",
+        "review_rounds",
+        "reviewed_at_utc",
+    ):
+        del record[key]
+    findings = _audit(
+        record,
+        origin_recorded_at_utc="2026-10-18T00:00:00Z",
+        baseline_disposition="adapt",
+    )
+    assert [item["code"] for item in findings] == ["missing-review"]
+    assert findings[0]["severity"] == "error"
+
+
+def test_legacy_review_exemption_restarts_after_delete(tmp_path: Path):
+    module = _load("audit_upstream_decisions")
+    commit = "a" * 40
+    common = {
+        "schema_version": 1,
+        "event_type": "upsert",
+        "operation": "add",
+        "upstream_commit": commit,
+        "source": "manual",
+        "disposition": "adapt",
+        "status": "active",
+        "summary": "subject",
+        "source_pr": ["123"],
+        "reason_codes": ["security"],
+        "affected_paths": ["astrbot/core/example.py"],
+        "integration_commits": ["b" * 40],
+        "tests": ["uv run pytest tests/unit"],
+    }
+    add = {
+        **common,
+        "record_id": f"2026-10-18T00:00:00Z-{commit[:12]}-1",
+        "revision": 1,
+        "recorded_at_utc": "2026-10-18T00:00:00Z",
+    }
+    delete = {
+        "schema_version": 1,
+        "event_type": "delete",
+        "operation": "delete",
+        "upstream_commit": commit,
+        "revision": 2,
+        "recorded_at_utc": "2026-10-20T00:00:00Z",
+        "source": "manual",
+        "reason": "superseded record",
+    }
+    readd = {
+        **common,
+        "operation": "update",
+        "record_id": f"2026-10-20T00:00:00Z-{commit[:12]}-3",
+        "revision": 3,
+        "recorded_at_utc": "2026-10-20T00:00:00Z",
+    }
+    ledger = tmp_path / "upstream-decisions.jsonl"
+    ledger.write_text(
+        "\n".join(json.dumps(item) for item in (add, delete, readd)) + "\n",
+        encoding="utf-8",
+    )
+
+    exit_code = module.main(["--file", str(ledger), "--no-git", "--require-review"])
+
+    assert exit_code == 1
 
 
 def test_adapt_requires_fork_adaptation_and_tests():
