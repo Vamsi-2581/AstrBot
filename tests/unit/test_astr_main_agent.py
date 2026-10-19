@@ -1826,6 +1826,39 @@ class TestEnsurePromptAndSkills:
         assert "Prompt Instructions" not in req.system_prompt
 
     @pytest.mark.asyncio
+    async def test_webchat_default_prompt_is_applied_by_default(
+        self, mock_event, mock_context
+    ):
+        """Test that ChatUI keeps its special default prompt when the flag is unset."""
+        module = ama
+        mock_context.prompt_manager.resolve_selected_prompt = AsyncMock(
+            return_value=("_chatui_default_", None, None, True)
+        )
+        req = ProviderRequest()
+        req.conversation = MagicMock(prompt_id=None)
+
+        await module._ensure_prompt_and_skills(req, {}, mock_context, mock_event)
+
+        assert module.CHATUI_SPECIAL_DEFAULT_PROMPT in req.system_prompt
+
+    @pytest.mark.asyncio
+    async def test_webchat_default_prompt_can_be_disabled(
+        self, mock_event, mock_context
+    ):
+        """Test that a false enable_default_system_prompt skips the ChatUI prompt."""
+        module = ama
+        mock_context.prompt_manager.resolve_selected_prompt = AsyncMock(
+            return_value=("_chatui_default_", None, None, True)
+        )
+        mock_event.set_extra("enable_default_system_prompt", False)
+        req = ProviderRequest()
+        req.conversation = MagicMock(prompt_id=None)
+
+        await module._ensure_prompt_and_skills(req, {}, mock_context, mock_event)
+
+        assert module.CHATUI_SPECIAL_DEFAULT_PROMPT not in req.system_prompt
+
+    @pytest.mark.asyncio
     async def test_ensure_skills_includes_workspace_skills(
         self,
         monkeypatch,
