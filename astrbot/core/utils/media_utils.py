@@ -13,7 +13,7 @@ import mimetypes
 import os
 import stat
 import statistics
-import subprocess
+import subprocess  # noqa: S404  # subprocess is an intentional runtime dependency
 import uuid
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager

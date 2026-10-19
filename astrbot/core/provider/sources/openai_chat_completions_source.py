@@ -1238,7 +1238,7 @@ class ProviderOpenAIChatCompletions(Provider):
             if chosen_key in available_api_keys:
                 available_api_keys.remove(chosen_key)
             if len(available_api_keys) > 0:
-                chosen_key = random.choice(available_api_keys)
+                chosen_key = random.choice(available_api_keys)  # noqa: S311  # non-cryptographic jitter/identifier selection
                 return (
                     False,
                     chosen_key,
@@ -1363,7 +1363,7 @@ class ProviderOpenAIChatCompletions(Provider):
         llm_response = None
         max_retries = 3
         available_api_keys = self.api_keys.copy()
-        chosen_key = random.choice(available_api_keys or [self.chosen_api_key or ""])
+        chosen_key = random.choice(available_api_keys or [self.chosen_api_key or ""])  # noqa: S311  # non-cryptographic jitter/identifier selection
         image_fallback_used = False
 
         last_exception = None
@@ -1453,7 +1453,7 @@ class ProviderOpenAIChatCompletions(Provider):
 
         max_retries = 3
         available_api_keys = self.api_keys.copy()
-        chosen_key = random.choice(available_api_keys or [self.chosen_api_key or ""])
+        chosen_key = random.choice(available_api_keys or [self.chosen_api_key or ""])  # noqa: S311  # non-cryptographic jitter/identifier selection
         image_fallback_used = False
 
         last_exception = None

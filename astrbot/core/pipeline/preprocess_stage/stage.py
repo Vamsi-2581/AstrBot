@@ -106,7 +106,7 @@ class PreProcessStage(Stage):
         ):
             return
         try:
-            await event.react(random.choice(emojis))
+            await event.react(random.choice(emojis))  # noqa: S311  # non-cryptographic jitter/identifier selection
         except asyncio.CancelledError:
             raise
         except Exception as exc:

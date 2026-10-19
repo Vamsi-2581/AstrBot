@@ -141,10 +141,10 @@ class RespondStage(Stage):
             if isinstance(comp, Comp.Plain):
                 wc = await self._word_cnt(comp.text)
                 i = math.log(wc + 1, self.log_base)
-                return random.uniform(i, i + 0.5)
-            return random.uniform(1, 1.75)
+                return random.uniform(i, i + 0.5)  # noqa: S311  # non-cryptographic jitter/identifier selection
+            return random.uniform(1, 1.75)  # noqa: S311  # non-cryptographic jitter/identifier selection
         # random
-        return random.uniform(self.interval[0], self.interval[1])
+        return random.uniform(self.interval[0], self.interval[1])  # noqa: S311  # non-cryptographic jitter/identifier selection
 
     async def _is_empty_message_chain(
         self, chain: list[Comp.BaseMessageComponent]

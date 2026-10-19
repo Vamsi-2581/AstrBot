@@ -9,7 +9,7 @@ from astrbot.runtime_instance_lock import (
     runtime_instance_lock,
 )
 
-DASHBOARD_INITIAL_PASSWORD_ENV = "ASTRBOT_DASHBOARD_INITIAL_PASSWORD"
+DASHBOARD_INITIAL_PASSWORD_ENV = "ASTRBOT_DASHBOARD_INITIAL_PASSWORD"  # noqa: S105  # constant/name, not a credential
 
 
 def _initialize_config_from_env(astrbot_root: Path) -> None:

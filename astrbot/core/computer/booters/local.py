@@ -8,7 +8,7 @@ import re
 import shutil
 import signal
 import stat
-import subprocess
+import subprocess  # noqa: S404  # subprocess is an intentional runtime dependency
 import sys
 import tempfile
 import threading
@@ -90,7 +90,7 @@ def _multi_link_search_error(
         command.extend(["-g", glob])
     command.extend(["--", str(search_path)])
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603  # argv is built internally; sandbox/blocklist is the boundary
             command,
             capture_output=True,
             cwd=get_astrbot_root(),
@@ -269,7 +269,7 @@ class LocalShellComponent(ShellComponent):
                 # `command` is intentionally executed through the current shell so
                 # local computer-use behavior matches existing tool semantics.
                 # UX blocklist plus cwd bounds; the OS sandbox is the safety boundary.
-                proc = subprocess.Popen(  # noqa: S602  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
+                proc = subprocess.Popen(  # noqa: S602, S603  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
                     popen_command,
                     # Controlled local computer-use command.
                     stdout=subprocess.DEVNULL,
@@ -280,7 +280,7 @@ class LocalShellComponent(ShellComponent):
             # `command` is intentionally executed through the current shell so
             # local computer-use behavior matches existing tool semantics.
             # UX blocklist plus cwd bounds; the OS sandbox is the safety boundary.
-            proc = subprocess.Popen(  # noqa: S602  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
+            proc = subprocess.Popen(  # noqa: S602, S603  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
                 popen_command,
                 # Controlled local computer-use command.
                 stdout=subprocess.PIPE,
@@ -293,8 +293,8 @@ class LocalShellComponent(ShellComponent):
                 should_kill_parent = sys.platform != "win32"
                 if sys.platform == "win32":
                     try:
-                        taskkill_result = subprocess.run(
-                            ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                        taskkill_result = subprocess.run(  # noqa: S603  # argv is built internally; sandbox/blocklist is the boundary
+                            ["taskkill", "/F", "/T", "/PID", str(proc.pid)],  # noqa: S607  # fixed system utility invocation
                             stdout=subprocess.DEVNULL,
                             stderr=subprocess.DEVNULL,
                             timeout=5,
@@ -900,7 +900,7 @@ class LocalPythonComponent(PythonComponent):
                     child_env = os.environ.copy()
                     if sys.platform == "win32":
                         child_env.setdefault("PYTHONIOENCODING", "utf-8")
-                    result = subprocess.run(
+                    result = subprocess.run(  # noqa: S603  # argv is built internally; sandbox/blocklist is the boundary
                         [os.environ.get("PYTHON", sys.executable), "-c", code],
                         timeout=timeout_seconds,
                         capture_output=True,
@@ -1094,7 +1094,7 @@ class LocalFileSystemComponent(FileSystemComponent):
                 command.extend(["--", str(search_path)])
 
                 try:
-                    result = subprocess.run(
+                    result = subprocess.run(  # noqa: S603  # argv is built internally; sandbox/blocklist is the boundary
                         command,
                         capture_output=True,
                         cwd=get_astrbot_root(),

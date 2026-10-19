@@ -33,7 +33,7 @@ class CommandBinder:
         while index < len(words):
             word = words[index]
             token = word.value
-            if parse_options and token == "--":
+            if parse_options and token == "--":  # noqa: S105  # constant/name, not a credential
                 parse_options = False
                 index += 1
                 continue
@@ -74,7 +74,7 @@ class CommandBinder:
                 parsed_options[param.name] = value
                 index += 1
                 continue
-            if parse_options and token.startswith("-") and token != "-":
+            if parse_options and token.startswith("-") and token != "-":  # noqa: S105  # constant/name, not a credential
                 next_positional = self._next_positional(schema, len(positional))
                 if not (
                     next_positional

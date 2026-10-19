@@ -16,7 +16,7 @@ PrivateAccess = Literal["open", "prefix", "off"]
 GroupAccess = Literal["open", "prefix", "off"]
 
 INBOUND_FLUSH_KEYS = ("turn_flush", "turn_continuation")
-MANAGER_FLUSH_TOKEN = "_turn_flush_token"
+MANAGER_FLUSH_TOKEN = "_turn_flush_token"  # noqa: S105  # constant/name, not a credential
 MANAGER_FLUSH_SENTINEL = object()
 
 

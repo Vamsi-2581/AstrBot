@@ -7,7 +7,7 @@ import runtime_bootstrap
 
 runtime_bootstrap.initialize_runtime_bootstrap()
 
-DASHBOARD_RESET_PASSWORD_ENV = "ASTRBOT_RESET_DASHBOARD_PASSWORD"
+DASHBOARD_RESET_PASSWORD_ENV = "ASTRBOT_RESET_DASHBOARD_PASSWORD"  # noqa: S105  # constant/name, not a credential
 
 
 def _apply_startup_env_flags(argv: list[str]) -> None:

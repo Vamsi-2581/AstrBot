@@ -9,10 +9,8 @@ from pathlib import Path
 from typing import Literal, cast
 
 import aiofiles
-import botpy
 import botpy.errors
 import botpy.message
-import botpy.types
 import botpy.types.message
 from botpy import Client
 from botpy.http import Route
@@ -467,7 +465,7 @@ class QQOfficialMessageEvent(AstrMessageEvent):
                 "msg_id": self.message_obj.message_id,
             }
         if not isinstance(source, botpy.message.Message | botpy.message.DirectMessage):
-            payload["msg_seq"] = random.randint(1, 10000)
+            payload["msg_seq"] = random.randint(1, 10000)  # noqa: S311  # non-cryptographic jitter/identifier selection
         return payload
 
     @staticmethod

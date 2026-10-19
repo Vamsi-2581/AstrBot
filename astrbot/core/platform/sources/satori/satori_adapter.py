@@ -3,7 +3,7 @@ import json
 import time
 from collections.abc import Coroutine
 from typing import TYPE_CHECKING, Any
-from xml.etree.ElementTree import Element
+from xml.etree.ElementTree import Element  # noqa: S405  # type-only import; parsing uses defusedxml
 
 import websockets
 from aiohttp import ClientSession, ClientTimeout

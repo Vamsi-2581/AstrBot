@@ -1,7 +1,7 @@
 """Restart the current AstrBot process after Dashboard-initiated shutdown."""
 
 import os
-import subprocess
+import subprocess  # noqa: S404  # subprocess is an intentional runtime dependency
 import sys
 import time
 
@@ -98,14 +98,14 @@ class ProcessRebooter:
         if os.name == "nt" and getattr(sys, "frozen", False):
             quoted_executable = f'"{executable}"' if " " in executable else executable
             quoted_args = [f'"{arg}"' if " " in arg else arg for arg in argv[1:]]
-            os.execl(executable, quoted_executable, *quoted_args)
+            os.execl(executable, quoted_executable, *quoted_args)  # noqa: S606  # fixed executable for process restart
             return
         elif os.name == "nt":
-            subprocess.Popen(
+            subprocess.Popen(  # noqa: S603  # argv is built internally; sandbox/blocklist is the boundary
                 [executable] + argv[1:], creationflags=subprocess.CREATE_NEW_CONSOLE
             )
             os._exit(0)
-        os.execv(executable, argv)
+        os.execv(executable, argv)  # noqa: S606  # fixed executable for process restart
 
     def reboot(self, delay: int = 3) -> None:
         if is_desktop_managed_backend():

@@ -334,7 +334,7 @@ def retry_async(
                         # 其他错误用指数退避
                         backoff = min(backoff_base * (2**attempt), max_backoff)
 
-                    jitter = random.uniform(0.1, 0.5)  # 随机抖动
+                    jitter = random.uniform(0.1, 0.5)  # noqa: S311  # 随机抖动，非加密用途
                     sleep_time = backoff + jitter
 
                     logger.warning(

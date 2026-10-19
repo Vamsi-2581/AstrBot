@@ -487,7 +487,7 @@ class MisskeyPlatformAdapter(Platform):
                 )
 
             if self._running:
-                jitter = random.uniform(0, 1.0)
+                jitter = random.uniform(0, 1.0)  # noqa: S311  # non-cryptographic jitter/identifier selection
                 sleep_time = backoff_delay + jitter
                 logger.info(
                     f"[Misskey] {sleep_time:.1f}秒后重连 (下次尝试 #{connection_attempts + 1})",

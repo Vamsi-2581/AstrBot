@@ -5,7 +5,7 @@ import aiohttp
 
 from .app_registration import DEFAULT_FEISHU_OPEN_DOMAIN, DEFAULT_LARK_OPEN_DOMAIN
 
-TENANT_ACCESS_TOKEN_INTERNAL_PATH = "/open-apis/auth/v3/tenant_access_token/internal"
+TENANT_ACCESS_TOKEN_INTERNAL_PATH = "/open-apis/auth/v3/tenant_access_token/internal"  # noqa: S105  # constant/name, not a credential
 BOT_INFO_PATH = "/open-apis/bot/v3/info"
 
 

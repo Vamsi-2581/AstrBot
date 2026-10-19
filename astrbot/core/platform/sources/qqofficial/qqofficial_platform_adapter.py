@@ -486,7 +486,7 @@ class QQOfficialPlatformAdapter(Platform):
 
         if session.message_type == MessageType.GROUP_MESSAGE:
             if scene == "group":
-                payload["msg_seq"] = random.randint(1, 10000)
+                payload["msg_seq"] = random.randint(1, 10000)  # noqa: S311  # non-cryptographic jitter/identifier selection
                 if image_base64:
                     media = await QQOfficialMessageEvent.upload_group_and_c2c_image(
                         send_helper,  # type: ignore
@@ -559,7 +559,7 @@ class QQOfficialPlatformAdapter(Platform):
             # 参考 https://bot.q.qq.com/wiki/develop/pythonsdk/api/message/post_message.html
             # msg_id 缺失时认为是主动推送，而似乎至少在私聊上主动推送是没有被限制的，这里直接移除 msg_id 可以避免越权或 msg_id 不可用的bug
             payload.pop("msg_id", None)
-            payload["msg_seq"] = random.randint(1, 10000)
+            payload["msg_seq"] = random.randint(1, 10000)  # noqa: S311  # non-cryptographic jitter/identifier selection
             if image_base64:
                 media = await QQOfficialMessageEvent.upload_group_and_c2c_image(
                     send_helper,  # type: ignore

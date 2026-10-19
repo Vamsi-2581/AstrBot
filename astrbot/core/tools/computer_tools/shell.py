@@ -45,7 +45,7 @@ def _build_background_output_path(*, local_runtime: bool) -> str:
         output_dir.mkdir(parents=True, exist_ok=True)
         return str((output_dir / file_name).resolve(strict=False))
     # The sandbox owns this randomly named POSIX temporary output file.
-    return f"/tmp/{file_name}"  # nosec B108
+    return f"/tmp/{file_name}"  # noqa: S108  # nosec B108
 
 
 def _redirect_background_stdout_command(

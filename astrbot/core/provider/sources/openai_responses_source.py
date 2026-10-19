@@ -979,7 +979,7 @@ class ProviderOpenAIResponses(Provider):
             tool_choice=tool_choice,
             extra=kwargs,
         )
-        key = random.choice(self.api_keys or [self.chosen_api_key])
+        key = random.choice(self.api_keys or [self.chosen_api_key])  # noqa: S311  # non-cryptographic jitter/identifier selection
         client = self._client_for(key)
         mode = self.provider_config.get("responses_state_mode", "stateless")
         await self._prepare_state_continuation(client, history, model, options)
@@ -1134,7 +1134,7 @@ class ProviderOpenAIResponses(Provider):
             extra=kwargs,
         )
         options["stream"] = True
-        client = self._client_for(random.choice(self.api_keys or [self.chosen_api_key]))
+        client = self._client_for(random.choice(self.api_keys or [self.chosen_api_key]))  # noqa: S311  # non-cryptographic jitter/identifier selection
         mode = self.provider_config.get("responses_state_mode", "stateless")
         await self._prepare_state_continuation(client, history, model, options)
         stream = cast(

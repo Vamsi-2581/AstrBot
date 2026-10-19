@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
+import subprocess  # noqa: S404  # subprocess is an intentional runtime dependency
 import sys
 from pathlib import Path
 
@@ -185,7 +185,7 @@ class SeatbeltProcessSandbox(UnixProcessSandbox):
                 continue
             inspected.add(current)
             try:
-                result = subprocess.run(
+                result = subprocess.run(  # noqa: S603  # argv is built internally; sandbox/blocklist is the boundary
                     ["/usr/bin/otool", "-L", str(current)],
                     capture_output=True,
                     check=False,
