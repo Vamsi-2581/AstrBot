@@ -18,7 +18,7 @@ AstrBot 内置的网页搜索功能依赖大模型提供 `函数调用` 能力�
 AstrBot 会按 `网页搜索来源`（`websearch_route`）配置的**有序列表**并行查询多个来源，对结果做 canonical URL 去重，再以 RRF（Reciprocal Rank Fusion，k=60）融合，最终通过单个 `web_search` 工具返回。列表顺序即优先级：靠前的来源在融合中权重更高。
 
 - `websearch_route`：按优先级排列的来源列表，可多选，默认为 `["searxng", "duckduckgo"]`。
-- `websearch_oversample`：每来源候选倍数，默认为 8。每个来源按 `目标结果数 × 该倍数` 取候选（并受各来源上限约束），再融合。
+- `websearch_oversample`：每来源候选倍数，默认为 8。每个来源按 `目标结果数` $\times$ `该倍数` 取候选（并受各来源上限约束），再融合。
 - 单个来源未配置、失败或超时会被跳过，不影响其他来源；全部来源都不可用时，`web_search` 会返回明确错误。
 
 支持免 key 的 `SearXNG` 与 `DuckDuckGo`，以及需要 API Key 的 `Tavily`、`BoCha`、`百度 AI 搜索`、`Brave`、`Firecrawl`、`Exa`、`AnySearch`、`DeepSeek`、`SerpApi`。
@@ -88,4 +88,6 @@ AnySearch 除通用网页搜索外，还可通过服务商支持的领域标签�
 
 ## 正文抽取
 
-当来源列表包含 `Tavily`、`Firecrawl`、`Exa` 或 `DeepSeek` 时，AstrBot 会同时提供对应的正文抽取工具（`tavily_extract_web_page`、`firecrawl_extract_web_page`、`exa_get_contents`、`deepseek_fetch_web_page`），用于读取结果页正文。来源不在列表中时，对应抽取工具不会挂载。配置 SerpApi Key 后，还会提供 `image_search_serpapi`、`finance_search_serpapi` 和 `scholar_search_serpapi`。
+当网页搜索已启用，且来源列表中存在已配置的 `Tavily`、`Firecrawl`、`Exa` 或 `DeepSeek` 时，AstrBot 会提供单一的 `web_fetch` 工具，只接受 `url` 参数。它会按 `websearch_route` 的顺序依次尝试这些已配置来源，某个来源失败或超时后自动切换到下一个，成功后返回 `URL`、可选的 `Title` 和 `Content`。全部失败时只返回通用错误，不会暴露上游错误内容。
+
+抽取参数固定使用各来源的默认值：Tavily 基础抽取、Firecrawl 输出 Markdown 正文、Exa 最多 3000 字符、DeepSeek 保持原请求。模型不需要选择来源，也不能传入高级抽取参数。未配置的来源，以及不支持正文抽取的来源（如 SearXNG、DuckDuckGo），不会参与。配置 SerpApi Key 后，还会提供 `image_search_serpapi`、`finance_search_serpapi` 和 `scholar_search_serpapi`。

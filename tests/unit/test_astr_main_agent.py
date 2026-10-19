@@ -1310,7 +1310,7 @@ async def test_memory_retrieval_tools_are_available_for_default_prompt(
 
 
 @pytest.mark.asyncio
-async def test_memory_retrieval_tools_respect_explicit_empty_prompt_tools(
+async def test_memory_retrieval_builtin_tools_survive_empty_prompt_tools(
     mock_event,
     mock_context,
 ):
@@ -1350,7 +1350,12 @@ async def test_memory_retrieval_tools_respect_explicit_empty_prompt_tools(
     ama._assemble_request_tool_catalog(mock_event, req, mock_context, _catalog_config())
 
     assert req.func_tool is not None
-    assert req.func_tool.names() == []
+    assert {
+        "search_memory",
+        "get_person_profile",
+        "query_episode",
+        "maintain_memory",
+    }.issubset(set(req.func_tool.names()))
 
 
 @pytest.mark.asyncio
@@ -1502,16 +1507,19 @@ class TestBuiltinToolInjection:
         assert req.func_tool is not None
         assert req.func_tool.get_tool("web_search") is search_tool
 
-    def test_catalog_includes_route_extract_tools(self, mock_event, mock_context):
+    def test_catalog_includes_web_fetch_for_configured_extraction_provider(
+        self, mock_event, mock_context
+    ):
         search_tool = _named_tool("web_search")
-        extract_tool = _named_tool("firecrawl_extract_web_page")
+        fetch_tool = _named_tool("web_fetch")
         tmgr = mock_context.get_llm_tool_manager.return_value
         tmgr.get_full_tool_set.return_value = ToolSet()
-        tmgr.iter_builtin_tools.return_value = [search_tool, extract_tool]
+        tmgr.iter_builtin_tools.return_value = [search_tool, fetch_tool]
         mock_context.get_config.return_value = {
             "provider_settings": {
                 "web_search": True,
                 "websearch_route": ["firecrawl"],
+                "websearch_firecrawl_key": ["firecrawl-key"],
             }
         }
         req = ProviderRequest()
@@ -1520,20 +1528,20 @@ class TestBuiltinToolInjection:
         )
         assert req.func_tool is not None
         assert req.func_tool.get_tool("web_search") is search_tool
-        assert req.func_tool.get_tool("firecrawl_extract_web_page") is extract_tool
+        assert req.func_tool.get_tool("web_fetch") is fetch_tool
 
-    def test_catalog_omits_extract_tools_outside_the_route(
+    def test_catalog_omits_web_fetch_without_extraction_provider(
         self, mock_event, mock_context
     ):
         search_tool = _named_tool("web_search")
-        extract_tool = _named_tool("exa_get_contents")
+        fetch_tool = _named_tool("web_fetch")
         tmgr = mock_context.get_llm_tool_manager.return_value
         tmgr.get_full_tool_set.return_value = ToolSet()
-        tmgr.iter_builtin_tools.return_value = [search_tool, extract_tool]
+        tmgr.iter_builtin_tools.return_value = [search_tool, fetch_tool]
         mock_context.get_config.return_value = {
             "provider_settings": {
                 "web_search": True,
-                "websearch_route": ["duckduckgo"],
+                "websearch_route": ["searxng", "duckduckgo"],
             }
         }
         req = ProviderRequest()
@@ -1542,16 +1550,16 @@ class TestBuiltinToolInjection:
         )
         assert req.func_tool is not None
         assert req.func_tool.get_tool("web_search") is search_tool
-        assert req.func_tool.get_tool("exa_get_contents") is None
+        assert req.func_tool.get_tool("web_fetch") is None
 
-    def test_catalog_includes_deepseek_extract_tool_for_route(
+    def test_catalog_omits_web_fetch_without_provider_key(
         self, mock_event, mock_context
     ):
         search_tool = _named_tool("web_search")
-        extract_tool = _named_tool("deepseek_fetch_web_page")
+        fetch_tool = _named_tool("web_fetch")
         tmgr = mock_context.get_llm_tool_manager.return_value
         tmgr.get_full_tool_set.return_value = ToolSet()
-        tmgr.iter_builtin_tools.return_value = [search_tool, extract_tool]
+        tmgr.iter_builtin_tools.return_value = [search_tool, fetch_tool]
         mock_context.get_config.return_value = {
             "provider_settings": {
                 "web_search": True,
@@ -1563,7 +1571,29 @@ class TestBuiltinToolInjection:
             mock_event, req, mock_context, _catalog_config()
         )
         assert req.func_tool is not None
-        assert req.func_tool.get_tool("deepseek_fetch_web_page") is extract_tool
+        assert req.func_tool.get_tool("web_fetch") is None
+
+    def test_catalog_omits_web_fetch_when_search_is_disabled(
+        self, mock_event, mock_context
+    ):
+        search_tool = _named_tool("web_search")
+        fetch_tool = _named_tool("web_fetch")
+        tmgr = mock_context.get_llm_tool_manager.return_value
+        tmgr.get_full_tool_set.return_value = ToolSet()
+        tmgr.iter_builtin_tools.return_value = [search_tool, fetch_tool]
+        mock_context.get_config.return_value = {
+            "provider_settings": {
+                "web_search": False,
+                "websearch_route": ["deepseek"],
+                "websearch_deepseek_key": ["deepseek-key"],
+            }
+        }
+        req = ProviderRequest()
+        ama._assemble_request_tool_catalog(
+            mock_event, req, mock_context, _catalog_config()
+        )
+        assert req.func_tool is not None
+        assert req.func_tool.get_tool("web_fetch") is None
 
     def test_catalog_includes_configured_serpapi_tools(self, mock_event, mock_context):
         serpapi_tools = [
@@ -2015,14 +2045,17 @@ class TestEnsurePromptAndSkills:
         assert "test_tool" in req.func_tool.names()
 
     @pytest.mark.asyncio
-    async def test_prompt_empty_tools_strips_late_builtin_tools(
+    async def test_prompt_empty_tools_keeps_builtin_tools(
         self, mock_event, mock_context, mock_provider
     ):
         module = ama
-        prompt = {"name": "locked", "prompt": "No tools.", "tools": []}
+        prompt = {"name": "locked", "prompt": "No extension tools.", "tools": []}
         mock_context.prompt_manager.resolve_selected_prompt = AsyncMock(
             return_value=("locked", prompt, None, False)
         )
+        mock_context.get_llm_tool_manager.return_value.iter_builtin_tools.return_value = [
+            _named_tool("web_search")
+        ]
         mock_event.platform_meta.support_proactive_message = False
         mock_context.get_config.return_value = {
             "provider_settings": {
@@ -2061,7 +2094,7 @@ class TestEnsurePromptAndSkills:
         assert result is not None
         try:
             assert result.provider_request.func_tool is not None
-            assert "web_search" not in result.provider_request.func_tool.names()
+            assert "web_search" in result.provider_request.func_tool.names()
         finally:
             if result.reset_coro:
                 result.reset_coro.close()

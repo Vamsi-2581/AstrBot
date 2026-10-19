@@ -202,10 +202,11 @@ Skills can come from `data/skills`, plugin `skills/` directories, the sandbox, o
 
 The tool catalog is computed once by `assemble_tool_catalog()` in `astrbot/core/tool_catalog.py`. Inputs are the frozen Skill snapshot, Prompt three-state policy, request surface, `computer_use_runtime`, session plugin filter, and the registered-tool table. The output is a tool-name set, then one materialized `ToolSet`. Tools already present on the request are reattached only after the same surface strip. `_apply_local_env_tools()` / `_apply_sandbox_tools()` write runtime prompts only. `tool_schema_mode=skills_like` is a two-stage light schema; it does not shrink the catalog.
 
-```text
-candidates = platform baseline ∪ session plugin/MCP ∪ Skill.tools ∪ on-demand computer tools
-catalog = surface-strip(visibility-filter(Prompt whitelist ∩ candidates))
-```
+builtin tools = platform baseline $\cup$ on-demand computer tools
+
+extension tools = session plugin/MCP $\cup$ Skill.tools
+
+catalog = surface-strip(visibility-filter(builtin tools $\cup$ (Prompt whitelist $\cap$ extension tools)))
 
 | Layer                    | Enters the candidate set when                                                         | Depends on Skill `tools:`?                                       |
 | ------------------------ | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
@@ -214,7 +215,7 @@ catalog = surface-strip(visibility-filter(Prompt whitelist ∩ candidates))
 | Skill declarations       | Enabled Skill frontmatter `tools:`                                                    | Yes. Filter existing names only                                  |
 | On-demand computer tools | `computer_use_runtime` is `local` or `sandbox`, and Prompt plus hard-strip allow them | May declare, but cannot grant extra privilege. Empty when `none` |
 
-Prompt `tools is None` means “do not shrink these four layers”. It does not mean “drop plugin tools unless a Skill named them”. An empty list removes ordinary tools and still keeps `read_skill`. A non-empty list intersects the whitelist and still keeps `read_skill`. Assembly uses static visibility only; it does not call full `authorize()`. Neo lifecycle tools belong to the sandbox + `shipyard_neo` computer layer, not the platform baseline.
+Prompt `tools is None` means “do not shrink these four layers”. It does not mean “drop plugin tools unless a Skill named them”. An empty list removes plugin, MCP, and session tools only; builtin tools remain governed by the platform baseline, config, authorization, and session context. A non-empty list intersects those extension tools and always keeps builtin tools. `read_skill` is builtin and therefore remains available. Assembly uses static visibility only; it does not call full `authorize()`. Neo lifecycle tools belong to the sandbox + `shipyard_neo` computer layer, not the platform baseline.
 
 Social surfaces hard-strip tools whose `required_actions` intersect `WEBCHAT_INSTANCE_TOOL_ACTIONS`: `tool.local_exec`, `tool.python_exec`, `tool.file_write`, `tool.browser_control`, `tool.mcp_write`, and `tool.computer_use`. Anonymous WebChat, plugins, agents, and API keys always strip that set. Authenticated WebChat keeps only actions covered by the current step-up set. IM mounts the whole set without Dashboard step-up when the IM subject is `instance_operator` or above on that config; adding an action to the set is the compatibility hook. Do not use the full `HIGH_RISK_ACTIONS` set as a catalog blacklist. `tool.file_read` is not in the strip set; IM must not mount workspace file-read tools merely because a Skill declared them. Global `root`/`operator` bindings do not apply to IM subjects.
 

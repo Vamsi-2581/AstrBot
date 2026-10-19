@@ -77,7 +77,7 @@ short_desc: 用一句话介绍插件。
 
 ### Logo（可选）
 
-可以在插件根目录放置 `logo.png`。建议使用 1:1 比例和 256×256 像素。
+可以在插件根目录放置 `logo.png`。建议使用 $1:1$ 比例和 $256 \times 256$ 像素。
 
 ![插件 logo 示例](https://files.astrbot.app/docs/source/images/plugin/plugin_logo.png)
 

@@ -9,8 +9,8 @@ from astrbot.core.tools import function_tool_manager as ftm
 from astrbot.core.tools.computer_tools.shell import ExecuteShellTool
 from astrbot.core.tools.function_tool_manager import FunctionToolManager
 from astrbot.core.tools.message_tools import SendMessageToUserTool
-from astrbot.core.tools.web_search_router import WebSearchTool
-from astrbot.core.tools.web_search_tools import FirecrawlExtractWebPageTool
+from astrbot.core.tools.web_search_router import WebFetchTool, WebSearchTool
+from astrbot.core.tools.web_search_tools import WEB_SEARCH_TOOL_NAMES
 from tests.fixtures.auth import attach_authorized_tool_context
 
 
@@ -458,12 +458,21 @@ def test_web_search_tools_are_registered_as_builtin_tools():
     manager = FunctionToolManager()
 
     search_tool = manager.get_builtin_tool(WebSearchTool)
-    extract_tool = manager.get_builtin_tool(FirecrawlExtractWebPageTool)
+    fetch_tool = manager.get_builtin_tool(WebFetchTool)
 
     assert search_tool.name == "web_search"
-    assert extract_tool.name == "firecrawl_extract_web_page"
+    assert fetch_tool.name == "web_fetch"
     assert manager.is_builtin_tool("web_search") is True
-    assert manager.is_builtin_tool("firecrawl_extract_web_page") is True
+    assert manager.is_builtin_tool("web_fetch") is True
+    assert "web_fetch" in WEB_SEARCH_TOOL_NAMES
+    for legacy_name in (
+        "tavily_extract_web_page",
+        "firecrawl_extract_web_page",
+        "exa_get_contents",
+        "deepseek_fetch_web_page",
+    ):
+        assert manager.is_builtin_tool(legacy_name) is False
+        assert legacy_name not in WEB_SEARCH_TOOL_NAMES
 
 
 @pytest.mark.asyncio

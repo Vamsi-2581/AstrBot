@@ -202,10 +202,11 @@ Skills 可来自 `data/skills`、插件 `skills/`、沙盒和当前会话 worksp
 
 工具目录由 `astrbot/core/tool_catalog.py` 的 `assemble_tool_catalog()` 一次计算。输入是冻结的 Skill 快照、提示词三态、入口表面、`computer_use_runtime`、会话插件过滤和已注册工具表；输出是工具名集合，再物化 `ToolSet`。请求上已有的工具回灌时仍走同一套表面硬裁。`_apply_local_env_tools()` / `_apply_sandbox_tools()` 只写运行时提示词。`tool_schema_mode=skills_like` 只做两阶段轻 schema，不收目录。
 
-```text
-候选 = 平台基线 ∪ 会话插件/MCP ∪ Skill.tools ∪ 按需电脑工具
-目录 = 表面硬裁(可见性过滤(提示词白名单 ∩ 候选))
-```
+内置工具 = 平台基线 $\cup$ 按需电脑工具
+
+扩展工具 = 会话插件/MCP $\cup$ Skill.tools
+
+目录 = 表面硬裁(可见性过滤(内置工具 $\cup$ (提示词白名单 $\cap$ 扩展工具)))
 
 | 层             | 何时进入候选                                                       | 是否靠 Skill `tools:`                         |
 | -------------- | ------------------------------------------------------------------ | --------------------------------------------- |
@@ -214,7 +215,7 @@ Skills 可来自 `data/skills`、插件 `skills/`、沙盒和当前会话 worksp
 | Skill 声明     | 已启用 Skill 前言 `tools:`                                         | 是。只过滤已有工具名                          |
 | 按需电脑工具   | `computer_use_runtime` 为 `local` 或 `sandbox`，且通过提示词与硬裁 | 可声明，但不能扩权。`runtime=none` 时本层为空 |
 
-提示词 `tools is None` 表示不收缩这四层，不是「Skill 没声明就不给插件工具」。空列表移除普通工具，仍保留 `read_skill`。非空列表与白名单求交，`read_skill` 仍保留。装配阶段只做静态可见性过滤，不调用完整 `authorize()`。Neo 生命周期工具属于 sandbox + `shipyard_neo` 的按需电脑层，不是平台基线。
+提示词 `tools is None` 表示不收缩这四层，不是「Skill 没声明就不给插件工具」。空列表只移除插件、MCP 和会话工具，内置工具仍由平台基线、配置、授权与场景决定；非空列表只对这些扩展工具求交，内置工具始终保留。`read_skill` 属于内置工具，因此同样保留。装配阶段只做静态可见性过滤，不调用完整 `authorize()`。Neo 生命周期工具属于 sandbox + `shipyard_neo` 的按需电脑层，不是平台基线。
 
 社交表面按 `WEBCHAT_INSTANCE_TOOL_ACTIONS` 硬裁：`tool.local_exec`、`tool.python_exec`、`tool.file_write`、`tool.browser_control`、`tool.mcp_write`、`tool.computer_use`。匿名 WebChat、插件、Agent、API Key 一律裁掉。已认证 WebChat 只放行已 step-up 的动作交集。IM 在该配置上绑了 `instance_operator` 及以上时，挂出整组动作且不走 Dashboard step-up；新动作加入该集合后自动进入这条路径。不要用整份 `HIGH_RISK_ACTIONS` 当工具目录黑名单。`tool.file_read` 不在硬裁集；IM 上不要仅因 Skill 声明就挂出工作区读文件。全局 `root`/`operator` 绑定不会继承到 IM 主体。
 
@@ -319,7 +320,7 @@ guest:<id>
 | `skill.read`                                      | member 及以上                                                                                    | 否                 |
 | `tool.local_exec` 等实例工具                      | instance_operator 及以上；WebChat 另需 step-up；IM 上绑了该配置 `instance_operator` 则免 step-up | 是                 |
 
-插件自定义动作必须使用 `plugin:<plugin-id>:<action>` 命名空间，并通过 `self.context.authz.authorize()` 再次调用核心授权。未声明的插件写操作默认拒绝。工具最终权限是“用户授权 ∩ Prompt 工具策略 ∩ 工具自身策略”；子 Agent handoff 不能提升调用者。
+插件自定义动作必须使用 `plugin:<plugin-id>:<action>` 命名空间，并通过 `self.context.authz.authorize()` 再次调用核心授权。未声明的插件写操作默认拒绝。工具最终权限是“用户授权 $\cap$ Prompt 工具策略 $\cap$ 工具自身策略”；子 Agent handoff 不能提升调用者。
 
 ### Step-up、审计与 API Key
 

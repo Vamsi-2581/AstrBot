@@ -18,7 +18,7 @@ And other prompts with search intent to trigger the model to invoke the search t
 AstrBot queries every source in the ordered `Web Search Sources` (`websearch_route`) list in parallel, deduplicates the results by canonical URL, and fuses them with RRF (Reciprocal Rank Fusion, k=60) behind a single `web_search` tool. The list order is the priority order: earlier sources carry more weight in the fusion.
 
 - `websearch_route`: the ordered, multi-select source list, defaulting to `["searxng", "duckduckgo"]`.
-- `websearch_oversample`: the per-source candidate multiplier, defaulting to 8. Each source fetches `target results × this multiplier` candidates (clamped to each source's limit) before fusion.
+- `websearch_oversample`: the per-source candidate multiplier, defaulting to 8. Each source fetches `target results` $\times$ `this multiplier` candidates (clamped to each source's limit) before fusion.
 - A source that is unconfigured, fails, or times out is skipped without affecting the others; when no source is usable, `web_search` returns a clear error.
 
 Keyless `SearXNG` and `DuckDuckGo` are supported alongside the key-based `Tavily`, `BoCha`, `Baidu AI Search`, `Brave`, `Firecrawl`, `Exa`, `AnySearch`, `DeepSeek`, and `SerpApi`.
@@ -88,4 +88,6 @@ Go to the [DeepSeek Platform](https://platform.deepseek.com/api_keys) to get an 
 
 ## Page extraction
 
-When the source list contains `Tavily`, `Firecrawl`, `Exa`, or `DeepSeek`, AstrBot also exposes the matching page-content extract tools (`tavily_extract_web_page`, `firecrawl_extract_web_page`, `exa_get_contents`, `deepseek_fetch_web_page`). A source that is not in the list does not mount its extract tool. SerpApi additionally provides `image_search_serpapi`, `finance_search_serpapi`, and `scholar_search_serpapi` whenever its key is configured.
+When web search is enabled and the source list contains a configured `Tavily`, `Firecrawl`, `Exa`, or `DeepSeek` source, AstrBot exposes a single `web_fetch` tool that accepts only `url`. It tries those configured sources sequentially in `websearch_route` order, moving to the next source when one fails or times out, and returns `URL`, an optional `Title`, and `Content`. If every source fails, it returns one generic error without exposing upstream error text.
+
+Extraction parameters use each provider's fixed defaults: Tavily basic extraction, Firecrawl Markdown main content, Exa with at most 3000 characters, and the unchanged DeepSeek request. The model does not choose a provider and cannot pass advanced extraction parameters. Unconfigured sources and sources without extraction support, such as SearXNG and DuckDuckGo, are skipped. SerpApi additionally provides `image_search_serpapi`, `finance_search_serpapi`, and `scholar_search_serpapi` whenever its key is configured.

@@ -87,7 +87,7 @@ If the session already has an open LLM turn window (inbound coalesce waiting for
 
 - Mutually exclusive with experimental group-sender concurrency.
 - Group notice/request events stay on the group session.
-- `/session info` also reports the group ID when isolation is on. Group admission and `/llm disable` apply to that group session, not the rewritten per-member UMO. Per-person refusal is a sender overlay (`scope=sender` / `Subject.im.id`). It is instance-global, not a `UMO×UID` selector. A sender `llm_enabled=true` overlay cannot revive a fully blocked session.
+- `/session info` also reports the group ID when isolation is on. Group admission and `/llm disable` apply to that group session, not the rewritten per-member UMO. Per-person refusal is a sender overlay (`scope=sender` / `Subject.im.id`). It is instance-global, not a $UMO \times UID$ selector. A sender `llm_enabled=true` overlay cannot revive a fully blocked session.
 
 Isolation changes **who owns the context**. It does not relax `llm_access.group`, and it does not split group admission.
 

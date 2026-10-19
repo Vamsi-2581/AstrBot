@@ -1,4 +1,4 @@
-/* Auto-generated MDI subset – 280 icons */
+/* Auto-generated MDI subset – 282 icons */
 /* Do not edit manually. Run: pnpm run subset-icons */
 
 @font-face {
@@ -250,6 +250,10 @@
 
 .mdi-close::before {
   content: "\F0156";
+}
+
+.mdi-close-box-outline::before {
+  content: "\F0158";
 }
 
 .mdi-close-circle::before {
@@ -914,6 +918,10 @@
 
 .mdi-routes::before {
   content: "\F046A";
+}
+
+.mdi-select-all::before {
+  content: "\F0486";
 }
 
 .mdi-select-multiple::before {

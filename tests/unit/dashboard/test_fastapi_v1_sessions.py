@@ -726,6 +726,30 @@ async def test_v1_prompt_create_preserves_explicit_empty_tools_and_skills(
 
 
 @pytest.mark.asyncio
+async def test_v1_prompt_create_returns_null_for_omitted_tools_and_skills(
+    asgi_client: httpx.AsyncClient,
+    fake_core_lifecycle,
+):
+    response = await asgi_client.post(
+        "/api/v1/prompts",
+        json={
+            "prompt_id": "prompt/default-capabilities",
+            "system_prompt": "Use the default capability set.",
+        },
+        headers=_jwt_headers(),
+    )
+
+    assert response.status_code == 200
+    serialized = response.json()["data"]["prompt"]
+    assert serialized["tools"] is None
+    assert serialized["skills"] is None
+    assert (
+        fake_core_lifecycle.prompt_mgr.prompts["prompt/default-capabilities"].tools
+        is None
+    )
+
+
+@pytest.mark.asyncio
 async def test_v1_prompt_by_id_update_preserves_explicit_null_tools_and_skills(
     asgi_client: httpx.AsyncClient,
     fake_core_lifecycle,

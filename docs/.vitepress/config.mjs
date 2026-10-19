@@ -1,5 +1,8 @@
 import { defineConfig } from 'vitepress';
+import markdownItKatexModule from '@vscode/markdown-it-katex';
 import { head } from './config/head';
+
+const markdownItKatex = markdownItKatexModule.default ?? markdownItKatexModule;
 
 const isDevCommand = process.argv.includes('dev');
 const docsBase =
@@ -15,6 +18,12 @@ export default defineConfig({
 
   rewrites: {
     'zh/:rest*': ':rest*',
+  },
+
+  markdown: {
+    config: (md) => {
+      md.use(markdownItKatex, { throwOnError: false });
+    },
   },
 
   lastUpdated: true,

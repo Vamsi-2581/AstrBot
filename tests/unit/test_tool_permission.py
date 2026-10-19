@@ -79,12 +79,7 @@ def test_history_and_memory_tools_use_tool_scoped_actions():
 def test_builtin_web_search_tools_require_web_search_action():
     manager = FunctionToolManager()
 
-    for name in (
-        "web_search",
-        "tavily_extract_web_page",
-        "firecrawl_extract_web_page",
-        "exa_get_contents",
-    ):
+    for name in ("web_search", "web_fetch"):
         tool = manager.get_builtin_tool(name)
         assert FunctionToolExecutor._required_actions(tool) == ("tool.web_search",)
 

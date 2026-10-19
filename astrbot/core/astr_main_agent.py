@@ -85,7 +85,7 @@ from astrbot.core.tools.computer_tools import (
     resolve_local_permission_role,
 )
 from astrbot.core.tools.function_tool_manager import FunctionToolManager
-from astrbot.core.tools.web_search_route import normalize_route
+from astrbot.core.tools.web_search_route import fetch_available, normalize_route
 from astrbot.core.utils.astrbot_path import (
     get_astrbot_system_tmp_path,
     get_astrbot_temp_path,
@@ -1448,25 +1448,29 @@ def _assemble_request_tool_catalog(
     memory_manager = _get_context_runtime_attr(plugin_context, "memory_manager")
     tool_manager = plugin_context.get_llm_tool_manager()
     registered_tools = _registered_tools_table(tool_manager)
-    session_tool_names = frozenset(registered_tools) - frozenset(
-        getattr(tool, "name", "")
-        for tool in _safe_iter_builtin_tools(tool_manager)
-        if getattr(tool, "name", "")
-    )
+    builtin_tool_name_set: set[str] = set()
+    for tool in _safe_iter_builtin_tools(tool_manager):
+        name = getattr(tool, "name", None)
+        if isinstance(name, str) and name and registered_tools.get(name) is tool:
+            builtin_tool_name_set.add(name)
+    builtin_tool_names = frozenset(builtin_tool_name_set)
+    session_tool_names = frozenset(registered_tools) - builtin_tool_name_set
     full_set = tool_manager.get_full_tool_set()
     full_tools = getattr(full_set, "tools", None)
     if isinstance(full_tools, list):
-        session_tool_names = frozenset(
-            name
-            for tool in full_tools
-            if isinstance(name := getattr(tool, "name", None), str) and name
-        )
+        full_tool_name_set: set[str] = set()
+        for tool in full_tools:
+            name = getattr(tool, "name", None)
+            if isinstance(name, str) and name:
+                full_tool_name_set.add(name)
+        session_tool_names = frozenset(full_tool_name_set)
     surface = resolve_catalog_surface(
         source=source,
         authenticated=authenticated,
         subject_kind=subject_kind,
     )
     loop_mode = "work" if event.get_extra("btw_loop") == "work" else "conversation"
+    web_search_route = normalize_route(provider_settings.get("websearch_route"))
     catalog_inputs = ToolCatalogInputs(
         snapshot=snapshot,
         prompt_tools=prompt_tools,
@@ -1475,13 +1479,15 @@ def _assemble_request_tool_catalog(
         allow_computer_tools=config.allow_computer_tools,
         plugin_names=event.plugins_name,
         registered_tools=registered_tools,
+        builtin_tool_names=builtin_tool_names,
         session_tool_names=session_tool_names,
         memory_enabled=memory_manager is not None,
         web_search_enabled=bool(provider_settings.get("web_search", False)),
-        web_search_route=normalize_route(provider_settings.get("websearch_route")),
+        web_search_route=web_search_route,
         web_search_configured_providers=_configured_web_search_providers(
             provider_settings
         ),
+        web_fetch_available=fetch_available(web_search_route, provider_settings),
         group_history_enabled=bool(
             event.get_message_type() == MessageType.GROUP_MESSAGE
             and ltm_settings.get("group_message_history_enable", False)

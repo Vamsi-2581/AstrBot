@@ -133,16 +133,7 @@ LOOP_SCOPED_TOOL_NAMES: Mapping[str, str] = {
 }
 
 WEB_SEARCH_TOOL_NAME = "web_search"
-
-# Extract tools that stay available for a route member.  Search itself is a
-# single aggregate tool, so only providers with a page-content extractor need
-# an extra entry here.
-WEB_SEARCH_PROVIDER_TOOLS: Mapping[str, tuple[str, ...]] = {
-    "tavily": ("tavily_extract_web_page",),
-    "firecrawl": ("firecrawl_extract_web_page",),
-    "exa": ("exa_get_contents",),
-    "deepseek": ("deepseek_fetch_web_page",),
-}
+WEB_FETCH_TOOL_NAME = "web_fetch"
 
 WEB_SEARCH_CONFIGURED_TOOLS: Mapping[str, tuple[str, ...]] = {
     "serpapi": (
@@ -169,11 +160,13 @@ class ToolCatalogInputs:
     computer_use_runtime: str
     plugin_names: Sequence[str] | None
     registered_tools: Mapping[str, FunctionTool]
+    builtin_tool_names: frozenset[str] = frozenset()
     session_tool_names: frozenset[str] = frozenset()
     memory_enabled: bool = False
     web_search_enabled: bool = False
     web_search_route: tuple[str, ...] = ()
     web_search_configured_providers: tuple[str, ...] = ()
+    web_fetch_available: bool = False
     group_history_enabled: bool = False
     proactive_messaging: bool = False
     kb_agentic_mode: bool = False
@@ -208,6 +201,7 @@ def assemble_tool_catalog_names(inputs: ToolCatalogInputs) -> tuple[str, ...]:
         candidates,
         prompt_tools=inputs.prompt_tools,
         snapshot=inputs.snapshot,
+        builtin_tool_names=inputs.builtin_tool_names,
     )
     after_plugin = _apply_plugin_filter(
         after_prompt,
@@ -353,8 +347,8 @@ def _platform_baseline(inputs: ToolCatalogInputs) -> set[str]:
         names.update(MEMORY_BASELINE_TOOLS)
     if inputs.web_search_enabled and inputs.web_search_route:
         names.add(WEB_SEARCH_TOOL_NAME)
-        for provider in inputs.web_search_route:
-            names.update(WEB_SEARCH_PROVIDER_TOOLS.get(provider, ()))
+    if inputs.web_search_enabled and inputs.web_fetch_available:
+        names.add(WEB_FETCH_TOOL_NAME)
     if inputs.web_search_enabled:
         for provider in inputs.web_search_configured_providers:
             names.update(WEB_SEARCH_CONFIGURED_TOOLS.get(provider, ()))
@@ -429,15 +423,23 @@ def _apply_prompt_tools(
     *,
     prompt_tools: Sequence[str] | None,
     snapshot: SkillSnapshot,
+    builtin_tool_names: frozenset[str] = frozenset(),
 ) -> set[str]:
+    """Apply the Prompt allowlist to plugin, MCP, and session tools only.
+
+    Builtin tools are not selectable in a Prompt. Their availability is owned
+    by the profile, authorization, surface, and loop gates that built them into
+    the candidate set. An empty Prompt list therefore means "no extension
+    tools", not "no tools at all".
+    """
     keep_read_skill = bool(snapshot.skills) and READ_SKILL_TOOL_NAME in candidates
     if prompt_tools is None:
         names = set(candidates)
-    elif not prompt_tools:
-        names = set()
     else:
         allowed = set(prompt_tools)
-        names = {name for name in candidates if name in allowed}
+        names = {
+            name for name in candidates if name in allowed or name in builtin_tool_names
+        }
     if keep_read_skill:
         names.add(READ_SKILL_TOOL_NAME)
     elif not snapshot.skills:

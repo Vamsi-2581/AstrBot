@@ -36,7 +36,7 @@ UMO 唯一指定某个平台下的一个会话。发送者覆盖用完整主体 
 
 ### 发送者覆盖（sender）
 
-发送者覆盖写在 `scope=sender`、`scope_id=Subject.im.id`（`im:{平台实例}:{机器人账号}:{发送者 ID}`）上，只认 `blocked` 和 `llm_enabled`。它对这个机器人实例上的所有会话生效，包括未开启隔离会话的共享群，不是 `UMO×UID`。提示词、TTS、知识库、Provider、插件禁用仍只属于会话规则。
+发送者覆盖写在 `scope=sender`、`scope_id=Subject.im.id`（`im:{平台实例}:{机器人账号}:{发送者 ID}`）上，只认 `blocked` 和 `llm_enabled`。它对这个机器人实例上的所有会话生效，包括未开启隔离会话的共享群，不是 $UMO \times UID$。提示词、TTS、知识库、Provider、插件禁用仍只属于会话规则。
 
 本页 **发送者** 目标和 `/user block`、`/user unblock`、`/user llm on|off` 读写同一行 preference。Dashboard 要填完整 `im:` 主体 ID；聊天里的 `/user` 还可以用当前会话铸造裸发送者 ID。见 [内置指令](./command)。保存后立即生效，不必重启。删除该行后，该发送者不再被列入。
 
