@@ -370,7 +370,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--ref",
         default="HEAD",
-        help="require integration commits to be ancestors of this ref",
+        help="require integration and follow-up commits to be ancestors of this ref",
     )
     parser.add_argument(
         "--verbose",

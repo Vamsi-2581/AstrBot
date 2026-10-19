@@ -230,6 +230,57 @@ def test_legacy_review_exemption_resets_after_post_cutoff_disposition_change(
     assert "legacy-review-exempt" not in codes
 
 
+def test_metadata_only_post_cutoff_revision_remains_legacy_exempt(
+    tmp_path: Path, capsys
+):
+    module = _load("audit_upstream_decisions")
+    commit = "a" * 40
+    common = {
+        "schema_version": 1,
+        "event_type": "upsert",
+        "upstream_commit": commit,
+        "source": "manual",
+        "disposition": "adapt",
+        "status": "active",
+        "summary": "subject",
+        "source_pr": ["123"],
+        "reason_codes": ["security"],
+        "affected_paths": ["astrbot/core/example.py"],
+        "fork_adaptation": "Keep the current fork implementation.",
+        "integration_commits": ["b" * 40],
+        "tests": ["uv run pytest tests/unit"],
+    }
+    add = {
+        **common,
+        "operation": "add",
+        "record_id": f"2026-10-18T00:00:00Z-{commit[:12]}-1",
+        "revision": 1,
+        "recorded_at_utc": "2026-10-18T00:00:00Z",
+    }
+    update = {
+        **common,
+        "operation": "update",
+        "record_id": f"2026-10-20T00:00:00Z-{commit[:12]}-2",
+        "revision": 2,
+        "recorded_at_utc": "2026-10-20T00:00:00Z",
+        "summary": "subject with refreshed metadata",
+    }
+    ledger = tmp_path / "upstream-decisions.jsonl"
+    ledger.write_text(
+        "\n".join(json.dumps(item) for item in (add, update)) + "\n",
+        encoding="utf-8",
+    )
+
+    exit_code = module.main(
+        ["--file", str(ledger), "--no-git", "--require-review", "--json"]
+    )
+
+    assert exit_code == 0
+    findings = json.loads(capsys.readouterr().out)["findings"]
+    assert [item["code"] for item in findings] == ["legacy-review-exempt"]
+    assert findings[0]["severity"] == "info"
+
+
 def test_adapt_requires_fork_adaptation_and_tests():
     findings = _audit(_record(fork_adaptation="", tests=[]))
     codes = {item["code"] for item in findings}
