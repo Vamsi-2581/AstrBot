@@ -46,7 +46,7 @@ commit.
 - Open an Issue or PR on `AstrBotDevs/AstrBot` without explicit user
   confirmation for that upstream target.
 - Claim a check passed unless this session ran it or a linked CI run did.
-- Restore legacy shims, Python 3.10-3.13 fallbacks, or upstream publish/docs
+- Restore legacy shims, Python 3.10-3.14 fallbacks, or upstream publish/docs
   URLs as fork artifacts.
 - Skip bilingual docs for user-visible behavior.
 

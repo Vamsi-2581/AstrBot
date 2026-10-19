@@ -19,7 +19,7 @@ strings. Copy this skeleton; delete unused optional sections.
 
 ## Constraints
 
-- Python `>=3.14`; no 3.10–3.13 branches
+- Python `>=3.15`; no 3.10–3.14 branches
 - No legacy shims; current-path design only
 - In-app docs at `/help/`; no `docs.astrbot.app`
 - Agents must not merge or push `master`

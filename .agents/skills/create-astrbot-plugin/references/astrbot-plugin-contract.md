@@ -6,7 +6,7 @@ legacy example.
 
 ## Runtime and package boundary
 
-- Read `[project].requires-python` from the checkout's `pyproject.toml` before generating a plugin. The current checkout declares `>=3.14`; `.python-version` pins `3.14.8` for development and CI. Generated plugin documentation must repeat the value read from the checkout, not a hand-maintained fallback.
+- Read `[project].requires-python` from the checkout's `pyproject.toml` before generating a plugin. The current checkout declares `>=3.15`; `.python-version` pins `3.15.0` for development and CI. Generated plugin documentation must repeat the value read from the checkout, not a hand-maintained fallback.
 - The plugin is a Python package-like directory loaded from `data/plugins/` as `data.plugins.<root_dir_name>.<module>` (entry `main.py`).
 - Import sibling modules with relative imports (`from .foo import bar`). A top-level `import <plugin_name>` may work in the plugin checkout but fails after `plug install`.
 - `metadata.yaml` requires `name`, `desc`, `version`, and `author`. `name` must be a legal Python identifier and a single directory name. Prefer `astrbot_plugin_<name>`.
@@ -53,7 +53,7 @@ Sources: [plugin configuration](../../../../docs/zh/dev/star/guides/plugin-confi
 
 ## Security and compatibility
 
-- Runtime dependencies must support the checkout's Python floor; do not add pre-3.14 compatibility branches.
+- Runtime dependencies must support the checkout's Python floor; do not add pre-3.15 compatibility branches.
 - Use `aiohttp` or `httpx` for asynchronous network I/O, with bounded timeouts and cancellation handling.
 - Validate user-controlled URLs, paths, files, tool arguments, and remote responses.
 - Return generic user-facing failures and log only redacted diagnostics.

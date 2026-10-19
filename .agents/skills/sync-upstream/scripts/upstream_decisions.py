@@ -331,7 +331,7 @@ def infer_reason_codes(body: str) -> list[str]:
         ("openapi", ("openapi", "generated client")),
         ("generated-model", ("generated model", "codegen", "napcat")),
         ("docs-scope", ("bilingual", "documentation", "docs/")),
-        ("toolchain", ("uv.lock", "python 3.14", "dependency")),
+        ("toolchain", ("uv.lock", "python 3.15", "dependency")),
     )
     return [code for code, terms in matches if any(term in lowered for term in terms)]
 

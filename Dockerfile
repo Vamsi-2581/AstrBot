@@ -13,7 +13,7 @@
 #   docker  Docker CLI and Compose plugin
 ARG ASTRBOT_FEATURES=full
 ARG GITHUB_RELEASE_BASES="https://github.com https://ghproxy.net/https://github.com https://gh-proxy.com/https://github.com https://ghfast.top/https://github.com"
-FROM python:3.14.8-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS builder
+FROM python:3.15.0-slim@sha256:2da676046630d7bf14c6764ae1143dc7fa0377a53f94bf5a642f0b214aca5bce AS builder
 WORKDIR /AstrBot
 
 ARG ASTRBOT_FEATURES
@@ -32,7 +32,7 @@ ENV UV_INSTALL_DIR=/usr/local/bin \
     UV_LINK_MODE=copy \
     SHFMT_VERSION=3.14.1 \
     HADOLINT_VERSION=2.15.1 \
-    PLAYWRIGHT_VERSION=1.63.0 \
+    PLAYWRIGHT_VERSION=1.64.0 \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     TYPST_VERSION=0.15.1 \
     YQ_VERSION=4.53.6 \
@@ -175,10 +175,10 @@ RUN --mount=type=cache,target=/root/.cache,sharing=locked \
     curl -LsSf https://astral.sh/uv/install.sh | sh \
     && uv --version \
     && uvx --version \
-    && echo "3.14.8" > .python-version
+    && echo "3.15.0" > .python-version
 
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
-    uv pip install -r requirements.txt --no-cache-dir --system \
+    env 'USE-CYTHON=1' uv pip install -r requirements.txt --no-cache-dir --system \
     && uv pip install socksio pilk --no-cache-dir --system
 
 WORKDIR /AstrBot/dashboard
@@ -494,7 +494,7 @@ CMD ["python", "main.py"]
 # Keep the development image above separate from the production runtime. The
 # runtime copies only the application, installed Python packages, browser
 # assets, and the Node/uv tools needed by runtime MCP integrations.
-FROM python:3.14.8-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS runtime
+FROM python:3.15.0-slim@sha256:2da676046630d7bf14c6764ae1143dc7fa0377a53f94bf5a642f0b214aca5bce AS runtime
 
 WORKDIR /AstrBot
 
@@ -512,8 +512,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 COPY --from=runtime-assets /opt/astrbot/runtime-assets/ /opt/astrbot/runtime-assets/
 
-COPY --from=builder /usr/local/lib/python3.14/site-packages/ \
-    /usr/local/lib/python3.14/site-packages/
+COPY --from=builder /usr/local/lib/python3.15/site-packages/ \
+    /usr/local/lib/python3.15/site-packages/
 COPY --from=builder /usr/local/bin/astrbot /usr/local/bin/astrbot
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]

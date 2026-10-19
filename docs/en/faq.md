@@ -155,7 +155,7 @@ Do not “fix” connectivity by disabling TLS verification. Reset the conversat
 
 ### A marketplace plugin fails to load after install
 
-The Dashboard default marketplace source is the upstream `cloud.astrbot.app` market JSON, with a fallback to `AstrBotDevs/AstrBot_Plugins_Collection`. It is not an official market for this fork. This branch requires Python 3.14+ and does not keep legacy plugin APIs or legacy Dashboard pages. Check the plugin's `astrbot_version` and `requires.dashboard_extension` before installing. If it fails, install a known-compatible plugin by URL or inspect the load error; do not assume an upstream marketplace plugin will run here. See [Plugins](/en/use/plugin) and [Plugin development](/en/dev/star/plugin-new).
+The Dashboard default marketplace source is the upstream `cloud.astrbot.app` market JSON, with a fallback to `AstrBotDevs/AstrBot_Plugins_Collection`. It is not an official market for this fork. This branch requires Python 3.15+ and does not keep legacy plugin APIs or legacy Dashboard pages. Check the plugin's `astrbot_version` and `requires.dashboard_extension` before installing. If it fails, install a known-compatible plugin by URL or inspect the load error; do not assume an upstream marketplace plugin will run here. See [Plugins](/en/use/plugin) and [Plugin development](/en/dev/star/plugin-new).
 
 ### How do I disable long-term memory?
 
@@ -169,7 +169,7 @@ If GitHub access is unavailable, configure an outbound HTTP proxy or download a 
 
 ### `No module named 'xxx'` after installation
 
-Common causes are a network failure, a missing `requirements.txt`, or a dependency that does not support Python 3.14. Inspect installation logs and the plugin README first. In a source development checkout, use `uv` for installation and debugging; do not mix unmanaged global `pip` packages into production.
+Common causes are a network failure, a missing `requirements.txt`, or a dependency that does not support Python 3.15. Inspect installation logs and the plugin README first. In a source development checkout, use `uv` for installation and debugging; do not mix unmanaged global `pip` packages into production.
 
 Report a missing dependency declaration to the plugin author instead of permanently maintaining an unreproducible manual environment.
 

@@ -104,7 +104,7 @@ def test_local_file_system_component_searches_with_rg_glob_and_context(monkeypat
         "which",
         lambda _executable: r"C:\tools\rg.exe",
     )
-    monkeypatch.setattr(local_booter.sys, "version_info", (3, 14))
+    monkeypatch.setattr(local_booter.sys, "version_info", (3, 15))
     monkeypatch.setattr(local_booter.subprocess, "run", fake_run)
 
     result = asyncio.run(
@@ -135,7 +135,7 @@ def test_local_file_system_component_searches_with_rg_glob_and_context(monkeypat
 
 def test_local_file_system_component_treats_rg_no_match_as_success(monkeypatch):
     monkeypatch.setattr(local_booter.shutil, "which", lambda _executable: "/bin/rg")
-    monkeypatch.setattr(local_booter.sys, "version_info", (3, 14))
+    monkeypatch.setattr(local_booter.sys, "version_info", (3, 15))
     monkeypatch.setattr(
         local_booter.subprocess,
         "run",
@@ -157,7 +157,7 @@ def test_local_file_system_component_truncates_rg_long_lines_after_search(
 ):
     long_line = b"result.py:1:" + (b"x" * 1200) + b"\n"
     monkeypatch.setattr(local_booter.shutil, "which", lambda _executable: "/bin/rg")
-    monkeypatch.setattr(local_booter.sys, "version_info", (3, 14))
+    monkeypatch.setattr(local_booter.sys, "version_info", (3, 15))
     monkeypatch.setattr(
         local_booter.subprocess,
         "run",
@@ -259,7 +259,7 @@ def test_local_file_system_component_handles_search_timeout(monkeypatch):
         raise subprocess.TimeoutExpired(command, kwargs["timeout"])
 
     monkeypatch.setattr(local_booter.shutil, "which", lambda _executable: "/bin/rg")
-    monkeypatch.setattr(local_booter.sys, "version_info", (3, 14))
+    monkeypatch.setattr(local_booter.sys, "version_info", (3, 15))
     monkeypatch.setattr(local_booter.subprocess, "run", fake_run)
 
     result = asyncio.run(LocalFileSystemComponent().search_files("needle"))
@@ -296,7 +296,7 @@ def test_local_file_system_component_rejects_multi_link_rg_matches(
         )
 
     monkeypatch.setattr(local_booter.shutil, "which", lambda _executable: "/bin/rg")
-    monkeypatch.setattr(local_booter.sys, "version_info", (3, 14))
+    monkeypatch.setattr(local_booter.sys, "version_info", (3, 15))
     monkeypatch.setattr(local_booter.subprocess, "run", fake_run)
 
     result = asyncio.run(

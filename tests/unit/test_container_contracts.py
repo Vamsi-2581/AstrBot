@@ -105,7 +105,7 @@ def test_dockerfile_playwright_version_matches_requirements() -> None:
     )
     assert req_match is not None
     assert docker_version == req_match.group(1)
-    assert docker_version.startswith("1.63.")
+    assert docker_version.startswith("1.64.")
 
 
 def test_runtime_image_copies_changelogs() -> None:
@@ -135,7 +135,7 @@ def test_runtime_build_does_not_depend_on_dev_stage() -> None:
 
     runtime_assets_at = dockerfile.index("FROM builder AS runtime-assets")
     dev_at = dockerfile.index("FROM builder AS dev")
-    runtime_at = dockerfile.index("FROM python:3.14.8-slim", dev_at)
+    runtime_at = dockerfile.index("FROM python:3.15.0-slim", dev_at)
 
     assert runtime_assets_at < dev_at < runtime_at
     assert (
@@ -144,7 +144,7 @@ def test_runtime_build_does_not_depend_on_dev_stage() -> None:
     )
     assert "bandit[toml]" in dockerfile[dev_at:runtime_at]
     assert (
-        "COPY --from=builder /usr/local/lib/python3.14/site-packages/"
+        "COPY --from=builder /usr/local/lib/python3.15/site-packages/"
         in dockerfile[runtime_at:]
     )
 

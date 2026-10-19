@@ -10,7 +10,7 @@ AstrBot 插件（Star）是加载到 AstrBot 进程中的 Python 包。插件应
 
 ## 环境准备
 
-本仓库与插件均以 Python 3.14+ 为基线。先准备 AstrBot 源码工作区：
+本仓库与插件均以 Python 3.15+ 为基线。先准备 AstrBot 源码工作区：
 
 ```bash
 git clone https://github.com/Xero-Team/AstrBot.git
@@ -127,7 +127,7 @@ astrbot_version: '>=4.26,<5'
 ```
 
 面向本 fork 的插件应声明 `astrbot_version`，例如 `>=4.26`。metadata 目前没有单独的
-`python_requires` 字段；按 Python 3.14+ 编写，不要依赖 3.10–3.13 的写法或已删除的
+`python_requires` 字段；按 Python 3.15+ 编写，不要依赖 3.10–3.14 的写法或已删除的
 legacy API。当当前 AstrBot 版本不满足约束时，插件默认不会加载。WebUI 安装流程可以
 显式选择忽略该警告，因此插件代码仍不能依赖未声明的内部模块。
 
@@ -211,7 +211,7 @@ class ExamplePlugin(Star):
 ## 依赖与数据
 
 插件有第三方依赖时，在插件根目录添加 `requirements.txt`。这些依赖必须支持
-Python 3.14；不要为 Python 3.10–3.13 添加兼容分支。
+Python 3.15；不要为 Python 3.10–3.14 添加兼容分支。
 
 持久化数据不要写入插件源码目录，否则更新或重装可能覆盖数据。使用
 [插件存储](./guides/storage) 中的 `self.context.storage.data_directory()` 获取专属数据目录。

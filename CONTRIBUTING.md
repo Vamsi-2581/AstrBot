@@ -7,7 +7,7 @@
 本仓库是 AstrBot 的现代化 fork。贡献时请遵守以下原则：
 
 - 以当前分支代码事实为准，不为旧 API、旧插件格式、旧知识库布局继续补兼容。
-- Python 基线是 `3.14+`。
+- Python 基线是 `3.15+`。
 - 后端开发流程使用 `uv`，Dashboard 前端流程使用 `pnpm`。
 - 如果新旧路径并存，优先沿用新路径，不要继续扩展 legacy shim。
 
@@ -103,7 +103,7 @@ This repository is a modernized AstrBot fork. Please follow these rules:
 
 - Match the current branch, not upstream historical behavior.
 - Do not add or preserve compatibility shims for deprecated APIs, plugin formats, or old knowledge-base layouts.
-- The Python baseline is `3.14+`.
+- The Python baseline is `3.15+`.
 - Backend workflows use `uv`; dashboard workflows use `pnpm`.
 
 ### Issues and Feedback

@@ -33,7 +33,7 @@ forward-looking instead of extending compatibility indefinitely.
 - Do not add or preserve shims for legacy APIs, plugin formats, configuration
   shapes, or knowledge-base layouts. When touching an old/new split, build on
   the current path and remove the old one.
-- Target Python 3.14+ only. Do not restore Python 3.10-3.13 fallbacks.
+- Target Python 3.15+ only. Do not restore Python 3.10-3.14 fallbacks.
 - Prefer the smallest current design that solves the actual problem. A change
   that only works by resurrecting a deprecated path is the wrong design.
 - This fork does not publish a PyPI package. It may publish an optional GHCR
@@ -64,7 +64,7 @@ The reproducible development/CI baseline is:
 
 | Tool                | Baseline and source of truth                                                 |
 | ------------------- | ---------------------------------------------------------------------------- |
-| Python              | 3.14.8 in `.python-version`, CI, and `Dockerfile`; project floor is `>=3.14` |
+| Python              | 3.15.0 in `.python-version`, CI, and `Dockerfile`; project floor is `>=3.15` |
 | Node.js             | 26.11.1 in CI and `Dockerfile`                                               |
 | root npm            | 12.2.0 in the root `package.json` `packageManager` field                     |
 | Dashboard/docs pnpm | 12.11.2 in their `package.json` `packageManager` fields                      |
@@ -82,7 +82,7 @@ make doctor
 make bootstrap
 ```
 
-`make doctor` is strict. It checks Python 3.14.x, `uv`, Node 26.x, and
+`make doctor` is strict. It checks Python 3.15.x, `uv`, Node 26.x, and
 pnpm 12.11.x; on POSIX it also requires `shellcheck`, `shfmt`, and `hadolint`.
 Docker is optional. Windows additionally needs GNU Make and PowerShell 7, while
 `check-ps` needs PSScriptAnalyzer; `doctor` does not currently validate those
@@ -138,7 +138,9 @@ cd ..
 ```
 
 On first backend startup the default Dashboard username is `astrbot`; a random
-password is written to the startup log. Runtime state lives under `data/`.
+password is printed only to an attached operator terminal, and set
+`ASTRBOT_DASHBOARD_INITIAL_PASSWORD` to supply one instead. Runtime state lives
+under `data/`.
 
 ### Dependency and lockfile matrix
 
@@ -227,8 +229,8 @@ not optional. PowerShell checks require PowerShell 7 and PSScriptAnalyzer.
 endings. Targets such as `format-py`, `format-web`, and `format-md` are scoped
 only by file type, not by the files changed for the current task. In a dirty
 worktree, run Ruff or Prettier directly on the intended paths when unrelated
-same-type edits must be preserved. Ruff uses line length 88, target `py314`,
-and mccabe complexity 15. Pre-commit runs Ruff and `pyupgrade --py314-plus`.
+same-type edits must be preserved. Ruff uses line length 88, target `py315`,
+and mccabe complexity 15. Pre-commit runs Ruff and `pyupgrade --py315-plus`.
 
 ## Architecture
 
@@ -478,7 +480,7 @@ diff with its runtime/test changes.
   times or a continuous function would otherwise grow past roughly 50 lines.
   Do not fragment linear code into tiny wrappers.
 - **Cross-platform:** consider Windows, macOS, Linux, Arm64, and x86 where the
-  touched behavior applies, while retaining the Python 3.14+ baseline.
+  touched behavior applies, while retaining the Python 3.15+ baseline.
 - **Paths:** use `pathlib.Path`. Runtime path helpers in
   `astrbot.core.utils.astrbot_path` return strings, so wrap them with `Path(...)`
   for path operations. Never hardcode runtime data/temp roots.
@@ -546,7 +548,7 @@ git log --reverse --topo-order --format="%H %s" <last_synced_sha>..upstream/mast
 Review and cherry-pick the displayed commits in order. A merge is reserved for
 an explicitly justified bulk sync where per-commit cherry-picks are
 impractical. Resolve conflicts in favor of this fork's no-legacy, Python
-3.14-only policy, current dependency/toolchain choices, composition-based UI,
+3.15-only policy, current dependency/toolchain choices, composition-based UI,
 and fork documentation/deployment model.
 
 You may skip an upstream version-bump commit, but after absorbing that release

@@ -8,8 +8,8 @@ outline: deep
 
 ## 工具链基线
 
-- Python 包要求：3.14 及以上
-- 当前开发、Docker 与 CI Python：3.14.8
+- Python 包要求：3.15 及以上
+- 当前开发、Docker 与 CI Python：3.15.0
 - Node.js：26.11.1
 - Dashboard 与文档 pnpm：12.11.2
 - Python 依赖管理：`uv`
@@ -25,7 +25,7 @@ make doctor
 make bootstrap
 ```
 
-`make doctor` 检查 Python 3.14.x、`uv`、Node 26.x 和 Dashboard pnpm 12.11.x；在 POSIX 上还检查 `shfmt`、`shellcheck` 和 `hadolint`。`make bootstrap` 使用锁文件同步 Python dev 依赖、根目录 Node 格式化工具和 Dashboard 依赖，但不会安装文档依赖。
+`make doctor` 检查 Python 3.15.x、`uv`、Node 26.x 和 Dashboard pnpm 12.11.x；在 POSIX 上还检查 `shfmt`、`shellcheck` 和 `hadolint`。`make bootstrap` 使用锁文件同步 Python dev 依赖、根目录 Node 格式化工具和 Dashboard 依赖，但不会安装文档依赖。
 
 - Windows：另需 GNU Make、PowerShell 7；PowerShell 检查还需要 PSScriptAnalyzer。`make doctor` 当前不会验证这三项。
 - Linux/macOS：使用 Bash，不要求 PowerShell；严格检查需要 `shfmt`、`shellcheck` 和 `hadolint`。

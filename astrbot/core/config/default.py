@@ -25,11 +25,8 @@ JEV_SYSTEMONE_TEMPLATE = {
 }
 
 
-def get_local_permission_defaults(system: str | None = None) -> dict:
+def get_local_permission_defaults() -> dict:
     """Return fresh Local permission defaults shared by all operating systems.
-
-    Args:
-        system: Retained for callers supplying an operating system name.
 
     Returns:
         Workspace files without execution for members and unrestricted local
@@ -412,7 +409,7 @@ DEFAULT_CONFIG = {
             "ocr_languages": "eng",
             "tika_url": "",
         },
-        "vector_store": "faiss",
+        "vector_store": "exact" if os.name == "nt" else "faiss",
     },
     "disable_metrics": False,
 }
@@ -3957,7 +3954,7 @@ CONFIG_METADATA_3 = {
                         "description": "向量存储后端",
                         "type": "string",
                         "options": ["faiss", "exact"],
-                        "hint": "faiss 为默认的单节点本地索引；exact 使用纯 NumPy 精确检索，无需安装 FAISS，适合小型知识库。更改后端不会自动迁移已有索引。",
+                        "hint": "Linux/macOS 默认 faiss 单节点本地索引；Windows 因 FAISS 暂无 Python 3.15 轮子而默认 exact。exact 使用纯 NumPy 精确检索，无需安装 FAISS，适合小型知识库。更改后端不会自动迁移已有索引。",
                     },
                 },
                 "condition": {

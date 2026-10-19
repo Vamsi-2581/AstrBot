@@ -8,8 +8,8 @@ This page covers the general workflow for the current fork. See [Linux Developme
 
 ## Toolchain Baseline
 
-- Python package requirement: 3.14 or later
-- Current development, Docker, and CI Python: 3.14.8
+- Python package requirement: 3.15 or later
+- Current development, Docker, and CI Python: 3.15.0
 - Node.js: 26.11.1
 - Dashboard and docs pnpm: 12.11.2
 - Python dependency manager: `uv`
@@ -25,7 +25,7 @@ make doctor
 make bootstrap
 ```
 
-`make doctor` checks Python 3.14.x, `uv`, Node 26.x, and Dashboard pnpm 12.11.x. On POSIX it also checks `shfmt`, `shellcheck`, and `hadolint`. `make bootstrap` uses lockfiles to install Python development dependencies, root Node formatting tools, and Dashboard dependencies, but it does not install docs dependencies.
+`make doctor` checks Python 3.15.x, `uv`, Node 26.x, and Dashboard pnpm 12.11.x. On POSIX it also checks `shfmt`, `shellcheck`, and `hadolint`. `make bootstrap` uses lockfiles to install Python development dependencies, root Node formatting tools, and Dashboard dependencies, but it does not install docs dependencies.
 
 - Windows additionally requires GNU Make and PowerShell 7; PowerShell validation also needs PSScriptAnalyzer. `make doctor` does not currently validate those three requirements.
 - Linux/macOS use Bash and do not require PowerShell. Strict checks require `shfmt`, `shellcheck`, and `hadolint`.

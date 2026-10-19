@@ -29,7 +29,7 @@ client; rendering works from either Codex CLI or OpenCode.
 - Diagrams of this repository must match current code. Use `Xero-Team/AstrBot`
   for fork-owned identity. Label `AstrBotDevs/AstrBot` only as upstream
   provenance.
-- Python 3.14+, source-build `compose.yml` / `astrbot:local`, in-app docs at
+- Python 3.15+, source-build `compose.yml` / `astrbot:local`, in-app docs at
   `/help/`. Brand capture is HTTPS-only.
 
 ## Open

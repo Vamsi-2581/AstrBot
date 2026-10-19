@@ -28,6 +28,12 @@ export default defineConfig({
 
   lastUpdated: true,
 
+  vite: {
+    build: {
+      chunkSizeWarningLimit: 1000,
+    },
+  },
+
   locales: {
     root: {
       label: '简体中文',

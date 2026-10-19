@@ -15,7 +15,7 @@ stays in `SKILL.md`. Cite `AGENTS.md`, `docs/zh/dev/architecture.md`, and
 | Published artifacts | none (no fork PyPI, GitHub Release, or container publish) |
 | Runtime image tag   | source-build `astrbot:local` via `compose.yml`            |
 | Docs                | in-app `/help/` from the Dashboard                        |
-| Python floor        | `>=3.14`; pin in `.python-version`                        |
+| Python floor        | `>=3.15`; pin in `.python-version`                        |
 | Dashboard stack     | Vue + Vuetify + Vite; FastAPI `/api/v1`                   |
 
 Do not describe this fork as the PyPI package `astrbot` or the image
@@ -178,7 +178,7 @@ Python function coverage for `astrbot` is gated at 99% via
 
 Violations are findings, not style nits:
 
-- No legacy shims; no Python 3.10–3.13 branches
+- No legacy shims; no Python 3.10–3.14 branches
 - Import boundaries in `tests/unit/test_import_boundaries.py`
 - Group wake is explicit (`llm_access.group`, `llm_access.reply_to_bot`, continuation); mention is not a wake policy
 - Command identity is `command_id`; no fossil short-name lookup

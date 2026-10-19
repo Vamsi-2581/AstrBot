@@ -20,7 +20,7 @@ features:
     details: Seamlessly supports multiple messaging platforms including QQ, WeCom, Telegram, Discord, and more with multi-instance deployment.
   - icon: 😌
     title: Reproducible Fork Workflow
-    details: Uses Python 3.14, uv, and pinned frontend toolchains for source or locally built container deployments.
+    details: Uses Python 3.15, uv, and pinned frontend toolchains for source or locally built container deployments.
   - icon: 🧩
     title: Highly Extensible
     details: Supports plugins, MCP, Skills, SubAgents, knowledge bases, and isolated Agent runtimes.

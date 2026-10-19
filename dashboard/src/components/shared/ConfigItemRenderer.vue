@@ -448,7 +448,7 @@ const emit = defineEmits([
 ]);
 const { t } = useI18n();
 const { getRaw } = useModuleI18n('features/config-metadata');
-const { configText } = usePluginI18n();
+const { configValue } = usePluginI18n();
 
 function emitUpdate(val: unknown): void {
   val = validateNumericConfig(props.itemMeta?.type, val);
@@ -528,24 +528,26 @@ function getLabel(
   option: unknown,
 ): string {
   const labels = getTranslatedLabels(itemMeta);
-  return labels ? labels[index] : (option as string);
+  return labels?.[index] || (option as string);
+}
+
+function getPluginI18nList(attr: 'labels' | 'subtitles'): string[] | null {
+  if (
+    !props.pluginName ||
+    !props.configKey ||
+    !props.pluginI18n ||
+    Object.keys(props.pluginI18n).length === 0
+  ) {
+    return null;
+  }
+  const value = configValue(props.pluginI18n, props.configKey, attr);
+  return Array.isArray(value) && value.length > 0 ? (value as string[]) : null;
 }
 
 function getTranslatedLabels(itemMeta?: ConfigItemMeta): string[] | null {
-  if (
-    props.pluginName &&
-    props.configKey &&
-    props.pluginI18n &&
-    Object.keys(props.pluginI18n).length > 0
-  ) {
-    const translatedLabels = configText(
-      props.pluginI18n,
-      props.configKey,
-      'labels',
-    );
-    if (Array.isArray(translatedLabels)) {
-      return translatedLabels;
-    }
+  const translatedLabels = getPluginI18nList('labels');
+  if (translatedLabels) {
+    return translatedLabels;
   }
   if (!itemMeta?.labels) return null;
   if (typeof itemMeta.labels === 'string') {
@@ -561,20 +563,9 @@ function getTranslatedLabels(itemMeta?: ConfigItemMeta): string[] | null {
 }
 
 function getTranslatedSubtitles(itemMeta?: ConfigItemMeta): string[] | null {
-  if (
-    props.pluginName &&
-    props.configKey &&
-    props.pluginI18n &&
-    Object.keys(props.pluginI18n).length > 0
-  ) {
-    const translatedSubtitles = configText(
-      props.pluginI18n,
-      props.configKey,
-      'subtitles',
-    );
-    if (Array.isArray(translatedSubtitles)) {
-      return translatedSubtitles;
-    }
+  const translatedSubtitles = getPluginI18nList('subtitles');
+  if (translatedSubtitles) {
+    return translatedSubtitles;
   }
   if (!itemMeta?.subtitles) return null;
   if (typeof itemMeta.subtitles === 'string') {
@@ -597,8 +588,7 @@ function getSelectItems(itemMeta?: ConfigItemMeta): unknown[] {
       title: labels?.[index] || value,
       value,
       props: {
-        subtitle:
-          typeof subtitles?.[index] === 'string' ? subtitles[index] : undefined,
+        subtitle: subtitles?.[index] || undefined,
       },
     }));
   }

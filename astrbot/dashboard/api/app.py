@@ -259,7 +259,6 @@ def create_dashboard_asgi_app(
             runtime.services.totp_runtime_state,
             db,
             runtime.plugin_manager.catalog,
-            runtime=computer_runtime_info,
             computer_runtime=runtime.services.computer_runtime,
         ),
         config_display=ConfigDisplayService(

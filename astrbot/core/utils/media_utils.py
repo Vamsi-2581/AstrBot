@@ -286,7 +286,7 @@ def file_uri_to_path(file_uri: MediaRefStr) -> str:
 
     if os.name != "nt" and path.startswith("//"):
         # Older AstrBot builds generated file:////path for POSIX absolute paths.
-        # Collapse the legacy prefix before url2pathname, which in Python 3.14
+        # Collapse the legacy prefix before url2pathname, which in Python 3.14+
         # treats a leading // as a non-local authority and raises URLError.
         path = "/" + path.lstrip("/")
     path = url2pathname(path)

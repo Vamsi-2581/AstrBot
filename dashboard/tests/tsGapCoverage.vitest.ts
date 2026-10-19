@@ -41,7 +41,7 @@ import {
   toInitials,
   toPinyinText,
 } from '@/utils/pluginSearch';
-import { usePluginI18n } from '@/utils/pluginI18n';
+import { resolvePluginI18nValue, usePluginI18n } from '@/utils/pluginI18n';
 import {
   canRestorePluginConfigDefault,
   getPluginConfigDefaultValue,
@@ -226,12 +226,36 @@ describe('ts gap coverage', () => {
       display_name: 'P',
       desc: 'd',
       short_desc: 's',
-      i18n: { 'zh-CN': { metadata: { display_name: '插件' } } },
+      i18n: {
+        [pluginI18n.locale.value]: {
+          metadata: { display_name: '插件' },
+          config: { a: { labels: ['甲', '乙'], subtitles: ['一'] } },
+        },
+      },
     };
     expect(pluginI18n.pluginName(plugin)).toBeTruthy();
     expect(pluginI18n.pluginDesc(plugin)).toBeTruthy();
     expect(pluginI18n.pluginShortDesc(plugin)).toBeTruthy();
     expect(pluginI18n.configText(plugin.i18n, 'a', 'title', 'fb')).toBe('fb');
+    expect(pluginI18n.configValue(plugin.i18n, 'a', 'labels')).toEqual([
+      '甲',
+      '乙',
+    ]);
+    expect(pluginI18n.configValue(plugin.i18n, 'a', 'missing')).toBeUndefined();
+    expect(
+      resolvePluginI18nValue(
+        plugin.i18n,
+        pluginI18n.locale.value,
+        'config.a.subtitles',
+      ),
+    ).toEqual(['一']);
+    expect(
+      resolvePluginI18nValue(
+        plugin.i18n,
+        pluginI18n.locale.value,
+        'config.a.none',
+      ),
+    ).toBeUndefined();
 
     expect(getPluginConfigDefaultValue({ type: 'int' })).toBe(0);
     expect(getPluginConfigDefaultValue({ type: 'string', default: 'x' })).toBe(

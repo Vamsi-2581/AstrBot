@@ -1,8 +1,13 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["scripts/*.mjs"],
-  "project": ["src/**/*.{ts,vue}", "scripts/**/*.mjs", "tests/**/*.{ts,mjs}"],
+  "project": [
+    "src/**/*.{ts,vue,scss,sass}",
+    "scripts/**/*.mjs",
+    "tests/**/*.{ts,mjs}"
+  ],
   "ignore": ["src/api/generated/**"],
+  "ignoreFiles": ["src/scss/settings.scss"],
   "ignoreDependencies": ["@mdi/font", "@types/markdown-it"],
   "ignoreBinaries": ["uv"],
   "ignoreExportsUsedInFile": true,

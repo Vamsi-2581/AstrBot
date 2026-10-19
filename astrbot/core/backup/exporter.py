@@ -28,6 +28,7 @@ from astrbot.core.utils.error_redaction import safe_error
 from .constants import (
     BACKUP_MANIFEST_VERSION,
     KB_METADATA_MODELS,
+    KB_VECTOR_INDEX_FILENAMES,
     MAIN_DB_MODELS,
     get_backup_directories,
 )
@@ -137,7 +138,7 @@ class AstrBotExporter:
             )
             doc_data = await self._export_kb_documents(kb_helper)
             self._write_json_entry(zf, f"databases/kb_{kb_id}/documents.json", doc_data)
-            await self._export_faiss_index(zf, kb_helper, kb_id)
+            await self._export_kb_vector_index(zf, kb_helper, kb_id)
             await self._export_kb_media_files(zf, kb_helper, kb_id)
             await self._export_kb_source_files(zf, kb_helper, kb_id)
 
@@ -354,23 +355,25 @@ class AstrBotExporter:
             logger.warning("导出知识库文档失败: %s", safe_error("", exc))
             return {"documents": []}
 
-    async def _export_faiss_index(
+    async def _export_kb_vector_index(
         self,
         zf: zipfile.ZipFile,
         kb_helper: Any,
         kb_id: str,
     ) -> None:
-        """导出 FAISS 索引文件"""
+        """Export the vector index file of whichever backend is in use."""
         try:
-            index_path = kb_helper.kb_dir / "index.faiss"
-            if index_path.exists():
-                archive_path = f"databases/kb_{kb_id}/index.faiss"
+            for filename in KB_VECTOR_INDEX_FILENAMES:
+                index_path = kb_helper.kb_dir / filename
+                if not index_path.exists():
+                    continue
+                archive_path = f"databases/kb_{kb_id}/{filename}"
                 zf.write(str(index_path), archive_path)
-                logger.debug("已导出 FAISS 索引")
+                logger.debug("已导出知识库向量索引: %s", filename)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            logger.warning("导出 FAISS 索引失败: %s", safe_error("", exc))
+            logger.warning("导出知识库向量索引失败: %s", safe_error("", exc))
 
     async def _export_kb_media_files(
         self, zf: zipfile.ZipFile, kb_helper: Any, kb_id: str

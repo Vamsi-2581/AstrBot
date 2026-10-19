@@ -8,7 +8,7 @@ description: >
   sync, product audits, plugin scaffolding, or non-coding requests.
 license: MIT
 compatibility: >
-  Codex CLI or OpenCode in the Xero-Team/AstrBot checkout. Python 3.14+;
+  Codex CLI or OpenCode in the Xero-Team/AstrBot checkout. Python 3.15+;
   no extra tools.
 metadata:
   author: Xero-Team
@@ -24,7 +24,7 @@ not less reading. Follow `AGENTS.md`; cite it, do not paste it. Load
 
 ## Locked
 
-- Python 3.14+ only. No 3.10–3.13 fallbacks, no legacy shims, no resurrected
+- Python 3.15+ only. No 3.10–3.14 fallbacks, no legacy shims, no resurrected
   deprecated APIs.
 - Reuse existing helpers, stages, SDK surfaces, and lockfile-tracked
   dependencies. Do not add a package, config switch, or compatibility layer
@@ -54,7 +54,7 @@ at the first rung that holds:
 2. **Already here?** Reuse the helper, pattern, or type in this checkout.
    Re-implementing a file away is slop. Reusing a deprecated path is not
    reuse; delete that path instead.
-3. **Stdlib / language?** Python 3.14, pathlib, asyncio, existing Vue/CSS.
+3. **Stdlib / language?** Python 3.15, pathlib, asyncio, existing Vue/CSS.
 4. **Native platform?** Browser, OS, DB constraint, FastAPI/Vite feature
    already in the stack.
 5. **Already installed?** Check `pyproject.toml` / `uv.lock` or the matching
