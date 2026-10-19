@@ -310,7 +310,7 @@
         },
         "vector_store": {
           "description": "Vector store backend",
-          "hint": "faiss is the default single-node local index; exact uses pure NumPy exact search and needs no FAISS install, suited to small knowledge bases. Changing the backend does not migrate an existing index."
+          "hint": "FAISS is the default single-node local index on Linux/macOS; Windows defaults to exact because FAISS has no Python 3.15 wheels there. exact uses pure NumPy exact search and needs no FAISS install, suited to small knowledge bases. Changing the backend does not migrate an existing index."
         }
       }
     },
