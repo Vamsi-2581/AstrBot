@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import shlex
 import shutil
 import socket
@@ -9,12 +10,13 @@ import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
 
 import pytest
 
 from astrbot.core.agent.run_context import ContextWrapper
+from astrbot.core.auth.models import Role
 from astrbot.core.computer.booters import local
+from astrbot.core.computer.computer_client import ComputerRuntime
 from astrbot.core.computer.process_sandbox import (
     SandboxSpec,
     bubblewrap,
@@ -23,6 +25,9 @@ from astrbot.core.computer.process_sandbox import (
     unix,
 )
 from astrbot.core.tools.computer_tools import fs, python, shell
+from astrbot.core.tools.computer_tools import util as computer_util
+from astrbot.core.tools.computer_tools.util import normalize_umo_for_workspace
+from tests.fixtures.auth import attach_authorized_tool_context
 
 requires_local_sandbox = pytest.mark.skipif(
     not (
@@ -383,7 +388,6 @@ def test_seatbelt_grants_additional_roots_with_separate_write_access(
     assert "(deny network*)" in profile
 
 
-@pytest.mark.skip(reason="Fork computer tools use ComputerRuntime plus authorization.")
 @requires_local_sandbox
 @pytest.mark.parametrize("tool_kind", ["shell", "python"])
 @pytest.mark.parametrize("role", ["member", "admin"])
@@ -393,7 +397,8 @@ async def test_local_execution_obeys_file_tool_roots(
 ):
     """Run Skill scripts and process attachments under the caller's file policy."""
     tmp_path = tmp_path.resolve()
-    workspace = tmp_path / "work area"
+    umo = f"test:friend:sandbox-roots-{role}"
+    workspace = tmp_path / normalize_umo_for_workspace(umo)
     installed = tmp_path / "data" / "skills"
     plugin = tmp_path / "plugins" / "example" / "skills"
     builtin = tmp_path / "builtins" / "example" / "skills"
@@ -407,33 +412,19 @@ async def test_local_execution_obeys_file_tool_roots(
     secret = tmp_path / "data" / "private.txt"
     secret.write_text("outside content", encoding="utf-8")
     (workspace / "outside-link").symlink_to(secret)
+
+    monkeypatch.setattr(
+        computer_util, "get_astrbot_workspaces_path", lambda: str(tmp_path)
+    )
     monkeypatch.setattr(fs, "get_astrbot_skills_path", lambda: str(installed))
     monkeypatch.setattr(
         fs, "get_astrbot_plugin_path", lambda: str(plugin.parent.parent)
     )
-    monkeypatch.setattr(
-        fs, "get_astrbot_builtin_plugin_path", lambda: str(builtin.parent.parent)
-    )
-    monkeypatch.setattr(fs, "get_astrbot_temp_path", lambda: str(temporary))
-    monkeypatch.setattr(fs, "get_astrbot_system_tmp_path", lambda: str(system_temp))
-    monkeypatch.setattr(
-        "astrbot.core.tools.computer_tools.util.get_astrbot_temp_path",
-        lambda: str(temporary),
-    )
-    monkeypatch.setattr(
-        "astrbot.core.tools.computer_tools.util.get_astrbot_system_tmp_path",
-        lambda: str(system_temp),
-    )
+    monkeypatch.setattr(fs, "_builtin_skill_roots", lambda: (builtin,))
+    monkeypatch.setattr(fs, "session_temp_roots", lambda _umo: (system_temp, temporary))
     monkeypatch.setattr(local, "get_astrbot_system_tmp_path", lambda: str(system_temp))
-    monkeypatch.setattr(
-        shell, "workspace_root_for_context", AsyncMock(return_value=workspace)
-    )
-    monkeypatch.setattr(
-        python, "workspace_root_for_context", AsyncMock(return_value=workspace)
-    )
-    booter = local.LocalBooter()
-    monkeypatch.setattr(shell, "get_booter", AsyncMock(return_value=booter))
-    monkeypatch.setattr(python, "get_local_booter", lambda: booter)
+
+    runtime = ComputerRuntime()
     config = {
         "admins_id": ["test-user"] if role == "admin" else [],
         "provider_settings": {
@@ -447,19 +438,28 @@ async def test_local_execution_obeys_file_tool_roots(
             },
         },
     }
+    config_holder = SimpleNamespace(
+        get_config=lambda umo: config,  # noqa: ARG005
+        computer_runtime=runtime,
+    )
     event = SimpleNamespace(
         role=role,
-        unified_msg_origin="test:friend:sandbox-roots",
+        unified_msg_origin=umo,
         get_sender_id=lambda: "test-user",
     )
+    attach_authorized_tool_context(
+        event,
+        config_holder,
+        "tool.local_exec",
+        "tool.python_exec",
+        effective_role=Role.INSTANCE_OPERATOR if role == "admin" else Role.MEMBER,
+    )
     context = ContextWrapper(
-        context=SimpleNamespace(
-            context=SimpleNamespace(get_config=lambda umo: config), event=event
-        ),
+        context=SimpleNamespace(context=config_holder, event=event),
         tool_call_timeout=20,
     )
-    readable = fs._read_allowed_roots(event.unified_msg_origin)
-    writable = fs._write_allowed_roots(event.unified_msg_origin)
+    readable = fs._read_allowed_roots(umo)
+    writable = fs._write_allowed_roots(umo)
     code = f"""
 import runpy
 from pathlib import Path
@@ -488,21 +488,22 @@ print("file policy verified")
 """
     try:
         if tool_kind == "shell":
-            result = await shell.LocalExecuteShellTool().call(
+            result = await shell.ExecuteShellTool().call(
                 context,
                 command=shlex.join([sys.executable, "-c", code]),
                 timeout=15,
             )
-            assert "exit code 0" in result, result
-            output = result
+            payload = json.loads(result)
+            assert payload["exit_code"] == 0, payload
+            output = payload["stdout"]
         else:
             result = await python.LocalPythonTool().call(context, code=code, timeout=15)
             assert not isinstance(result, str), result
             output = "".join(part.text for part in result.content)
             assert "error:" not in output, output
-        assert output.count("skill executed") == 3
-        assert "file policy verified" in output
+        assert output.count("skill executed") == 3, output
+        assert "file policy verified" in output, output
         for root in writable:
             assert (root / "output.txt").read_text() == "created"
     finally:
-        await booter.shell.shutdown_sessions()
+        await runtime.terminate()
