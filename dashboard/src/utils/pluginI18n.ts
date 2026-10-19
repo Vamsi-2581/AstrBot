@@ -34,14 +34,22 @@ function getByPath(source: unknown, key: string): unknown {
   return current;
 }
 
+export function resolvePluginI18nValue(
+  i18n: unknown,
+  locale: string,
+  key: string,
+): unknown {
+  const localeData = getLocaleData(i18n, locale);
+  return getByPath(localeData, key);
+}
+
 export function resolvePluginI18n(
   i18n: unknown,
   locale: string,
   key: string,
   fallback = '',
 ): string {
-  const localeData = getLocaleData(i18n, locale);
-  const value = getByPath(localeData, key);
+  const value = resolvePluginI18nValue(i18n, locale, key);
   return value === undefined || value === null ? fallback : String(value);
 }
 
@@ -79,6 +87,11 @@ export function usePluginI18n() {
     );
   };
 
+  const configValue = (i18n: unknown, path: string, attr: string): unknown => {
+    const key = path ? `config.${path}.${attr}` : `config.${attr}`;
+    return resolvePluginI18nValue(i18n, locale.value, key);
+  };
+
   const configText = (
     i18n: unknown,
     path: string,
@@ -95,6 +108,7 @@ export function usePluginI18n() {
     pluginName,
     pluginDesc,
     pluginShortDesc,
+    configValue,
     configText,
   };
 }

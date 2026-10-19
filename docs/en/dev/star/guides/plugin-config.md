@@ -64,7 +64,8 @@ The current runtime supports:
 - `invisible` hides the field from the WebUI while keeping it in configuration.
 - `secret` applies to `string` and string `list` fields. When `true`, the dashboard masks the value and lets the user temporarily reveal it. This only affects the UI; it does not encrypt the stored configuration.
 - `options` supplies a string or numeric choice list.
-- `labels` supplies display text corresponding to `options`. See [Plugin Internationalization](./plugin-i18n) for current limitations.
+- `labels` supplies display text corresponding to `options`; translate it with a `labels` array in [Plugin Internationalization](./plugin-i18n).
+- `subtitles` supplies secondary text shown with each option; translate it with a `subtitles` array in [Plugin Internationalization](./plugin-i18n).
 - `slider` applies only to `int` / `float` and contains `min`, `max`, and `step`.
 - `editor_mode`, `editor_language`, and `editor_theme` enable a code editor for text or structured input.
 - `_special` selects a dynamic AstrBot picker.

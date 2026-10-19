@@ -672,18 +672,7 @@ async def test_save_config_async_restores_redacted_sensitive_values(
 
 
 @pytest.mark.asyncio
-async def test_save_config_async_validates_grouped_sections(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        config_service,
-        "detect_local_runtime_info",
-        lambda **_kwargs: {
-            "os": "linux",
-            "sandbox": {"status": "detected", "backend": "bubblewrap"},
-        },
-    )
-
+async def test_save_config_async_validates_grouped_sections() -> None:
     class FakeConfig(dict):
         def __init__(self, initial: dict) -> None:
             super().__init__(copy.deepcopy(initial))

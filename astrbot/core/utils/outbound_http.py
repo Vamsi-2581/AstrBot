@@ -56,7 +56,8 @@ _METADATA_ADDRESSES = frozenset(
     }
 )
 _LOCAL_HOSTNAMES = frozenset({"localhost", "localhost.localdomain", "ip6-localhost"})
-# fake-ip. Clash/Mihomo defaults: IPv4 198.18.0.0/15, IPv6 2001:2::/48.
+# fake-ip. Clash/Mihomo default to 198.18.0.1/16 for IPv4; IPv6 fake-ip needs
+# an explicit fake-ip-range6 (2001:2::/48 here).
 _PROXY_FAKE_IP_NETWORKS = (
     ipaddress.ip_network("198.18.0.0/15"),
     ipaddress.ip_network("2001:2::/48"),

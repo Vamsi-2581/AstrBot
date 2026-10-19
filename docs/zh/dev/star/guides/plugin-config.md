@@ -64,7 +64,8 @@ Schema 文件必须是**严格 JSON**，不能包含注释、尾随逗号或 Pyt
 - `invisible`：从 WebUI 隐藏，但仍存在于配置中。
 - `secret`：仅对 `string` 和字符串 `list` 生效。为 `true` 时，管理面板会遮罩该值，并允许用户临时显示。此选项只影响界面，不会加密配置文件。
 - `options`：字符串/数值选项列表，渲染为选择器。
-- `labels`：与 `options` 一一对应的显示文本。国际化限制见[插件国际化](./plugin-i18n)。
+- `labels`：与 `options` 一一对应的显示文本；可通过[插件国际化](./plugin-i18n)中的 `labels` 数组翻译。
+- `subtitles`：与 `options` 一一对应的副标题文本；可通过[插件国际化](./plugin-i18n)中的 `subtitles` 数组翻译。
 - `slider`：只用于 `int` / `float`，对象包含 `min`、`max`、`step`。
 - `editor_mode`、`editor_language`、`editor_theme`：为文本/结构化输入启用代码编辑器。
 - `_special`：使用 AstrBot 提供的动态选择器。
