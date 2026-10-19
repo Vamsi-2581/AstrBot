@@ -305,6 +305,46 @@ def test_ledger_records_follow_up_commits():
     assert event["follow_up_commits"] == ["c" * 40]
 
 
+def test_import_git_records_decisions_without_follow_up_commits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    ledger = _load("upstream_decisions")
+    ledger_path = tmp_path / "upstream-decisions.jsonl"
+    upstream = "a" * 40
+    integration = "b" * 40
+    monkeypatch.setattr(
+        ledger,
+        "git_log_records",
+        lambda _repo, _range: [
+            {
+                "upstream_commit": upstream,
+                "disposition": "adapt",
+                "summary": "subject",
+                "source_pr": ["123"],
+                "reason_codes": ["security"],
+                "git_commit": integration,
+                "tests": ["uv run pytest tests/unit"],
+                "fork_deviations": "adapted",
+            }
+        ],
+    )
+
+    ledger.command_import_git(
+        Namespace(
+            file=ledger_path,
+            repo=tmp_path,
+            range="old..new",
+            recorded_at_utc="2026-10-20T00:00:00Z",
+            dry_run=False,
+            json=False,
+        )
+    )
+
+    event = ledger.latest_by_commit(ledger.load_events(ledger_path))[upstream]
+    assert event["integration_commits"] == [integration]
+    assert "follow_up_commits" not in event
+
+
 def test_ledger_update_preserves_review_fields(tmp_path: Path):
     ledger = _load("upstream_decisions")
     ledger_path = tmp_path / "upstream-decisions.jsonl"

@@ -534,6 +534,7 @@ def command_import_git(args: argparse.Namespace) -> None:
             reason_code=item["reason_codes"],
             affected_paths=[],
             integration_commit=[item["git_commit"]],
+            follow_up_commit=[],
             test=item["tests"],
             supersedes=[],
             fork_adaptation=item["fork_deviations"],
