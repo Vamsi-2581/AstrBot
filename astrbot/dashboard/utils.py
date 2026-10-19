@@ -1,14 +1,11 @@
 import base64
 import traceback
 from io import BytesIO
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 from astrbot.api import logger
 from astrbot.core.knowledge_base.kb_helper import KBHelper
 from astrbot.core.knowledge_base.kb_mgr import KnowledgeBaseManager
-
-if TYPE_CHECKING:
-    from astrbot.core.db.vec_db.faiss import FaissVecDB
 
 
 async def generate_tsne_visualization(
@@ -28,7 +25,6 @@ async def generate_tsne_visualization(
 
     """
     try:
-        import faiss
         import matplotlib  # type: ignore[reportMissingImports]
         import numpy as np
 
@@ -53,38 +49,57 @@ async def generate_tsne_visualization(
             return None
 
         kb = kb_helper.kb
-        index_path = kb_helper.kb_dir / "index.faiss"
-
-        # 读取 FAISS 索引
-        if not index_path.exists():
-            logger.warning(f"FAISS 索引不存在: {index_path!s}")
+        vec_db = getattr(kb_helper, "vec_db", None)
+        if vec_db is None:
+            logger.warning("知识库向量索引尚未初始化")
             return None
 
-        index = faiss.read_index(str(index_path))
+        index_path = Path(
+            getattr(vec_db, "index_store_path", kb_helper.kb_dir / "index.faiss"),
+        )
 
-        if index.ntotal == 0:
+        # 读取当前后端（FAISS 或 exact NumPy）的索引
+        if not index_path.exists():
+            logger.warning(f"向量索引不存在: {index_path!s}")
+            return None
+
+        if index_path.suffix == ".npz":
+            with np.load(index_path) as data:
+                vectors = np.asarray(data["vectors"], dtype=np.float32)
+            if vectors.ndim != 2:
+                logger.warning(f"向量索引格式无效: {index_path!s}")
+                return None
+            vector_count = int(vectors.shape[0])
+            dimension = int(vectors.shape[1])
+        else:
+            import faiss
+
+            index = faiss.read_index(str(index_path))
+            vector_count = int(index.ntotal)
+            dimension = int(index.d)
+            if isinstance(index, faiss.IndexIDMap):
+                base_index = faiss.downcast_index(index.index)
+                if hasattr(base_index, "reconstruct_n"):
+                    vectors = base_index.reconstruct_n(0, index.ntotal)
+                else:
+                    vectors = np.zeros((index.ntotal, index.d), dtype=np.float32)
+                    for i in range(index.ntotal):
+                        base_index.reconstruct(i, vectors[i])
+            elif hasattr(index, "reconstruct_n"):
+                vectors = index.reconstruct_n(0, index.ntotal)
+            else:
+                vectors = np.zeros((index.ntotal, index.d), dtype=np.float32)
+                for i in range(index.ntotal):
+                    index.reconstruct(i, vectors[i])
+
+        if vector_count == 0:
             logger.warning("索引为空")
             return None
 
         # 提取所有向量
-        logger.info(f"提取 {index.ntotal} 个向量用于可视化...")
-        if isinstance(index, faiss.IndexIDMap):
-            base_index = faiss.downcast_index(index.index)
-            if hasattr(base_index, "reconstruct_n"):
-                vectors = base_index.reconstruct_n(0, index.ntotal)
-            else:
-                vectors = np.zeros((index.ntotal, index.d), dtype=np.float32)
-                for i in range(index.ntotal):
-                    base_index.reconstruct(i, vectors[i])
-        elif hasattr(index, "reconstruct_n"):
-            vectors = index.reconstruct_n(0, index.ntotal)
-        else:
-            vectors = np.zeros((index.ntotal, index.d), dtype=np.float32)
-            for i in range(index.ntotal):
-                index.reconstruct(i, vectors[i])
+        logger.info(f"提取 {vector_count} 个向量用于可视化...")
 
         # 获取查询向量
-        vec_db: FaissVecDB = kb_helper.vec_db  # type: ignore
         embedding_provider = vec_db.embedding_provider
         query_embedding = await embedding_provider.get_embedding(query)
         query_vector = np.array([query_embedding], dtype=np.float32)
@@ -144,7 +159,7 @@ async def generate_tsne_visualization(
         plt.colorbar(scatter, label="Vector Index")
         plt.title(
             f"t-SNE Visualization: Query in Knowledge Base\n"
-            f"({index.ntotal} vectors, {index.d} dimensions, KB: {kb.kb_name})",
+            f"({vector_count} vectors, {dimension} dimensions, KB: {kb.kb_name})",
             fontsize=14,
             pad=20,
         )
