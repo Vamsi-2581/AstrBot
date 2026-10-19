@@ -43,7 +43,7 @@ Shared locks live under `.agents/shared/`:
 
 | Skill                   | Load when                                                             |
 | ----------------------- | --------------------------------------------------------------------- |
-| `sync-upstream`         | Absorb `AstrBotDevs/AstrBot` `master`                                 |
+| `sync-upstream`         | Absorb or audit `AstrBotDevs/AstrBot` `master`                        |
 | `create-astrbot-plugin` | Create or repair a plugin (Star) package                              |
 | `archify`               | Checkout-only diagram renderer; not shipped in sdist, wheel, or image |
 | `audit-product`         | Baseline or module product audit; Chinese Markdown report + diagrams  |

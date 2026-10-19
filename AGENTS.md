@@ -551,6 +551,11 @@ impractical. Resolve conflicts in favor of this fork's no-legacy, Python
 3.15-only policy, current dependency/toolchain choices, composition-based UI,
 and fork documentation/deployment model.
 
+Apply mode records an independent Codex review for every commit, including
+`skip` and `revisit`, before the decision enters the ledger. The actor may be
+Codex or OpenCode; the reviewer is a fresh Codex session. See
+`.agents/skills/sync-upstream/SKILL.md`.
+
 You may skip an upstream version-bump commit, but after absorbing that release
 you must still update `pyproject.toml`, `astrbot/__init__.py`, and the matching
 `changelogs/vX.Y.Z.md`. Keep only entries for changes actually absorbed and

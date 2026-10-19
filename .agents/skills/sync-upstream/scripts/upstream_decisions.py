@@ -18,6 +18,7 @@ ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 DISPOSITIONS = {"cherry-pick", "adapt", "skip", "replay", "revisit"}
 STATUSES = {"active", "superseded", "deferred"}
 EVENT_TYPES = {"upsert", "delete"}
+REVIEW_VERDICTS = {"pass", "fix", "revisit"}
 
 
 class LedgerError(ValueError):
@@ -93,6 +94,21 @@ def validate_event(event: Any, *, line_number: int | None = None) -> None:
                 raise LedgerError(f"{key} cannot contain empty values{where}")
     for value in event.get("integration_commits", []):
         normalize_sha(value)
+    if "review_verdict" in event:
+        if event["review_verdict"] not in REVIEW_VERDICTS:
+            raise LedgerError(f"invalid review_verdict{where}")
+        for key in ("reviewer", "review_notes"):
+            if not str(event.get(key, "")).strip():
+                raise LedgerError(f"review_verdict requires {key}{where}")
+        if "review_rounds" in event and (
+            not isinstance(event["review_rounds"], int) or event["review_rounds"] < 1
+        ):
+            raise LedgerError(f"review_rounds must be a positive integer{where}")
+        if "reviewed_at_utc" in event and (
+            not isinstance(event["reviewed_at_utc"], str)
+            or not ISO_RE.fullmatch(event["reviewed_at_utc"])
+        ):
+            raise LedgerError(f"reviewed_at_utc must be UTC ISO format{where}")
 
 
 def load_events(path: Path) -> list[dict[str, Any]]:
@@ -202,6 +218,17 @@ def common_record_args(
     parser.add_argument("--fork-adaptation", default=text_default)
     parser.add_argument("--revisit-when", default=text_default)
     parser.add_argument("--notes", default=text_default)
+    parser.add_argument(
+        "--review-verdict", choices=sorted(REVIEW_VERDICTS), default=None
+    )
+    parser.add_argument("--reviewer", default=text_default)
+    parser.add_argument("--review-notes", default=text_default)
+    parser.add_argument(
+        "--review-rounds",
+        type=int,
+        default=None if preserve_defaults else 0,
+    )
+    parser.add_argument("--reviewed-at-utc", default=None)
     parser.add_argument("--source", default="manual")
     parser.add_argument("--recorded-at-utc", default=None)
 
@@ -238,9 +265,21 @@ def make_upsert(
         "supersedes": [normalize_sha(x) for x in normalize_list(args.supersedes)],
     }
     event.update({key: value for key, value in optional.items() if value})
-    for key in ("fork_adaptation", "revisit_when", "notes"):
-        if getattr(args, key):
-            event[key] = getattr(args, key).strip()
+    for key in (
+        "fork_adaptation",
+        "revisit_when",
+        "notes",
+        "review_verdict",
+        "reviewer",
+        "review_notes",
+        "reviewed_at_utc",
+    ):
+        value = getattr(args, key, None)
+        if value:
+            event[key] = value.strip()
+    review_rounds = getattr(args, "review_rounds", None)
+    if review_rounds:
+        event["review_rounds"] = review_rounds
     return event
 
 
@@ -369,6 +408,11 @@ def command_add_or_update(args: argparse.Namespace, operation: str) -> None:
             ("fork_adaptation", "fork_adaptation"),
             ("revisit_when", "revisit_when"),
             ("notes", "notes"),
+            ("review_verdict", "review_verdict"),
+            ("reviewer", "reviewer"),
+            ("review_notes", "review_notes"),
+            ("review_rounds", "review_rounds"),
+            ("reviewed_at_utc", "reviewed_at_utc"),
         ):
             if getattr(args, attribute) is None:
                 setattr(
@@ -491,6 +535,11 @@ def command_import_git(args: argparse.Namespace) -> None:
                 "Imported from Git commit "
                 f"{item['git_commit']}; review inferred fields before relying on them."
             ),
+            review_verdict=None,
+            reviewer="",
+            review_notes="",
+            review_rounds=0,
+            reviewed_at_utc=None,
             source="git-inferred",
             recorded_at_utc=args.recorded_at_utc,
         )

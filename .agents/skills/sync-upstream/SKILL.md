@@ -1,6 +1,6 @@
 ---
 name: sync-upstream
-description: Review or integrate AstrBot upstream commits with per-commit provenance and a searchable decision ledger. Use for upstream sync, cherry-pick adaptation, conflict resolution, or revisiting recorded sync decisions.
+description: Review, audit, or integrate AstrBot upstream commits with per-commit provenance and a searchable decision ledger. Use for upstream sync, cherry-pick adaptation, conflict resolution, auditing recorded decisions, or revisiting recorded sync decisions.
 ---
 
 # Sync AstrBot upstream
@@ -25,6 +25,9 @@ opening a branch, Issue, or PR. Paste-ready apply prompt:
   none.
 - Preserve upstream subjects on `cherry-pick -x`. Adapt uses upstream author
   plus hyphenated trailers.
+- Every applied, skipped, or revisited commit gets an independent review from
+  a fresh Codex session before its ledger record. The actor may be Codex or
+  OpenCode; the reviewer is Codex. The actor's own write-up is not a review.
 - Python 3.15+, no legacy shims, source-build compose, in-app `/help/` docs.
 - Do not merge the resulting PR, push `master`, tag, or release. A human
   maintainer does those actions; do not treat a verbal exception as
@@ -55,6 +58,9 @@ session, unless the user already froze the plan in this conversation.
 - Commit messages: `.agents/shared/conventional-commit/REFERENCE.md`.
 - Agent merge bar: `.agents/shared/ai-contribution/REFERENCE.md`.
 - Apply paste prompt: `.agents/skills/sync-upstream/APPLY_PROMPT.md`.
+- Reviewer paste prompt: `.agents/skills/sync-upstream/REVIEW_PROMPT.md`.
+- Full-ledger re-audit prompt: `.agents/skills/sync-upstream/FULL_AUDIT_PROMPT.md`.
+- Path-specific review rules: `.agents/skills/sync-upstream/REVIEW_RULES.md`.
 
 ## Operating modes
 
@@ -63,7 +69,7 @@ session, unless the user already froze the plan in this conversation.
   return a focused plan. Do not cherry-pick, edit files, commit, or push.
 - **Apply mode:** use when the user has asked to execute the approved plan in
   this conversation; do not ask for that authorization again. Apply commits
-  oldest-first, one at a time, and record each
+  oldest-first, one at a time, run the independent review, and record each
   final decision. Stay on a feature branch. You may open a pull request on
   `Xero-Team/AstrBot` with `--repo Xero-Team/AstrBot`. Do not merge, push
   `master`, release, or tag.
@@ -111,6 +117,9 @@ topological order:
 5. In apply mode, cherry-pick compatible commits with provenance, and manually
    adapt the rest. Never resolve a conflict by blindly choosing ours/theirs.
    Stop on an unresolved conflict and show the user the exact state.
+6. Run the independent review for the commit. Only a `pass` review may complete
+   a `cherry-pick`, `adapt`, `replay`, or `skip` decision; `revisit` needs a
+   `revisit` verdict. Record the review before moving to the next commit.
 
 Use reason codes such as `security`, `fork-architecture`, `no-legacy`,
 `python-314`, `toolchain`, `source-build`, `openapi`, `generated-model`,
@@ -204,6 +213,170 @@ its author must be the upstream author for `cherry-pick`, `adapt`, and
 `replay` unless the user explicitly directs otherwise. The fork maintainer is
 normally the committer.
 
+## Per-commit independent review
+
+Every commit in the audited interval, including `skip` and `revisit`, gets a
+fresh review before it is recorded. The actor may be Codex or OpenCode; the
+reviewer is always Codex. The reviewer must be a separate session from the
+actor, and should use a different model or effort where available. The actor's
+own write-up does not count.
+
+Give the reviewer the upstream SHA, its full patch and stat, the fork diff
+against the integration base, the integration commit message and trailers,
+`AGENTS.md`, this skill, the current ledger entry, the affected paths, and the
+tests actually run. The reviewer is read-only and must not edit files. Use the
+paste-ready prompt in `REVIEW_PROMPT.md`; it carries the full checklist and the
+JSON answer shape. Apply the path rules in `REVIEW_RULES.md`.
+
+The reviewer accounts for every changed file from
+`git diff-tree --no-commit-id --name-only -r <upstream-sha>`. Each path is
+either in `reviewed_files` or in `skipped_files` with a reason. Group related
+files by contract before judging them. The checkpoint command enforces this
+coverage when `--changed-files-from` is passed.
+
+The reviewer reruns the focused tests itself. It does not trust the actor's
+summary. Treat a weakened or skipped test, a special-cased input, a stub, a
+hard-coded return, a swallowed error, or an unreachable file as the main
+failure modes: any one means the work only looks done. Prefer precision over
+recall: if the diff and repository do not prove the defect, do not report it.
+
+The reviewer checks:
+
+- one upstream SHA maps to one integration commit, or to an explicit
+  `skip`/`revisit`;
+- author, subject, provenance trailers, and commit count are correct, with no
+  duplicate integration;
+- conflicts preserve upstream intent and were not resolved by blindly choosing
+  ours or theirs;
+- the fork-specific gates and security invariants hold;
+- generated artifacts, OpenAPI, NapCat models, and bilingual docs moved together
+  where required;
+- the tests are real, relevant, and pass; no test was weakened to hide a
+  failure;
+- a `skip` or `revisit` rationale is honest and complete.
+
+The reviewer returns a structured verdict:
+
+```json
+{
+  "summary": "One paragraph: what changed, what was checked, and how it ended.",
+  "reviewed_files": ["astrbot/core/example.py", "tests/unit/test_example.py"],
+  "skipped_files": [{ "path": "docs/old.md", "reason": "deleted" }],
+  "verdict": "pass",
+  "findings": [
+    {
+      "severity": "high",
+      "category": "provenance",
+      "path": "tests/unit/example.py",
+      "line": 42,
+      "summary": "What is wrong.",
+      "instruction": "What the actor must do next."
+    }
+  ],
+  "tests": [
+    { "command": "uv run pytest tests/unit/example.py", "result": "pass" }
+  ],
+  "residual_risk": "none"
+}
+```
+
+`fix` sends the findings back to the actor word for word. Cite the file and
+line, say what is wrong, and say what to do next; the actor cannot ask a
+follow-up question. Re-review after the fix. After two `fix` rounds without a
+`pass`, record `revisit` instead of guessing. A `revisit` verdict records no
+integration commit. Only `pass` may complete a `cherry-pick`, `adapt`,
+`replay`, or `skip` decision.
+
+Record the verdict in the checkpoint and, once final, in the ledger review
+fields. Use a Codex agent spec such as `codex/<model>:<effort>` for the
+reviewer.
+
+## Checkpoint and report
+
+The checkpoint is ephemeral working state; `upstream-decisions.jsonl` remains
+the authoritative decision ledger. Keep checkpoints under `.tmp/sync-run/`,
+which is gitignored, and never commit them.
+
+Initialize the checkpoint before the first commit. It reads the marker from
+`upstream-sync.yaml` and the head from `upstream/master` by default:
+
+```bash
+STATE=$(python .agents/skills/sync-upstream/scripts/sync_run_state.py init)
+```
+
+For each commit, record progress around the actor and reviewer:
+
+```bash
+python .agents/skills/sync-upstream/scripts/sync_run_state.py start \
+  --state "$STATE" --commit <full-upstream-sha>
+
+python .agents/skills/sync-upstream/scripts/sync_run_state.py review \
+  --state "$STATE" --commit <full-upstream-sha> --repo . \
+  --changed-files-from <full-upstream-sha> \
+  --reviewer codex/<model>:<effort> --review-json .tmp/sync-run/review.json
+
+python .agents/skills/sync-upstream/scripts/sync_run_state.py complete \
+  --state "$STATE" --commit <full-upstream-sha> --disposition adapt \
+  --integration-commit <full-fork-sha> --test "uv run pytest ..." \
+  --risk "what remains unverified"
+```
+
+`review` accepts the JSON returned by `REVIEW_PROMPT.md` through
+`--review-json`; `--verdict` is optional when the JSON carries it. With
+`--changed-files-from`, it refuses a review that did not cover every changed
+file. The JSON summary, findings, reviewed and skipped files, tests, and
+residual risk are kept. `--findings-file` remains available for a prose
+review.
+
+`complete` refuses a non-revisit disposition without a `pass` review, and
+requires an integration commit for `cherry-pick`, `adapt`, and `replay`. After
+a `fix` review, fix the work and review again; the checkpoint keeps the round
+count. On resume, read the checkpoint, ledger, and `git status`; do not re-run
+completed commits.
+
+After all commits, render the report and use it for the pull request body. Do
+not commit the report:
+
+```bash
+python .agents/skills/sync-upstream/scripts/sync_run_state.py report \
+  --state "$STATE" --output .tmp/sync-run/report.md
+```
+
+The report lists every upstream commit, disposition, status, review verdict,
+integration commits, tests, findings, and residual risk.
+
+## Audit existing decisions
+
+The audit is read-only. It checks the current ledger for internal consistency,
+review completeness, Git provenance, and the fork-specific decision rules. It
+does not rewrite the ledger.
+
+```bash
+python .agents/skills/sync-upstream/scripts/audit_upstream_decisions.py
+
+python .agents/skills/sync-upstream/scripts/audit_upstream_decisions.py \
+  --range <marker>..<head> --require-review --strict-provenance
+
+python .agents/skills/sync-upstream/scripts/audit_upstream_decisions.py \
+  --commit <full-or-prefix> --verbose
+```
+
+The default report prints errors and summarizes warnings; `--verbose` lists
+warnings too, and `--json` emits every finding. Exit status is `1` when there
+is an error, `2` when the ledger cannot be read. A missing review on a legacy
+decision is a warning by default; `--require-review` makes it an error for the
+audited range. `--strict-provenance` requires every integration commit to name
+its upstream SHA in a trailer or Git's `cherry picked from` line. Use
+`--no-git` when auditing a ledger without the relevant object database.
+
+Audit errors mean the decision record is internally inconsistent: a code
+change with no integration commit, a `skip` with an integration commit, an
+`adapt` with no adaptation note, a review verdict that contradicts the
+disposition, a missing Git object, or provenance that names a different
+upstream commit. Warnings identify gaps that may be legitimate for older
+records, such as a missing test command, a missing source PR, a missing skip
+rationale, or a legacy decision with no independent review.
+
 ## Conflict and duplicate handling
 
 Never resolve a conflict by blindly choosing ours or theirs. Pause the
@@ -266,7 +439,10 @@ Add or revise a decision without loading the ledger into context:
 python .agents/skills/sync-upstream/scripts/upstream_decisions.py add \
   --commit <full-sha> --disposition adapt --summary "..." \
   --source-pr 123 --reason-code security --path astrbot/core/... \
-  --fork-adaptation "..." --integration-commit <full-sha>
+  --fork-adaptation "..." --integration-commit <full-sha> \
+  --review-verdict pass --reviewer "codex/<model>:<effort>" \
+  --review-notes "what the reviewer checked and found" \
+  --review-rounds 1 --reviewed-at-utc "<UTC ISO 8601>"
 
 python .agents/skills/sync-upstream/scripts/upstream_decisions.py update \
   --commit <full-sha> --disposition revisit --summary "..." \
@@ -315,10 +491,14 @@ and an honest summary of adaptations, skips, replays, conflicts, and tests.
 If the interval is incomplete, leave the cursor unchanged.
 
 Run focused tests first, then the relevant repository gates (`make check`,
-`make quality`, Dashboard build, or docs build). Finish with a concise mapping
-of upstream commits to dispositions, changed files, checks run, and residual
-risk. Do not claim that an upstream commit was integrated merely because it was
-reviewed or recorded.
+`make quality`, Dashboard build, or docs build). Confirm every commit has a
+checkpoint review that is `pass` or `revisit`, and that the ledger review fields
+are present for completed decisions. Audit the interval with
+`--require-review --strict-provenance`, then audit the whole ledger for
+regressions. Render the interval report before opening or updating the pull
+request. Finish with a concise mapping of upstream commits to dispositions,
+changed files, checks run, and residual risk. Do not claim that an upstream
+commit was integrated merely because it was reviewed or recorded.
 
 ## Bundled tools
 
@@ -326,6 +506,21 @@ reviewed or recorded.
   commit report, with optional JSON output.
 - `scripts/upstream_decisions.py`: append-only JSONL ledger CLI for init, add,
   update, soft-delete, get, list/filter, validation, and Git-history import.
+  Records final review verdicts through `--review-verdict`, `--reviewer`,
+  `--review-notes`, `--review-rounds`, and `--reviewed-at-utc`.
+- `scripts/sync_run_state.py`: ephemeral per-interval checkpoint CLI and
+  Markdown report renderer. It tracks `start`, `review`, `complete`, `show`,
+  and `report`, accepts the structured `REVIEW_PROMPT.md` answer through
+  `--review-json`, and refuses completion without the required review.
+- `scripts/audit_upstream_decisions.py`: read-only audit of the current ledger
+  for consistency, review completeness, Git provenance, and decision rules.
+- `REVIEW_PROMPT.md`: paste-ready Codex reviewer prompt with the reinspection,
+  reward-hacking, provenance, fork-gate, coverage, and JSON-answer
+  requirements.
+- `FULL_AUDIT_PROMPT.md`: paste-ready prompt for re-auditing every ledger
+  record from scratch and filing verified, de-duplicated Issues.
+- `REVIEW_RULES.md`: path-specific fork checks for Python, Dashboard, OpenAPI,
+  NapCat, docs, dependencies, workflows, tests, plugins, and release metadata.
 
-Both tools use only the Python standard library and accept explicit paths, so
+All tools use only the Python standard library and accept explicit paths, so
 they do not add project dependencies or require loading the complete ledger.

@@ -1,7 +1,7 @@
 interface:
   display_name: 'Sync AstrBot Upstream'
-  short_description: 'Review or apply upstream commits with provenance'
-  default_prompt: 'Use $sync-upstream to review pending upstream commits and produce an integration plan, or execute the plan already authorized in this conversation.'
+  short_description: 'Review, audit, or apply upstream commits with provenance'
+  default_prompt: 'Use $sync-upstream to review pending upstream commits, audit existing decisions, and produce an integration plan, or execute the plan already authorized in this conversation.'
 
 policy:
   allow_implicit_invocation: true
