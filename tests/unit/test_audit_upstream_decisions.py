@@ -115,7 +115,7 @@ def test_post_cutoff_revisit_is_not_legacy_review_exempt():
     assert findings[0]["severity"] == "error"
 
 
-def test_legacy_review_exemption_restarts_after_delete(tmp_path: Path):
+def test_legacy_review_exemption_restarts_after_delete(tmp_path: Path, capsys):
     module = _load("audit_upstream_decisions")
     commit = "a" * 40
     common = {
@@ -130,6 +130,7 @@ def test_legacy_review_exemption_restarts_after_delete(tmp_path: Path):
         "source_pr": ["123"],
         "reason_codes": ["security"],
         "affected_paths": ["astrbot/core/example.py"],
+        "fork_adaptation": "Keep the current fork implementation.",
         "integration_commits": ["b" * 40],
         "tests": ["uv run pytest tests/unit"],
     }
@@ -162,9 +163,71 @@ def test_legacy_review_exemption_restarts_after_delete(tmp_path: Path):
         encoding="utf-8",
     )
 
-    exit_code = module.main(["--file", str(ledger), "--no-git", "--require-review"])
+    exit_code = module.main(
+        ["--file", str(ledger), "--no-git", "--require-review", "--json"]
+    )
 
     assert exit_code == 1
+    codes = {item["code"] for item in json.loads(capsys.readouterr().out)["findings"]}
+    assert "missing-review" in codes
+    assert "legacy-review-exempt" not in codes
+
+
+def test_legacy_review_exemption_resets_after_post_cutoff_disposition_change(
+    tmp_path: Path, capsys
+):
+    module = _load("audit_upstream_decisions")
+    commit = "a" * 40
+    common = {
+        "schema_version": 1,
+        "event_type": "upsert",
+        "operation": "update",
+        "upstream_commit": commit,
+        "source": "manual",
+        "status": "active",
+        "summary": "subject",
+        "source_pr": ["123"],
+        "reason_codes": ["security"],
+        "affected_paths": ["astrbot/core/example.py"],
+        "fork_adaptation": "Keep the current fork implementation.",
+        "integration_commits": ["b" * 40],
+        "tests": ["uv run pytest tests/unit"],
+    }
+
+    def event(
+        revision: int,
+        recorded_at: str,
+        disposition: str,
+        operation: str,
+    ) -> dict:
+        return {
+            **common,
+            "operation": operation,
+            "record_id": f"{recorded_at}-{commit[:12]}-{revision}",
+            "revision": revision,
+            "recorded_at_utc": recorded_at,
+            "disposition": disposition,
+        }
+
+    events = [
+        event(1, "2026-10-18T00:00:00Z", "adapt", "add"),
+        event(2, "2026-10-20T00:00:00Z", "revisit", "update"),
+        event(3, "2026-10-21T00:00:00Z", "adapt", "update"),
+    ]
+    ledger = tmp_path / "upstream-decisions.jsonl"
+    ledger.write_text(
+        "\n".join(json.dumps(item) for item in events) + "\n",
+        encoding="utf-8",
+    )
+
+    exit_code = module.main(
+        ["--file", str(ledger), "--no-git", "--require-review", "--json"]
+    )
+
+    assert exit_code == 1
+    codes = {item["code"] for item in json.loads(capsys.readouterr().out)["findings"]}
+    assert "missing-review" in codes
+    assert "legacy-review-exempt" not in codes
 
 
 def test_adapt_requires_fork_adaptation_and_tests():

@@ -69,10 +69,13 @@ def is_legacy_review_record(
     *,
     disposition: str = "",
     baseline_disposition: str | None = None,
+    post_cutoff_disposition_changed: bool = False,
 ) -> bool:
     if not origin_recorded_at_utc:
         return False
     if origin_recorded_at_utc >= LEGACY_REVIEW_CUTOFF_UTC:
+        return False
+    if post_cutoff_disposition_changed:
         return False
     return baseline_disposition is None or disposition == baseline_disposition
 
@@ -105,6 +108,7 @@ def audit_record(
     strict_provenance: bool,
     origin_recorded_at_utc: str | None = None,
     baseline_disposition: str | None = None,
+    post_cutoff_disposition_changed: bool = False,
     ref: str = "HEAD",
 ) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
@@ -162,6 +166,7 @@ def audit_record(
             origin_recorded_at_utc,
             disposition=disposition,
             baseline_disposition=baseline_disposition,
+            post_cutoff_disposition_changed=post_cutoff_disposition_changed,
         ):
             add(
                 "info",
@@ -386,15 +391,27 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     first_recorded: dict[str, str] = {}
     baseline_disposition: dict[str, str] = {}
+    post_cutoff_disposition_changed: set[str] = set()
+    last_disposition: dict[str, str] = {}
     for event in events:
         commit = event["upstream_commit"]
         if event["event_type"] == "delete":
             first_recorded.pop(commit, None)
             baseline_disposition.pop(commit, None)
+            post_cutoff_disposition_changed.discard(commit)
+            last_disposition.pop(commit, None)
             continue
-        first_recorded.setdefault(commit, event["recorded_at_utc"])
+        disposition = event.get("disposition", "")
+        if commit not in first_recorded:
+            first_recorded[commit] = event["recorded_at_utc"]
+        elif (
+            event["recorded_at_utc"] >= LEGACY_REVIEW_CUTOFF_UTC
+            and last_disposition.get(commit) != disposition
+        ):
+            post_cutoff_disposition_changed.add(commit)
         if event["recorded_at_utc"] < LEGACY_REVIEW_CUTOFF_UTC:
-            baseline_disposition[commit] = event.get("disposition", "")
+            baseline_disposition[commit] = disposition
+        last_disposition[commit] = disposition
     records = [
         record
         for record in latest_by_commit(events).values()
@@ -422,6 +439,9 @@ def main(argv: list[str] | None = None) -> int:
                 origin_recorded_at_utc=first_recorded.get(record["upstream_commit"]),
                 baseline_disposition=baseline_disposition.get(
                     record["upstream_commit"]
+                ),
+                post_cutoff_disposition_changed=(
+                    record["upstream_commit"] in post_cutoff_disposition_changed
                 ),
                 ref=args.ref,
             )
