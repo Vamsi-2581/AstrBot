@@ -916,7 +916,10 @@ async def _ensure_prompt_and_skills(
             req.system_prompt += f"\n# Prompt Instructions\n\n{prompt_text}\n"
         if begin_dialogs := copy.deepcopy(prompt_spec.get("_begin_dialogs_processed")):
             req.contexts[:0] = begin_dialogs
-    elif use_webchat_special_default:
+    elif (
+        use_webchat_special_default
+        and event.get_extra("enable_default_system_prompt") is not False
+    ):
         req.system_prompt += CHATUI_SPECIAL_DEFAULT_PROMPT
 
     memory_manager = _get_context_runtime_attr(plugin_context, "memory_manager")

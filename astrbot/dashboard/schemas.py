@@ -370,12 +370,20 @@ class ChatMessagePatchRequest(OpenModel):
     content: dict[str, Any]
 
 
+class ChatFlags(BaseModel):
+    enable_inline_genui: bool = True
+    enable_default_system_prompt: bool = True
+    enable_streaming: bool = True
+    enable_reasoning: bool = True
+
+
 class ChatMessageRegenerateRequest(OpenModel):
     locale: str | None = None
     selected_provider: str | None = None
     selected_model: str | None = None
     enable_streaming: bool | None = None
     enable_reasoning: bool | None = None
+    flags: ChatFlags | None = None
     webchat_step_up_tokens: dict[str, str] | None = Field(
         default=None,
         alias="_webchat_step_up_tokens",
@@ -397,6 +405,7 @@ class ChatThreadMessageRequest(OpenModel):
     selected_model: str | None = None
     enable_streaming: bool | None = None
     enable_reasoning: bool | None = None
+    flags: ChatFlags | None = None
     webchat_step_up_tokens: dict[str, str] | None = Field(
         default=None,
         alias="_webchat_step_up_tokens",
@@ -479,6 +488,7 @@ class OpenApiChatRequest(OpenModel):
     platform_id: str | None = None
     enable_streaming: bool | None = None
     enable_reasoning: bool | None = None
+    flags: ChatFlags | None = None
     webchat_step_up_tokens: dict[str, str] | None = Field(
         default=None,
         alias="_webchat_step_up_tokens",

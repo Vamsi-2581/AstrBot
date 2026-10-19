@@ -16,6 +16,9 @@ from astrbot.core.webchat.message_parts import (
     strip_message_parts_path_fields,
     webchat_message_parts_have_content,
 )
+from astrbot.core.webchat.request_flags import (
+    resolve_webchat_request_flags,
+)
 from astrbot.core.webchat.result_reducer import (
     WebChatResultReducer,
     collect_plain_text_from_message_parts,
@@ -474,7 +477,7 @@ class OpenApiService:
         message_id = str(post_data.get("message_id") or uuid4())
         selected_provider = post_data.get("selected_provider")
         selected_model = post_data.get("selected_model")
-        enable_streaming = post_data.get("enable_streaming", True)
+        flags = resolve_webchat_request_flags(post_data)
 
         run = None
         try:
@@ -491,7 +494,7 @@ class OpenApiService:
                     "message": message_parts,
                     "selected_provider": selected_provider,
                     "selected_model": selected_model,
-                    "enable_streaming": enable_streaming,
+                    "flags": flags,
                     "_api_key_principal": api_key_principal,
                 },
             )

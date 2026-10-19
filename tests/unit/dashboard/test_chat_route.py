@@ -81,6 +81,45 @@ async def test_chat_stream_creates_missing_webchat_platform_session(
 
 
 @pytest.mark.asyncio
+async def test_chat_stream_resolves_nested_request_flags(chat_service_instance):
+    service = chat_service_instance
+    session_id = "flags-session"
+
+    stream = await service.build_chat_stream(
+        "alice",
+        {
+            "message": "hello",
+            "session_id": session_id,
+            "flags": {
+                "enable_inline_genui": False,
+                "enable_default_system_prompt": False,
+                "enable_streaming": False,
+                "enable_reasoning": False,
+            },
+        },
+    )
+    run = next(iter(service.chat_run_states.values())).run
+
+    try:
+        _, _, payload = service.webchat_run_coordinator.queue_manager.queues[
+            session_id
+        ].get_nowait()
+        assert payload["flags"] == {
+            "enable_inline_genui": False,
+            "enable_default_system_prompt": False,
+            "enable_streaming": False,
+            "enable_reasoning": False,
+        }
+        assert "enable_streaming" not in payload
+    finally:
+        await stream.aclose()
+        if run.task and not run.task.done():
+            run.task.cancel()
+            await asyncio.gather(run.task, return_exceptions=True)
+        service.webchat_run_coordinator.queue_manager.remove_queues(session_id)
+
+
+@pytest.mark.asyncio
 async def test_chat_stream_rejects_foreign_webchat_platform_session(
     chat_service_instance,
 ):

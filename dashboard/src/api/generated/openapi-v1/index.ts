@@ -384,6 +384,7 @@ export type {
   BulkToggleBuiltinCommandsResponse,
   BulkToggleBuiltinCommandsResponses,
   ChatChunkUploadRequest,
+  ChatFlags,
   ChatMessagePatchRequest,
   ChatMessageRegenerateRequest,
   ChatMessageRegenerateRequestWritable,
