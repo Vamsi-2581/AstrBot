@@ -306,9 +306,10 @@ recorded before that cutoff are explicitly grandfathered: they are reported as
 `legacy-review-exempt` with `info` severity instead of a missing-review error.
 The exemption follows the first ledger event for an upstream commit, so later
 metadata-only revisions remain grandfathered without pretending they were
-reviewed. Do not backfill `reviewer` or `review_notes` for a review that did
-not happen. A new decision or revisit after the cutoff still requires the full
-review fields.
+reviewed. A revision that changes the disposition, or a delete followed by a
+re-add, is a new decision and requires the full review fields when recorded
+after the cutoff. Do not backfill `reviewer` or `review_notes` for a review
+that did not happen.
 
 ## Checkpoint and report
 
