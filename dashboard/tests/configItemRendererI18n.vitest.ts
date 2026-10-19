@@ -101,4 +101,21 @@ describe('ConfigItemRenderer plugin i18n labels', () => {
     expect(items[1]?.props?.subtitle).toBe('二');
     wrapper.unmount();
   });
+
+  it('omits empty subtitle entries', () => {
+    const wrapper = mountSelect(
+      {
+        'zh-CN': {
+          config: { key: { labels: ['甲', '乙'], subtitles: ['一', ''] } },
+        },
+      },
+      ['a', 'b'],
+    );
+    const items = wrapper
+      .findComponent({ name: 'VSelect' })
+      .props('items') as Array<{ props?: { subtitle?: string } }>;
+    expect(items[0]?.props?.subtitle).toBe('一');
+    expect(items[1]?.props?.subtitle).toBeUndefined();
+    wrapper.unmount();
+  });
 });

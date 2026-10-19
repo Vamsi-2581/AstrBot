@@ -588,8 +588,7 @@ function getSelectItems(itemMeta?: ConfigItemMeta): unknown[] {
       title: labels?.[index] || value,
       value,
       props: {
-        subtitle:
-          typeof subtitles?.[index] === 'string' ? subtitles[index] : undefined,
+        subtitle: subtitles?.[index] || undefined,
       },
     }));
   }
