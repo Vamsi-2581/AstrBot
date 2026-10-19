@@ -359,6 +359,57 @@ async def test_ensure_vec_db_falls_back_to_exact_without_faiss(
 
 
 @pytest.mark.asyncio
+async def test_ensure_vec_db_warns_when_existing_faiss_index_is_unreadable(
+    stub_provider_manager_module,
+    mock_provider_manager,
+    mock_kb_db,
+    mock_knowledge_base,
+    mock_embedding_provider,
+    tmp_path,
+    caplog,
+):
+    """Do not silently replace an existing FAISS index with an empty one."""
+
+    from astrbot.core.knowledge_base.kb_helper import KBHelper
+
+    mock_provider_manager.get_provider_by_id.return_value = mock_embedding_provider
+
+    kb_dir = tmp_path / mock_knowledge_base.kb_id
+    kb_dir.mkdir()
+    (kb_dir / "index.faiss").write_bytes(b"legacy-index")
+
+    helper = KBHelper.__new__(KBHelper)
+    helper.kb = mock_knowledge_base
+    helper.prov_mgr = mock_provider_manager
+    helper.kb_db = mock_kb_db
+    helper.kb_root_dir = str(tmp_path)
+    helper.chunker = MagicMock()
+    helper.kb_dir = kb_dir
+    helper.kb_medias_dir = kb_dir / "medias" / mock_knowledge_base.kb_id
+    helper.kb_files_dir = kb_dir / "files" / mock_knowledge_base.kb_id
+    helper.vector_store = "faiss"
+
+    mock_vec_db = MagicMock()
+    mock_vec_db.initialize = AsyncMock()
+
+    with (
+        patch(
+            "astrbot.core.knowledge_base.kb_helper.importlib.util.find_spec",
+            return_value=None,
+        ),
+        patch(
+            "astrbot.core.db.vec_db.create_vector_store",
+            return_value=mock_vec_db,
+        ),
+        caplog.at_level(logging.WARNING),
+    ):
+        await helper._ensure_vec_db()
+
+    assert "existing FAISS index" in caplog.text
+    assert "re-index the documents" in caplog.text
+
+
+@pytest.mark.asyncio
 async def test_ensure_vec_db_sets_init_error_on_failure(
     stub_provider_manager_module,
     mock_provider_manager,

@@ -192,11 +192,21 @@ class KBHelper:
             normalize_vector_store(vector_store) == "faiss"
             and importlib.util.find_spec("faiss") is None
         ):
-            logger.warning(
-                "FAISS is not installed; using the exact NumPy vector backend for "
-                "knowledge base %s.",
-                self.kb.kb_name,
-            )
+            if (self.kb_dir / "index.faiss").is_file() and not (
+                self.kb_dir / "index.npz"
+            ).is_file():
+                logger.warning(
+                    "FAISS is not installed; the existing FAISS index for knowledge "
+                    "base %s cannot be read. Using a new exact NumPy index instead; "
+                    "re-index the documents to restore vector search.",
+                    self.kb.kb_name,
+                )
+            else:
+                logger.warning(
+                    "FAISS is not installed; using the exact NumPy vector backend for "
+                    "knowledge base %s.",
+                    self.kb.kb_name,
+                )
             vector_store = "exact"
         vec_db = create_vector_store(
             vector_store,

@@ -112,6 +112,28 @@ async def test_exact_backend_round_trip(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_exact_backend_uses_squared_l2_similarity(tmp_path: Path) -> None:
+    """Match the FAISS ``1 - squared_distance / 2`` similarity contract."""
+    provider = _FakeEmbeddingProvider()
+    store = create_vector_store(
+        "exact",
+        doc_store_path=str(tmp_path / "doc.db"),
+        index_store_path=str(tmp_path / "index.npz"),
+        embedding_provider=provider,
+    )
+    await store.initialize()
+    await store.insert_batch(["north", "east", "south"])
+
+    results = await store.retrieve("north", k=3)
+    similarities = {result.data["text"]: result.similarity for result in results}
+
+    assert similarities["north"] == pytest.approx(1.0)
+    assert similarities["east"] == pytest.approx(0.0)
+    assert similarities["south"] == pytest.approx(-1.0)
+    await store.close()
+
+
+@pytest.mark.asyncio
 async def test_exact_backend_persists_across_reopen(tmp_path: Path) -> None:
     provider = _FakeEmbeddingProvider()
     kwargs = {
