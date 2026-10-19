@@ -460,6 +460,12 @@ async def test_local_execution_obeys_file_tool_roots(
     )
     readable = fs._read_allowed_roots(umo)
     writable = fs._write_allowed_roots(umo)
+    for expected in (installed, plugin, builtin, system_temp, temporary):
+        assert expected.resolve() in readable
+    for expected in (workspace, system_temp, temporary):
+        assert expected.resolve() in writable
+    for skill_root in (installed, plugin, builtin):
+        assert skill_root.resolve() not in writable
     code = f"""
 import runpy
 from pathlib import Path
