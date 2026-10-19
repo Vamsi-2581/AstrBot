@@ -15,7 +15,7 @@ dashscope>=1.27.5
 defusedxml>=0.7.1
 dingtalk-stream>=0.24.3
 docstring-parser>=0.18.0
-duckdb>=1.5.5
+duckdb>=1.5.5; sys_platform != 'win32'
 faiss-cpu>=1.15.1; sys_platform != 'win32'
 fastapi>=0.141.1
 filelock>=3.32.7
