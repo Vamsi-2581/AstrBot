@@ -58,7 +58,7 @@ class Prompt(SQLModel, table=True):
     begin_dialogs: list | None = Field(default=None, sa_type=JSON)
     """a list of strings, each representing a dialog to start with"""
     tools: list | None = Field(default=None, sa_type=JSON)
-    """None means use ALL tools for default, empty list means no tools, otherwise a list of tool names."""
+    """Extension tool selection. None means no restriction, an empty list disables all extension tools, otherwise a list of extension tool names. Builtin tools are not controlled by this field."""
     skills: list | None = Field(default=None, sa_type=JSON)
     """None means use ALL skills for default, empty list means no skills, otherwise a list of skill names."""
     custom_error_message: str | None = Field(default=None, sa_type=Text)

@@ -11,7 +11,7 @@ class PromptSpec(TypedDict):
     name: str
     begin_dialogs: list[str]
     tools: list[str] | None
-    """工具列表。None 表示使用所有工具，空列表表示不使用任何工具"""
+    """扩展工具列表。None 表示使用所有扩展工具，空列表表示不使用任何扩展工具；内置工具不受该列表影响。"""
     skills: list[str] | None
     """Skills 列表。None 表示使用所有 Skills，空列表表示不使用任何 Skills"""
     custom_error_message: str | None
