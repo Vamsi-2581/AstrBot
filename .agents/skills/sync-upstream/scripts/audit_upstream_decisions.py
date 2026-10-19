@@ -17,6 +17,7 @@ from upstream_decisions import LedgerError, latest_by_commit, load_events
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 TRAILER_RE = re.compile(r"(?im)^\s*Upstream(?:-| )Commit\s*:\s*([0-9a-f]{40})\b")
 CHERRY_RE = re.compile(r"(?im)\(cherry picked from commit ([0-9a-f]{40})\)")
+ADAPTED_RE = re.compile(r"(?im)^\s*Adapted from upstream ([0-9a-f]{40})\b")
 SUMMARY_PR_RE = re.compile(r"\(#(\d+)\)\.?\s*$")
 REVIEW_FIELDS = (
     "review_verdict",
@@ -25,6 +26,7 @@ REVIEW_FIELDS = (
     "review_rounds",
     "reviewed_at_utc",
 )
+LEGACY_REVIEW_CUTOFF_UTC = "2026-10-19T17:38:28Z"
 CODE_DISPOSITIONS = {"cherry-pick", "adapt", "replay"}
 NO_CODE_DISPOSITIONS = {"skip", "revisit"}
 
@@ -48,8 +50,24 @@ def commit_body(repo: Path, sha: str) -> str:
     return result.stdout if result.returncode == 0 else ""
 
 
+def commit_is_ancestor(repo: Path, sha: str, ref: str = "HEAD") -> bool:
+    if not commit_exists(repo, sha):
+        return False
+    return git(repo, "merge-base", "--is-ancestor", sha, ref).returncode == 0
+
+
 def provenance_commits(body: str) -> set[str]:
-    return set(TRAILER_RE.findall(body)) | set(CHERRY_RE.findall(body))
+    return (
+        set(TRAILER_RE.findall(body))
+        | set(CHERRY_RE.findall(body))
+        | set(ADAPTED_RE.findall(body))
+    )
+
+
+def is_legacy_review_record(origin_recorded_at_utc: str | None) -> bool:
+    if not origin_recorded_at_utc:
+        return False
+    return origin_recorded_at_utc < LEGACY_REVIEW_CUTOFF_UTC
 
 
 def add_finding(
@@ -78,10 +96,13 @@ def audit_record(
     check_git: bool,
     require_review: bool,
     strict_provenance: bool,
+    origin_recorded_at_utc: str | None = None,
+    ref: str = "HEAD",
 ) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     disposition = record.get("disposition", "")
     integration = record.get("integration_commits", [])
+    follow_ups = record.get("follow_up_commits", [])
     summary = record.get("summary", "")
 
     def add(severity: str, code: str, message: str, **extra: Any) -> None:
@@ -129,11 +150,19 @@ def audit_record(
 
     present_review_fields = [key for key in REVIEW_FIELDS if key in record]
     if not present_review_fields:
-        add(
-            "error" if require_review else "warning",
-            "missing-review",
-            "no independent review is recorded (legacy decision)",
-        )
+        if is_legacy_review_record(origin_recorded_at_utc):
+            add(
+                "info",
+                "legacy-review-exempt",
+                "decision predates the independent-review policy; "
+                f"legacy records before {LEGACY_REVIEW_CUTOFF_UTC} are exempt",
+            )
+        else:
+            add(
+                "error" if require_review else "warning",
+                "missing-review",
+                "no independent review is recorded",
+            )
     elif len(present_review_fields) != len(REVIEW_FIELDS):
         missing = sorted(set(REVIEW_FIELDS) - set(present_review_fields))
         add("error", "incomplete-review", f"review is missing: {', '.join(missing)}")
@@ -188,6 +217,13 @@ def audit_record(
                     integration_commit=integration_commit,
                 )
                 continue
+            if not commit_is_ancestor(repo, integration_commit, ref):
+                add(
+                    "error",
+                    "unreachable-integration-commit",
+                    f"integration commit is not reachable from {ref}",
+                    integration_commit=integration_commit,
+                )
             found = provenance_commits(commit_body(repo, integration_commit))
             if record.get("upstream_commit") in found:
                 continue
@@ -205,6 +241,22 @@ def audit_record(
                     "provenance-missing",
                     "integration commit has no upstream provenance trailer",
                     integration_commit=integration_commit,
+                )
+        for follow_up_commit in follow_ups:
+            if not commit_exists(repo, follow_up_commit):
+                add(
+                    "error",
+                    "missing-follow-up-commit",
+                    "follow-up commit object is not in this repo",
+                    follow_up_commit=follow_up_commit,
+                )
+                continue
+            if not commit_is_ancestor(repo, follow_up_commit, ref):
+                add(
+                    "error",
+                    "unreachable-follow-up-commit",
+                    f"follow-up commit is not reachable from {ref}",
+                    follow_up_commit=follow_up_commit,
                 )
 
     return findings
@@ -254,7 +306,8 @@ def print_human(
     print(f"records: {records}")
     print(
         f"errors: {severity_counts.get('error', 0)}, "
-        f"warnings: {severity_counts.get('warning', 0)}"
+        f"warnings: {severity_counts.get('warning', 0)}, "
+        f"legacy/review exceptions: {severity_counts.get('info', 0)}"
     )
     for item in findings:
         if item["severity"] != "error" and not (verbose or filtered):
@@ -297,7 +350,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="treat a missing provenance trailer as an error",
     )
     parser.add_argument("--no-git", action="store_true", help="skip git object checks")
-    parser.add_argument("--verbose", action="store_true", help="list warnings too")
+    parser.add_argument(
+        "--ref",
+        default="HEAD",
+        help="require integration commits to be ancestors of this ref",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="list warnings and legacy review exceptions too",
+    )
     parser.add_argument("--fail-on-warning", action="store_true")
     parser.add_argument("--json", action="store_true")
     return parser
@@ -310,6 +372,9 @@ def main(argv: list[str] | None = None) -> int:
     except (LedgerError, OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+    first_recorded: dict[str, str] = {}
+    for event in events:
+        first_recorded.setdefault(event["upstream_commit"], event["recorded_at_utc"])
     records = [
         record
         for record in latest_by_commit(events).values()
@@ -334,6 +399,8 @@ def main(argv: list[str] | None = None) -> int:
                 check_git=not args.no_git,
                 require_review=args.require_review,
                 strict_provenance=args.strict_provenance,
+                origin_recorded_at_utc=first_recorded.get(record["upstream_commit"]),
+                ref=args.ref,
             )
         )
     findings.extend(duplicate_integration_findings(records))

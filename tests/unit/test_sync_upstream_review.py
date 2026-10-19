@@ -32,6 +32,7 @@ def _namespace(**overrides):
         "reason_code": [],
         "affected_paths": [],
         "integration_commit": ["b" * 40],
+        "follow_up_commit": [],
         "test": [],
         "supersedes": [],
         "fork_adaptation": "",
@@ -293,11 +294,22 @@ def test_report_includes_review_and_residual_risk(tmp_path: Path, monkeypatch):
     assert "manual Windows check remains" in report
 
 
+def test_ledger_records_follow_up_commits():
+    ledger = _load("upstream_decisions")
+    event = ledger.make_upsert(
+        _namespace(follow_up_commit=["c" * 40]),
+        [],
+        "add",
+    )
+    ledger.validate_event(event)
+    assert event["follow_up_commits"] == ["c" * 40]
+
+
 def test_ledger_update_preserves_review_fields(tmp_path: Path):
     ledger = _load("upstream_decisions")
     ledger_path = tmp_path / "upstream-decisions.jsonl"
     commit = "a" * 40
-    add = _namespace(file=ledger_path, json=False)
+    add = _namespace(file=ledger_path, json=False, follow_up_commit=["c" * 40])
     ledger.command_add_or_update(add, "add")
 
     update = Namespace(
@@ -311,6 +323,7 @@ def test_ledger_update_preserves_review_fields(tmp_path: Path):
         reason_code=None,
         affected_paths=None,
         integration_commit=None,
+        follow_up_commit=None,
         test=None,
         supersedes=None,
         fork_adaptation=None,
@@ -331,6 +344,7 @@ def test_ledger_update_preserves_review_fields(tmp_path: Path):
     assert current["reviewer"] == "codex/gpt-5.6-sol:high"
     assert current["review_notes"] == "checked"
     assert current["review_rounds"] == 1
+    assert current["follow_up_commits"] == ["c" * 40]
 
 
 def test_checkpoint_caps_fix_rounds(tmp_path: Path):

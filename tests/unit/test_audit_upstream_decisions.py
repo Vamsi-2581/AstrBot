@@ -45,6 +45,7 @@ def _audit(record, **flags):
         "check_git": False,
         "require_review": True,
         "strict_provenance": False,
+        "origin_recorded_at_utc": "2026-10-20T00:00:00Z",
     }
     options.update(flags)
     return module.audit_record(record, Path("."), **options)
@@ -69,6 +70,24 @@ def test_missing_review_is_warning_until_required():
     assert warning[0]["severity"] == "warning"
     error = _audit(record, require_review=True)
     assert error[0]["severity"] == "error"
+
+
+def test_legacy_decision_reports_review_exemption():
+    record = _record()
+    for key in (
+        "review_verdict",
+        "reviewer",
+        "review_notes",
+        "review_rounds",
+        "reviewed_at_utc",
+    ):
+        del record[key]
+    findings = _audit(
+        record,
+        origin_recorded_at_utc="2026-10-18T00:00:00Z",
+    )
+    assert [item["code"] for item in findings] == ["legacy-review-exempt"]
+    assert findings[0]["severity"] == "info"
 
 
 def test_adapt_requires_fork_adaptation_and_tests():
@@ -119,8 +138,69 @@ def test_duplicate_integration_is_reported():
     assert findings[0]["upstream_commits"] == ["a" * 40, "c" * 40]
 
 
-def test_provenance_accepts_trailer_and_cherry_pick_line():
+def test_provenance_accepts_trailer_cherry_pick_and_legacy_adapted_line():
     module = _load("audit_upstream_decisions")
     sha = "a" * 40
     assert module.provenance_commits(f"Upstream-Commit: {sha}") == {sha}
     assert module.provenance_commits(f"(cherry picked from commit {sha})") == {sha}
+    assert module.provenance_commits(f"Adapted from upstream {sha} (#1).") == {sha}
+
+
+def test_unreachable_integration_commit_is_an_error(monkeypatch):
+    module = _load("audit_upstream_decisions")
+    monkeypatch.setattr(module, "commit_exists", lambda *_args: True)
+    monkeypatch.setattr(module, "commit_is_ancestor", lambda *_args: False)
+    monkeypatch.setattr(
+        module,
+        "commit_body",
+        lambda *_args: f"Upstream-Commit: {'a' * 40}",
+    )
+
+    findings = module.audit_record(
+        _record(),
+        Path("."),
+        check_git=True,
+        require_review=True,
+        strict_provenance=False,
+        origin_recorded_at_utc="2026-10-20T00:00:00Z",
+    )
+
+    assert [item["code"] for item in findings] == ["unreachable-integration-commit"]
+
+
+def test_follow_up_commit_must_exist_and_be_reachable(monkeypatch):
+    module = _load("audit_upstream_decisions")
+    follow_up = "c" * 40
+    monkeypatch.setattr(
+        module,
+        "commit_exists",
+        lambda _repo, sha: sha != follow_up,
+    )
+
+    def audit(record):
+        return module.audit_record(
+            record,
+            Path("."),
+            check_git=True,
+            require_review=True,
+            strict_provenance=False,
+            origin_recorded_at_utc="2026-10-20T00:00:00Z",
+        )
+
+    missing = audit(_record(follow_up_commits=[follow_up]))
+    assert "missing-follow-up-commit" in {item["code"] for item in missing}
+
+    monkeypatch.setattr(module, "commit_exists", lambda *_args: True)
+    monkeypatch.setattr(
+        module,
+        "commit_is_ancestor",
+        lambda _repo, sha, _ref: sha != follow_up,
+    )
+    monkeypatch.setattr(
+        module,
+        "commit_body",
+        lambda *_args: f"Upstream-Commit: {'a' * 40}",
+    )
+
+    unreachable = audit(_record(follow_up_commits=[follow_up]))
+    assert "unreachable-follow-up-commit" in {item["code"] for item in unreachable}
