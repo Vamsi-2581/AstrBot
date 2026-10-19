@@ -27,7 +27,7 @@ not restate the rest of `AGENTS.md`.
 | Rung      | Look here first                                                                                                       |
 | --------- | --------------------------------------------------------------------------------------------------------------------- |
 | Reuse     | Neighboring modules, `astrbot.api` for plugins, existing pipeline stages, Dashboard components                        |
-| Stdlib    | Python 3.14, `pathlib.Path`, asyncio, stdlib parsing; wrap `astrbot.core.utils.astrbot_path` strings with `Path(...)` |
+| Stdlib    | Python 3.15, `pathlib.Path`, asyncio, stdlib parsing; wrap `astrbot.core.utils.astrbot_path` strings with `Path(...)` |
 | Native    | Existing FastAPI envelope, Vue SFC patterns, CSS, SQLite/FAISS stores already owned by the lifecycle                  |
 | Installed | `pyproject.toml` + `uv.lock`; Dashboard `pnpm-lock.yaml`; docs `pnpm-lock.yaml`; root `package-lock.json`             |
 

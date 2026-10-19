@@ -45,7 +45,7 @@ make check
 - [ ] Runtime Python deps update `pyproject.toml`, `requirements.txt`, and `uv.lock` together.
 - [ ] I ran the relevant formatting, lint, build, and test commands.
 - [ ] No secrets committed.
-- [ ] I did not restore legacy shims, Python &lt;3.14 fallbacks, or upstream publish/docs URLs as fork artifacts.
+- [ ] I did not restore legacy shims, Python &lt;3.15 fallbacks, or upstream publish/docs URLs as fork artifacts.
 - [ ] I will not merge this PR myself. Merge needs a human maintainer review plus a separate AI-assisted review ([AI_POLICY.md](../../AI_POLICY.md)).
 - [ ] AI use follows [AI_POLICY.md](../../AI_POLICY.md). Keep exactly one author note below. Do not fabricate the other.
 

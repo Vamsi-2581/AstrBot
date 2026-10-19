@@ -59,9 +59,9 @@ _LOGO = r"""
 
 
 def require_supported_python() -> None:
-    """Exit if this process is not running Python 3.14+."""
-    if not (sys.version_info.major == 3 and sys.version_info.minor >= 14):
-        logger.error("请使用 Python3.14+ 运行本项目。")
+    """Exit if this process is not running Python 3.15+."""
+    if not (sys.version_info.major == 3 and sys.version_info.minor >= 15):
+        logger.error("请使用 Python3.15+ 运行本项目。")
         raise SystemExit(1)
 
 

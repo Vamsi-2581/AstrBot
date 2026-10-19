@@ -15,8 +15,8 @@ dashscope>=1.27.5
 defusedxml>=0.7.1
 dingtalk-stream>=0.24.3
 docstring-parser>=0.18.0
-duckdb>=1.5.5
-faiss-cpu>=1.15.1
+duckdb>=1.5.5; sys_platform != 'win32'
+faiss-cpu>=1.15.1; sys_platform != 'win32'
 fastapi>=0.141.1
 filelock>=3.32.7
 google-genai>=2.24.0
@@ -44,7 +44,7 @@ opencv-python-headless>=5.0.0.93
 packaging>=26.3
 pandas>=3.0.5
 pillow>=12.3.0
-playwright>=1.63.0
+playwright>=1.64.0
 pip>=26.2.1
 paramiko>=5.0.0
 psutil>=7.2.2
@@ -71,7 +71,7 @@ scikit-learn>=1.9.1
 scipy>=1.18.1
 seaborn>=0.13.2
 shipyard-neo-sdk>=0.2.0
-silk-python>=0.2.8
+silk-python @ git+https://github.com/synodriver/pysilk.git@b0fbba74506bb8be23ef5e120b983bbb2f70ac19
 slack-sdk>=3.44.1
 sqlalchemy[asyncio]>=2.0.54
 sqlmodel>=0.0.42

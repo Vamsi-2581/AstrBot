@@ -31,7 +31,7 @@ Change only the waking-check stage and its unit tests.
 
 ## Constraints
 
-- Python >=3.14
+- Python >=3.15
 - No legacy shims
 - In-app docs at `/help/`
 
@@ -122,7 +122,7 @@ def test_validate_plan_rejects_placeholder_and_forbidden_artifacts():
         item.startswith("forbidden artifact:")
         for item in module.validate_plan(with_docs)
     )
-    with_floor = VALID_PLAN.replace("Python >=3.14", "Python >=3.12")
+    with_floor = VALID_PLAN.replace("Python >=3.15", "Python >=3.12")
     assert any(
         item.startswith("forbidden artifact:")
         for item in module.validate_plan(with_floor)

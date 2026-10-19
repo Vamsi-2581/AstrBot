@@ -59,7 +59,7 @@ def read_python_floor(root: Path) -> tuple[str, str | None]:
     match = PYTHON_FLOOR_RE.search(specifier)
     if match is None:
         raise ValueError(
-            "project.requires-python must contain a lower bound such as >=3.14",
+            "project.requires-python must contain a lower bound such as >=3.15",
         )
     pin_path = root / ".python-version"
     pin = pin_path.read_text(encoding="utf-8").strip() if pin_path.is_file() else None

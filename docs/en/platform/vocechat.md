@@ -12,7 +12,7 @@ See deployment methods on the [VoceChat official website](https://voce.chat/en-U
 ## Install `astrbot_plugin_vocechat`
 
 > [!WARNING]
-> This adapter is provided by a community plugin, not a built-in adapter in this fork. The default marketplace source is upstream, and the plugin is not verified against Python 3.14+ or the current no-legacy API. If install or load fails, file an issue on the plugin's own repository; do not assume this fork maintains it.
+> This adapter is provided by a community plugin, not a built-in adapter in this fork. The default marketplace source is upstream, and the plugin is not verified against Python 3.15+ or the current no-legacy API. If install or load fails, file an issue on the plugin's own repository; do not assume this fork maintains it.
 
 In AstrBot Dashboard Plugin Market, search for `astrbot_plugin_vocechat` and install it.
 

@@ -28,7 +28,7 @@ Do not duplicate it in gitignored `.codex/` or `.opencode/`.
   `docs/zh/dev/architecture.md` / `docs/en/dev/architecture.md`. Use
   `Xero-Team/AstrBot` for fork-owned identity. Label `AstrBotDevs/AstrBot`
   only as upstream provenance.
-- Python 3.14+, source-build `compose.yml` / `astrbot:local`, in-app docs at
+- Python 3.15+, source-build `compose.yml` / `astrbot:local`, in-app docs at
   `/help/`. Do not restore legacy shims, `docs.astrbot.app`, or upstream
   images.
 - `--repo-root` is this checkout when evidence-backed Architecture nodes

@@ -155,7 +155,7 @@ font-family: 'Maple Mono', 'Noto Sans CJK SC', sans-serif;
 
 ### 市场插件安装后加载失败
 
-Dashboard 默认市场源是上游 `cloud.astrbot.app` 市场 JSON（失败后回退到 `AstrBotDevs/AstrBot_Plugins_Collection`），不是本 fork 的官方市场。本分支要求 Python 3.14+，且不提供旧插件 API 或旧 Dashboard 页面兼容。安装前核对该插件的 `astrbot_version` 和 `requires.dashboard_extension`。失败时用 URL 安装已知兼容的插件，或查看插件加载错误，不要假定上游市场插件能在本分支运行。详见 [插件](/use/plugin) 和 [插件开发指南](/dev/star/plugin-new)。
+Dashboard 默认市场源是上游 `cloud.astrbot.app` 市场 JSON（失败后回退到 `AstrBotDevs/AstrBot_Plugins_Collection`），不是本 fork 的官方市场。本分支要求 Python 3.15+，且不提供旧插件 API 或旧 Dashboard 页面兼容。安装前核对该插件的 `astrbot_version` 和 `requires.dashboard_extension`。失败时用 URL 安装已知兼容的插件，或查看插件加载错误，不要假定上游市场插件能在本分支运行。详见 [插件](/use/plugin) 和 [插件开发指南](/dev/star/plugin-new)。
 
 ### 如何关闭长期记忆
 
@@ -169,7 +169,7 @@ GitHub 网络不可用时，可以配置出站 HTTP 代理，或下载可信插�
 
 ### 安装后出现 `No module named 'xxx'`
 
-常见原因是网络错误、插件缺少 `requirements.txt`，或依赖不支持 Python 3.14。先查看安装日志和插件 README。源码开发环境中可以在 checkout 内用 `uv` 安装和调试；生产环境不要用全局 `pip` 混入不受管理的依赖。
+常见原因是网络错误、插件缺少 `requirements.txt`，或依赖不支持 Python 3.15。先查看安装日志和插件 README。源码开发环境中可以在 checkout 内用 `uv` 安装和调试；生产环境不要用全局 `pip` 混入不受管理的依赖。
 
 如果插件声明缺失，应向插件作者报告，而不是长期手工维护无法复现的依赖状态。
 

@@ -7,7 +7,7 @@ description: >
   review or implementing fixes.
 license: AGPL-3.0-or-later
 compatibility: >
-  Requires this Xero-Team/AstrBot checkout, Python 3.14+, git, and Node 26.x
+  Requires this Xero-Team/AstrBot checkout, Python 3.15+, git, and Node 26.x
   for archify diagrams. Fetch official standards only as citations.
 metadata:
   author: Xero-Team
@@ -49,7 +49,7 @@ evidence; it does not prevent static inspection or focused tests.
 - Diagrams go through the `archify` skill. JSON IR and HTML stay under
   `.tmp/archify/` or `.tmp/product-audit/<run-id>/diagrams/`. Do not invent
   topology, wake policy, provider modules, or Dashboard routes.
-- Python 3.14+, source-build `compose.yml` / `astrbot:local`, in-app docs at
+- Python 3.15+, source-build `compose.yml` / `astrbot:local`, in-app docs at
   `/help/`. Do not treat upstream PyPI, `soulter/astrbot`, or
   `docs.astrbot.app` as fork artifacts.
 - Security findings follow `SECURITY.md`. Do not open a public Issue or public
@@ -96,7 +96,7 @@ mismatch into the run manifest.
   do not paste those trees.
 - "Fix" the product during an audit unless the user switched to a remediation
   task. Record findings; do not silently edit production code.
-- Restore legacy shims, Python 3.10–3.13 fallbacks, or upstream publish URLs
+- Restore legacy shims, Python 3.10–3.14 fallbacks, or upstream publish URLs
   as if they were current product surface.
 - Treat the lab password as a shipped product default, use it in
   production, or paste it into `REPORT.md`.

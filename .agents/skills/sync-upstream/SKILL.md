@@ -25,7 +25,7 @@ opening a branch, Issue, or PR. Paste-ready apply prompt:
   none.
 - Preserve upstream subjects on `cherry-pick -x`. Adapt uses upstream author
   plus hyphenated trailers.
-- Python 3.14+, no legacy shims, source-build compose, in-app `/help/` docs.
+- Python 3.15+, no legacy shims, source-build compose, in-app `/help/` docs.
 - Do not merge the resulting PR, push `master`, tag, or release. A human
   maintainer does those actions; do not treat a verbal exception as
   authorization.
@@ -247,7 +247,7 @@ Before accepting a decision, check the affected contract:
 - keep documentation in-app at `/help/`; do not restore `Dockerfile.docs`, a
   docs Compose service, or `docs.astrbot.app` links;
 - regenerate NapCat models only through `make napcat-check`;
-- preserve Python 3.14+, the security invariants, current ownership boundaries,
+- preserve Python 3.15+, the security invariants, current ownership boundaries,
   source-build deployment, and the no-legacy policy;
 - if a release/version change is absorbed, update the synchronized version
   files and only the changelog entries actually included by the fork.

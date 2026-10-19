@@ -12,7 +12,7 @@ VoceChat 是一个开源的支持多平台、搭建简单的即时通讯平台�
 ## 安装 astrbot_plugin_vocechat 插件
 
 > [!WARNING]
-> 该适配器由社区插件提供，不是本 fork 内置适配器。默认市场源是上游源，插件未针对 Python 3.14+ 与当前无遗留 API 验证。安装失败或加载失败时，到插件自己的仓库提 issue，不要假定本 fork 维护它。
+> 该适配器由社区插件提供，不是本 fork 内置适配器。默认市场源是上游源，插件未针对 Python 3.15+ 与当前无遗留 API 验证。安装失败或加载失败时，到插件自己的仓库提 issue，不要假定本 fork 维护它。
 
 进入 AstrBot 仪表盘的插件市场，搜索 `astrbot_plugin_vocechat`，点击安装。
 

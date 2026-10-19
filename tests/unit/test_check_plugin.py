@@ -44,7 +44,7 @@ def _write_plugin(
         encoding="utf-8",
     )
     (plugin / "README.md").write_text(
-        "Python requirement: `>=3.14`\n",
+        "Python requirement: `>=3.15`\n",
         encoding="utf-8",
     )
     (plugin / "main.py").write_text(main_py, encoding="utf-8")

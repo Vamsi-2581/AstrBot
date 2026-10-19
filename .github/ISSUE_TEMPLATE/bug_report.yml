@@ -63,7 +63,7 @@ body:
     id: env
     attributes:
       label: Environment
-      placeholder: OS, Python 3.14.x, Node, Docker or source, adapter
+      placeholder: OS, Python 3.15.x, Node, Docker or source, adapter
   - type: dropdown
     id: author
     attributes:

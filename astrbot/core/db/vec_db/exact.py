@@ -88,7 +88,9 @@ class ExactEmbeddingStorage:
             empty = np.full((1, max(k, 0)), -1, dtype=np.int64)
             return np.full((1, max(k, 0)), np.inf, dtype=np.float32), empty
 
-        distances = np.linalg.norm(self._vectors - query, axis=1)
+        # Squared L2 distances keep the shared ``retrieve()`` normalization
+        # (``1 - distance / 2``) consistent with the FAISS backend.
+        distances = np.square(self._vectors - query).sum(axis=1)
         order = np.argsort(distances, kind="stable")[:k]
         indices = np.array([[self._ids[i] for i in order]], dtype=np.int64)
         return distances[order].reshape(1, -1).astype(np.float32), indices

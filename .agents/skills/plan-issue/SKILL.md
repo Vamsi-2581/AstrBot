@@ -4,7 +4,7 @@ description: Turn an AstrBot GitHub Issue or change request into a code-backed i
 license: AGPL-3.0-or-later
 compatibility: >
   Codex CLI or OpenCode in the Xero-Team/AstrBot checkout. Requires
-  Python 3.14+, git, and gh when fetching a GitHub Issue.
+  Python 3.15+, git, and gh when fetching a GitHub Issue.
 metadata:
   author: Xero-Team
   checkout: Xero-Team/AstrBot

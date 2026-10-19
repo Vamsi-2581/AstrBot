@@ -8,7 +8,7 @@
 <br>
 
 <div>
-<img src="https://img.shields.io/badge/python-3.14+-blue.svg" alt="python">
+<img src="https://img.shields.io/badge/python-3.15+-blue.svg" alt="python">
 <img src="https://img.shields.io/badge/deployment-source%20build-76bad9" alt="source build">
 </div>
 
@@ -19,9 +19,9 @@
 
 </div>
 
-AstrBot is an open-source all-in-one Agent chatbot platform that integrates with mainstream instant messaging apps. It provides reliable and scalable conversational AI infrastructure for individuals, developers, and teams. Whether you're building a personal AI companion, intelligent customer service, automation assistant, or local knowledge-base retrieval, AstrBot lets you assemble AI applications inside IM workflows. The knowledge base is currently a single-node SQLite store with a local vector index (FAISS by default, with an optional pure-NumPy exact backend), not a hosted enterprise search service.
+AstrBot is an open-source all-in-one Agent chatbot platform that integrates with mainstream instant messaging apps. It provides reliable and scalable conversational AI infrastructure for individuals, developers, and teams. Whether you're building a personal AI companion, intelligent customer service, automation assistant, or local knowledge-base retrieval, AstrBot lets you assemble AI applications inside IM workflows. The knowledge base is currently a single-node SQLite store with a local vector index (FAISS by default on Linux/macOS, or the pure-NumPy exact backend by default on Windows), not a hosted enterprise search service.
 
-This repository is a modernized fork of AstrBot. The code, commands, deployment files, and compatibility expectations documented here describe this fork only: Python 3.14+, `uv` for backend workflows, `pnpm` for the dashboard, and no legacy compatibility shims.
+This repository is a modernized fork of AstrBot. The code, commands, deployment files, and compatibility expectations documented here describe this fork only: Python 3.15+, `uv` for backend workflows, `pnpm` for the dashboard, and no legacy compatibility shims.
 
 ![screenshot_1 5x_postspark_2026-02-27_22-37-45](https://github.com/user-attachments/assets/f17cdb90-52d7-4773-be2e-ff64b566af6b)
 
@@ -72,7 +72,7 @@ uv run python scripts/sync_dashboard_dist.py
 uv run main.py
 ```
 
-Install [uv](https://docs.astral.sh/uv/), Node.js 26.11.1, and pnpm 12.11.2 first. The checkout pins Python 3.14.8 and the required pnpm version. On first startup, open `http://localhost:6185` and use the random password shown on the attached operator terminal; the default username is `astrbot`. The password is not written to the startup log.
+Install [uv](https://docs.astral.sh/uv/), Node.js 26.11.1, and pnpm 12.11.2 first. The checkout pins Python 3.15.0 and the required pnpm version. On first startup, open `http://localhost:6185` and use the random password shown on the attached operator terminal; the default username is `astrbot`. The password is not written to the startup log.
 
 If you enable local text-to-image or plugin HTML rendering, also run `uv run astrbot install-browser` once. See [Deploy AstrBot from Source](docs/en/deploy/astrbot/cli.md) for updates, remote access, and security guidance.
 

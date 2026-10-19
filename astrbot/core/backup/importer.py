@@ -54,6 +54,7 @@ from ._importer_versioning import (
 
 # 从共享常量模块导入
 from .constants import (
+    KB_VECTOR_INDEX_FILENAMES,
     MAIN_DB_MODELS,
 )
 
@@ -633,7 +634,7 @@ class AstrBotImporter:
         kb_dir.mkdir(parents=True, exist_ok=True)
 
         await self._import_single_kb_documents(zf, kb_id, result)
-        await self._import_single_kb_faiss_index(zf, kb_id, kb_dir, result)
+        await self._import_single_kb_vector_index(zf, kb_id, kb_dir, result)
         await self._import_single_kb_media_files(zf, kb_id, kb_dir, result)
         await self._import_single_kb_source_files(zf, kb_id, kb_dir, result)
 
@@ -654,24 +655,28 @@ class AstrBotImporter:
         except Exception as exc:
             result.add_internal_warning("导入知识库文档失败", exc)
 
-    async def _import_single_kb_faiss_index(
+    async def _import_single_kb_vector_index(
         self,
         zf: zipfile.ZipFile,
         kb_id: str,
         kb_dir: Path,
         result: ImportResult,
     ) -> None:
-        faiss_path = f"databases/kb_{kb_id}/index.faiss"
-        if faiss_path not in zf.namelist():
-            return
-
-        try:
-            with zf.open(faiss_path) as src, open(kb_dir / "index.faiss", "wb") as dst:
-                dst.write(src.read())
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:
-            result.add_internal_warning("导入知识库 FAISS 索引失败", exc)
+        archive_names = set(zf.namelist())
+        for filename in KB_VECTOR_INDEX_FILENAMES:
+            archive_path = f"databases/kb_{kb_id}/{filename}"
+            if archive_path not in archive_names:
+                continue
+            try:
+                with (
+                    zf.open(archive_path) as src,
+                    open(kb_dir / filename, "wb") as dst,
+                ):
+                    dst.write(src.read())
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                result.add_internal_warning("导入知识库向量索引失败", exc)
 
     async def _import_single_kb_media_files(
         self,

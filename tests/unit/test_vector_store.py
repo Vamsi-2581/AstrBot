@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,8 @@ from astrbot.core.db.vec_db import (
 from astrbot.core.db.vec_db.base import VectorStore
 from astrbot.core.db.vec_db.exact import ExactVecDB
 from astrbot.core.db.vec_db.faiss import FaissVecDB
+
+_FAISS_AVAILABLE = importlib.util.find_spec("faiss") is not None
 
 
 class _FakeEmbeddingProvider:
@@ -52,6 +55,7 @@ def test_normalize_and_filename() -> None:
     assert vector_index_filename("faiss") == "index.faiss"
 
 
+@pytest.mark.skipif(not _FAISS_AVAILABLE, reason="FAISS is not installed")
 def test_create_vector_store_selects_backend(tmp_path: Path) -> None:
     provider = _FakeEmbeddingProvider()
 
@@ -104,6 +108,28 @@ async def test_exact_backend_round_trip(tmp_path: Path) -> None:
     await store.delete_documents({"tag": "c"})
     assert await store.count_documents() == 1
 
+    await store.close()
+
+
+@pytest.mark.asyncio
+async def test_exact_backend_uses_squared_l2_similarity(tmp_path: Path) -> None:
+    """Match the FAISS ``1 - squared_distance / 2`` similarity contract."""
+    provider = _FakeEmbeddingProvider()
+    store = create_vector_store(
+        "exact",
+        doc_store_path=str(tmp_path / "doc.db"),
+        index_store_path=str(tmp_path / "index.npz"),
+        embedding_provider=provider,
+    )
+    await store.initialize()
+    await store.insert_batch(["north", "east", "south"])
+
+    results = await store.retrieve("north", k=3)
+    similarities = {result.data["text"]: result.similarity for result in results}
+
+    assert similarities["north"] == pytest.approx(1.0)
+    assert similarities["east"] == pytest.approx(0.0)
+    assert similarities["south"] == pytest.approx(-1.0)
     await store.close()
 
 
