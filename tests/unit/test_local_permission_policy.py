@@ -129,6 +129,8 @@ async def test_execution_denial_points_to_authorization_role_binding() -> None:
     assert "More Features -> Authorization" in error
     assert "`instance_operator`" in error
     assert "`im:test-platform:test-bot:test-user`" in error
+    assert "`Allow code execution`" in error
+    assert "`Execute code`" not in error
     assert "Access Control" not in error
 
 

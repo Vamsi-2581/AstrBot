@@ -210,7 +210,7 @@ def get_local_permission_policy(
                 )
             if not policy.allow_network:
                 permission_changes.append(
-                    "turn `Execute code` off and on again "
+                    "turn `Allow code execution` off and on again "
                     "(this also enables execution network access)"
                 )
             return LocalPermissionPolicy(
@@ -340,7 +340,7 @@ async def check_local_execution_permission(
         )
         instructions = (
             "Ask an AstrBot administrator to enable "
-            f"`Execute code` for this role in {policy_location}."
+            f"`Allow code execution` for this role in {policy_location}."
         )
         if (
             role != "admin"
@@ -361,7 +361,7 @@ async def check_local_execution_permission(
                 f"1. Grant {subject_hint} the `instance_operator` role with "
                 "instance scope for this configuration profile in "
                 "AstrBot WebUI -> More Features -> Authorization.\n"
-                f"2. Enable `Execute code` for members in {policy_location}."
+                f"2. Enable `Allow code execution` for members in {policy_location}."
             )
         return policy, (
             f"error: Permission denied. {operation_name} is disabled by the "
