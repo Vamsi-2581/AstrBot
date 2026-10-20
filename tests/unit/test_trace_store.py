@@ -547,6 +547,25 @@ def test_stale_updates_do_not_reopen_completed_trace(persisted, capture):
     assert persisted.list_traces(query="other%")["total"] == 0
 
 
+def test_equal_timestamp_running_update_does_not_reopen_trace(persisted, capture):
+    """A stale running snapshot cannot replace a terminal state at one timestamp."""
+    trace = TraceSpan("message")
+    trace.record("event_received")
+    trace.record("pipeline_end", status="success")
+    completed = json.loads(json.dumps(capture[-1]))
+    assert persisted.append(completed)
+    assert persisted.flush()
+
+    stale = json.loads(json.dumps(completed))
+    stale["trace"]["state"] = "running"
+    stale["trace"]["end_time_unix_nano"] = None
+    assert persisted.append(stale)
+    assert persisted.flush()
+
+    detail = persisted.get_trace(trace.trace_id)
+    assert detail["trace"]["state"] == "completed"
+
+
 def test_capacity_prunes_complete_traces_with_cascade(persisted, capture):
     trace = TraceSpan("message")
     trace.record("event_received")
