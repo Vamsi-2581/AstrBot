@@ -275,7 +275,7 @@ class AppearanceService:
                 # migration could not supply fields it is missing.
                 try:
                     self._wallpaper_item(metadata)
-                except TypeError, ValueError, KeyError:
+                except TypeError, ValueError, KeyError, OverflowError:
                     if wallpapers.pop(wallpaper_id, None) is not None:
                         changed = True
                 continue
