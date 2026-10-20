@@ -270,6 +270,24 @@ async def test_corrupt_asset_drops_unusable_persisted_metadata(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_transient_rebuild_failure_keeps_usable_metadata(tmp_path, monkeypatch):
+    service = AppearanceService(tmp_path)
+    uploaded = await service.save_wallpaper(_upload(), "portrait")
+    service.thumbnail_dir.joinpath(f"{uploaded['id']}.webp").unlink()
+
+    def fail_rebuild(*_args, **_kwargs):
+        raise AppearanceServiceError("transient failure")
+
+    monkeypatch.setattr(AppearanceService, "_migrate_asset", fail_rebuild)
+
+    listed = await AppearanceService(tmp_path).list_wallpapers()
+
+    assert [item["id"] for item in listed] == [uploaded["id"]]
+    assert listed[0]["orientation"] == "portrait"
+    assert listed[0]["original_name"] == "wallpaper.png"
+
+
+@pytest.mark.asyncio
 async def test_invalid_persisted_metadata_is_rebuilt(tmp_path):
     service = AppearanceService(tmp_path)
     uploaded = await service.save_wallpaper(_upload(), "landscape")
