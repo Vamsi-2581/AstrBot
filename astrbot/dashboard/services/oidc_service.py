@@ -163,8 +163,10 @@ class OidcClient:
         authorized_party = claims.get("azp")
         if authorized_party is not None and authorized_party != self.client_id:
             raise OidcError("OIDC authorized party mismatch")
-        if isinstance(audience, list) and len(audience) > 1 and (
-            authorized_party != self.client_id
+        if (
+            isinstance(audience, list)
+            and len(audience) > 1
+            and (authorized_party != self.client_id)
         ):
             raise OidcError("OIDC authorized party is required")
         return claims

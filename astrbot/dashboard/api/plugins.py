@@ -451,7 +451,6 @@ async def upload_plugin_config_files(
             await form.close()
 
 
-
 @router.delete("/plugins/{plugin_id:path}/config-files")
 async def delete_plugin_config_file(
     plugin_id: str,

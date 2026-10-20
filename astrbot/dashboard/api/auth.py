@@ -604,9 +604,7 @@ async def require_scope(
             try:
                 auth = await _require_api_key_scope(request, token, scope)
                 if authorize_action:
-                    await _authorize_scope_action(
-                        request, auth, scope, action_override
-                    )
+                    await _authorize_scope_action(request, auth, scope, action_override)
                 return auth
             except ApiError as api_key_exc:
                 raise api_key_exc from exc

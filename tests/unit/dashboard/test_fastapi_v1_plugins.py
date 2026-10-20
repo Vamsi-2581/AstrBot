@@ -1010,8 +1010,7 @@ async def test_v1_plugin_config_upload_rejects_too_many_files(
     asgi_client: httpx.AsyncClient,
 ):
     files = [
-        ("files", (f"file-{index}.txt", b"data", "text/plain"))
-        for index in range(33)
+        ("files", (f"file-{index}.txt", b"data", "text/plain")) for index in range(33)
     ]
 
     response = await asgi_client.post(

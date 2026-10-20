@@ -174,7 +174,7 @@ class LarkWebhookServer:
                 return {"error": "Missing signature headers"}, 401
             try:
                 request_timestamp = int(timestamp)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 logger.error("[Lark Webhook] 签名时间戳无效")
                 return {"error": "Invalid signature timestamp"}, 401
             if (

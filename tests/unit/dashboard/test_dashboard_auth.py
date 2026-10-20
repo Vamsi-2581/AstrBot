@@ -1361,13 +1361,9 @@ async def test_authenticated_default_password_login_can_complete_setup(
         from astrbot.core.db.po import AuthRoleBinding
 
         async with core_lifecycle_td.db.get_db() as session:
-            accounts = list(
-                (await session.execute(select(DashboardAccount))).scalars()
-            )
+            accounts = list((await session.execute(select(DashboardAccount))).scalars())
             renamed = next(
-                account
-                for account in accounts
-                if account.username == setup_username
+                account for account in accounts if account.username == setup_username
             )
             bindings = list(
                 (

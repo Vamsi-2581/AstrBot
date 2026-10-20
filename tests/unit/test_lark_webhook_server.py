@@ -174,7 +174,9 @@ async def test_lark_webhook_signature_accepts_and_rejects():
     }
 
     accepted = await server.handle_callback(
-        _FakeRequest(body=body, event_data={"type": "event_callback"}, headers=valid_headers)
+        _FakeRequest(
+            body=body, event_data={"type": "event_callback"}, headers=valid_headers
+        )
     )
     assert accepted == {}
 
