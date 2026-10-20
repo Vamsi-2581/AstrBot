@@ -174,6 +174,7 @@ class WebChatAdapter(Platform):
     async def _parse_message_parts(
         self,
         message_parts: list,
+        conversation_id: str,
         depth: int = 0,
         max_depth: int = 1,
     ) -> tuple[list, list[str]]:
@@ -181,6 +182,7 @@ class WebChatAdapter(Platform):
 
         Args:
             message_parts: 消息段列表
+            conversation_id: 当前 WebChat 会话 ID；引用消息不得跨会话
             depth: 当前递归深度
             max_depth: 最大递归深度（用于处理 reply）
 
@@ -192,7 +194,12 @@ class WebChatAdapter(Platform):
             message_id: Any,
         ) -> tuple[list[dict], str | None, str | None] | None:
             history = await self._get_message_history(message_id)
-            if not history or not history.content:
+            if (
+                not history
+                or not history.content
+                or history.platform_id != "webchat"
+                or history.user_id != conversation_id
+            ):
                 return None
 
             reply_parts = history.content.get("message", [])
@@ -228,7 +235,10 @@ class WebChatAdapter(Platform):
 
         # 处理消息段列表
         message_parts = payload.get("message", [])
-        abm.message, message_str_parts = await self._parse_message_parts(message_parts)
+        abm.message, message_str_parts = await self._parse_message_parts(
+            message_parts,
+            cid,
+        )
 
         logger.debug(f"WebChatAdapter: {abm.message}")
 

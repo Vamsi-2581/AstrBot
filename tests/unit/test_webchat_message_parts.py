@@ -238,3 +238,42 @@ def test_webchat_create_event_defaults_flag_extras(tmp_path):
     assert event.get_extra("enable_streaming") is False
     assert event.get_extra("enable_reasoning") is True
     assert event.get_extra("enable_default_system_prompt") is True
+
+
+@pytest.mark.asyncio
+async def test_webchat_reply_history_is_scoped_to_the_current_conversation():
+    from astrbot.api.message_components import Reply
+    from astrbot.core.platform.sources.webchat.webchat_adapter import WebChatAdapter
+
+    histories = {
+        2: SimpleNamespace(
+            platform_id="webchat",
+            user_id="other-conversation",
+            sender_id="other",
+            sender_name="other",
+            content={"message": [{"type": "plain", "text": "other secret"}]},
+        )
+    }
+
+    class FakeDatabase:
+        async def get_platform_message_history_by_id(self, message_id):
+            return histories.get(message_id)
+
+    adapter = object.__new__(WebChatAdapter)
+    adapter.database = FakeDatabase()
+    reply_part = {"type": "reply", "message_id": 2, "selected_text": ""}
+
+    cross_components, _ = await adapter._parse_message_parts(
+        [reply_part],
+        "current-conversation",
+    )
+    assert cross_components[0].message_str == ""
+    assert cross_components[0].chain == []
+
+    histories[2].user_id = "current-conversation"
+    same_components, _ = await adapter._parse_message_parts(
+        [reply_part],
+        "current-conversation",
+    )
+    assert isinstance(same_components[0], Reply)
+    assert same_components[0].message_str == "other secret"

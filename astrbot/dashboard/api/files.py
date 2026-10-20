@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 
 from fastapi import (
@@ -19,6 +20,9 @@ from astrbot.dashboard.responses import error, ok
 from astrbot.dashboard.schemas import ChatUploadInitRequest, ChatUploadSessionRequest
 from astrbot.dashboard.services.chat_service import ChatService, ChatServiceError
 from astrbot.dashboard.services.file_service import FileService, FileServiceError
+from astrbot.dashboard.services.plugin_file_ticket_service import (
+    content_disposition_header,
+)
 from astrbot.dashboard.upload_utils import UploadFileAdapter
 
 from .auth import AuthContext, object_resource, require_resource_action, require_scope
@@ -74,10 +78,44 @@ async def _serve_token_file(file_token: str, service: FileService):
         raise HTTPException(status_code=404) from exc
 
 
+_SAFE_MEDIA_TYPES = frozenset(
+    {
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp",
+        "image/bmp",
+        "image/x-icon",
+        "audio/mpeg",
+        "audio/ogg",
+        "audio/wav",
+        "audio/webm",
+        "audio/mp4",
+        "video/mp4",
+        "video/webm",
+        "video/ogg",
+        "text/plain",
+    }
+)
+
+
+def _attachment_media_type(mimetype: str | None) -> str:
+    candidate = (mimetype or "").split(";", 1)[0].strip().lower()
+    return candidate if candidate in _SAFE_MEDIA_TYPES else "application/octet-stream"
+
+
 def _file_response(file_path: str, mimetype: str | None = None) -> FileResponse:
-    if mimetype:
-        return FileResponse(file_path, media_type=mimetype)
-    return FileResponse(file_path)
+    return FileResponse(
+        file_path,
+        media_type=_attachment_media_type(mimetype),
+        headers={
+            "Content-Disposition": content_disposition_header(
+                "attachment",
+                Path(file_path).name,
+            ),
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 async def _run_file(operation, *, error_message: str = "File access error"):
