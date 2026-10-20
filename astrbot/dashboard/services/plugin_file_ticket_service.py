@@ -6,11 +6,13 @@ import asyncio
 import hashlib
 import hmac
 import mimetypes
+import os
 import re
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import BinaryIO
 from urllib.parse import quote
 
 from astrbot.core.star.dashboard_extension import (
@@ -52,6 +54,7 @@ class CreatedFileTicket:
 @dataclass(frozen=True)
 class RedeemedFile:
     path: Path
+    file_handle: BinaryIO
     filename: str
     content_type: str
     size: int
@@ -221,10 +224,11 @@ class PluginFileTicketService:
             try:
                 root = snapshot.plugin_root.resolve(strict=True)
                 resolved = record.path.resolve(strict=True)
+                validated_stat = resolved.stat()
                 if (
                     not resolved.is_relative_to(root)
                     or not resolved.is_file()
-                    or resolved.stat().st_size != record.size
+                    or validated_stat.st_size != record.size
                 ):
                     raise OSError
             except OSError as exc:
@@ -233,12 +237,34 @@ class PluginFileTicketService:
             if record.remaining_uses <= 0:
                 self._tickets.pop(handle, None)
                 raise RawFileError(404)
+            flags = os.O_RDONLY
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            try:
+                fd = os.open(resolved, flags)
+            except OSError as exc:
+                self._tickets.pop(handle, None)
+                raise RawFileError(404) from exc
+            try:
+                opened_stat = os.fstat(fd)
+                if (
+                    opened_stat.st_dev != validated_stat.st_dev
+                    or opened_stat.st_ino != validated_stat.st_ino
+                    or opened_stat.st_size != record.size
+                ):
+                    raise OSError
+            except OSError as exc:
+                os.close(fd)
+                self._tickets.pop(handle, None)
+                raise RawFileError(404) from exc
+            file_handle = os.fdopen(fd, "rb")
             record.remaining_uses -= 1
             clear_cookie = record.disposition == "attachment"
             if record.remaining_uses == 0:
                 self._tickets.pop(handle, None)
             return RedeemedFile(
                 path=resolved,
+                file_handle=file_handle,
                 filename=record.filename,
                 content_type=record.content_type,
                 size=record.size,

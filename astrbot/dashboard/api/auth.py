@@ -793,7 +793,11 @@ async def _setup(
     if auth is None:
         result = await service.setup(_payload(payload))
     else:
-        result = await service.setup_authenticated(_payload(payload), auth.username)
+        result = await service.setup_authenticated(
+            _payload(payload),
+            auth.username,
+            auth.account_id,
+        )
     return _auth_service_response(
         request,
         result,

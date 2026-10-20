@@ -774,27 +774,48 @@ class AuthService:
         """Discard a pending TOTP rotation when its dashboard session ends."""
         await self.totp_runtime_state.clear_subject(subject)
 
-    async def setup(self, post_data: object) -> AuthServiceResult:
+    async def setup(
+        self,
+        post_data: object,
+        *,
+        authenticated_account_id: str | None = None,
+        authenticated_username: str | None = None,
+    ) -> AuthServiceResult:
         if not self.can_skip_default_password_auth():
             return self.error("Setup without password is not enabled")
         if not await self.is_setup_required():
             return self.error("Setup is not required")
 
-        return await self.complete_setup(post_data)
+        return await self.complete_setup(
+            post_data,
+            authenticated_account_id=authenticated_account_id,
+            authenticated_username=authenticated_username,
+        )
 
     async def setup_authenticated(
         self,
         post_data: object,
         authenticated_username,
+        authenticated_account_id: str | None = None,
     ) -> AuthServiceResult:
         if not await self.is_setup_required():
             return self.error("Setup is not required")
         if not isinstance(authenticated_username, str):
             return self.error("未授权")
 
-        return await self.complete_setup(post_data)
+        return await self.complete_setup(
+            post_data,
+            authenticated_account_id=authenticated_account_id,
+            authenticated_username=authenticated_username,
+        )
 
-    async def complete_setup(self, post_data: object) -> AuthServiceResult:
+    async def complete_setup(
+        self,
+        post_data: object,
+        *,
+        authenticated_account_id: str | None = None,
+        authenticated_username: str | None = None,
+    ) -> AuthServiceResult:
         if not isinstance(post_data, dict):
             return self.error("Invalid request payload")
 
@@ -814,6 +835,22 @@ class AuthService:
             return self.error(str(exc))
 
         username = new_username.strip()
+        account = None
+        if authenticated_username is not None:
+            if authenticated_account_id:
+                account = await self._find_account_by_id(authenticated_account_id)
+            else:
+                account = await self._find_dashboard_account(authenticated_username)
+            if (
+                account is None
+                or not account.is_active
+                or account.username != authenticated_username
+            ):
+                return self.error("未授权")
+            duplicate = await self._find_dashboard_account(username)
+            if duplicate is not None and duplicate.account_id != account.account_id:
+                return self.error("Dashboard username already exists")
+
         next_config = copy.deepcopy(dict(self.config))
         next_dashboard_config = next_config["dashboard"]
         next_dashboard_config["username"] = username
@@ -822,11 +859,24 @@ class AuthService:
         if not await self.config.save_config_async(next_config):
             return self._config_save_superseded_error()
 
-        account = await self._ensure_dashboard_account(
-            username,
-            str(next_dashboard_config.get("pbkdf2_password", "")),
-            sync_password=True,
-        )
+        if account is not None:
+            try:
+                updated = await self.update_dashboard_account(
+                    account_id=account.account_id,
+                    username=username,
+                    password=new_password,
+                )
+            except ValueError as exc:
+                return self.error(str(exc))
+            if updated is None:
+                return self.error("Dashboard account is unavailable")
+            account = updated
+        else:
+            account = await self._ensure_dashboard_account(
+                username,
+                str(next_dashboard_config.get("pbkdf2_password", "")),
+                sync_password=True,
+            )
         token = self.generate_jwt(username, account_id=account.account_id)
         return AuthServiceResult(
             data={

@@ -157,8 +157,16 @@ class OidcClient:
             )
         except jwt.PyJWTError as exc:
             raise OidcError("OIDC id_token verification failed") from exc
-        if nonce and claims.get("nonce") != nonce:
+        if claims.get("nonce") != nonce:
             raise OidcError("OIDC nonce mismatch")
+        audience = claims.get("aud")
+        authorized_party = claims.get("azp")
+        if authorized_party is not None and authorized_party != self.client_id:
+            raise OidcError("OIDC authorized party mismatch")
+        if isinstance(audience, list) and len(audience) > 1 and (
+            authorized_party != self.client_id
+        ):
+            raise OidcError("OIDC authorized party is required")
         return claims
 
     async def _signing_key(self, id_token: str) -> jwt.PyJWK:

@@ -1003,3 +1003,24 @@ async def test_v1_token_file_is_public(
 def test_v1_openapi_websocket_routes_are_mounted(asgi_app):
     assert str(asgi_app.url_path_for("chat_ws")) == "/api/v1/chat/ws"
     assert str(asgi_app.url_path_for("unified_chat_ws")) == "/api/v1/unified-chat/ws"
+
+
+@pytest.mark.asyncio
+async def test_v1_plugin_config_upload_rejects_too_many_files(
+    asgi_client: httpx.AsyncClient,
+):
+    files = [
+        ("files", (f"file-{index}.txt", b"data", "text/plain"))
+        for index in range(33)
+    ]
+
+    response = await asgi_client.post(
+        "/api/v1/plugins/astrbot_plugin_demo/config-files/assets",
+        files=files,
+        headers=_jwt_headers(),
+    )
+
+    assert response.status_code == 413
+    data = response.json()
+    assert data["status"] == "error"
+    assert data["message"] == "Invalid upload request"

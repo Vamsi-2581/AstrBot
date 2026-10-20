@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.formparsers import MultiPartException
 
 from astrbot import logger
 from astrbot.core.star.plugin_catalog import PluginCatalog
@@ -33,6 +35,16 @@ from astrbot.dashboard.services.plugin_service import (
 from .auth import AuthContext, require_scope
 
 router = APIRouter(tags=["Plugins"])
+_MAX_CONFIG_UPLOAD_FILES = 32
+_MAX_CONFIG_FORM_FIELDS = 100
+_MAX_CONFIG_FORM_PART_BYTES = 8 * 1024 * 1024
+
+
+def _multipart_error_status(detail: str) -> int:
+    normalized = detail.casefold()
+    if "too many" in normalized or "exceeded" in normalized:
+        return 413
+    return 422
 
 
 async def require_plugin_scope(request: Request) -> AuthContext:
@@ -408,16 +420,36 @@ async def upload_plugin_config_files(
     _auth: AuthContext = Depends(require_plugin_id_scope),
     service: ConfigFileService = Depends(get_config_file_service),
 ):
-    form = await request.form()
-    files = [value for _, value in form.multi_items() if isinstance(value, UploadFile)]
-    return ok(
-        await service.upload_config_file(
-            scope="plugin",
-            name=plugin_id,
-            key_path=config_key,
-            files=files,
+    form = None
+    try:
+        form = await request.form(
+            max_files=_MAX_CONFIG_UPLOAD_FILES,
+            max_fields=_MAX_CONFIG_FORM_FIELDS,
+            max_part_size=_MAX_CONFIG_FORM_PART_BYTES,
         )
-    )
+        files = [
+            value for _, value in form.multi_items() if isinstance(value, UploadFile)
+        ]
+        return ok(
+            await service.upload_config_file(
+                scope="plugin",
+                name=plugin_id,
+                key_path=config_key,
+                files=files,
+            )
+        )
+    except MultiPartException as exc:
+        detail = exc.message
+        status_code = _multipart_error_status(detail)
+        raise ApiError("Invalid upload request", status_code=status_code) from exc
+    except StarletteHTTPException as exc:
+        detail = str(exc.detail)
+        status_code = _multipart_error_status(detail)
+        raise ApiError("Invalid upload request", status_code=status_code) from exc
+    finally:
+        if form is not None:
+            await form.close()
+
 
 
 @router.delete("/plugins/{plugin_id:path}/config-files")

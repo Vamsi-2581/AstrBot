@@ -1794,3 +1794,36 @@ async def test_open_chat_authorizes_api_key_before_creating_session(
     created = await core_lifecycle_td.db.get_platform_session_by_id(session_id)
     assert created is not None
     assert created.creator == username
+
+
+@pytest.mark.asyncio
+async def test_commands_use_the_plugin_scope(
+    test_client: DashboardTestClient,
+    authenticated_header: dict,
+    dashboard_password: str,
+):
+    plugin_key, _ = await _create_api_key(
+        test_client,
+        authenticated_header,
+        dashboard_password,
+        scopes=["plugin"],
+        name_prefix="commands-plugin-key",
+    )
+    allowed = await test_client.get(
+        "/api/v1/commands",
+        headers={"X-API-Key": plugin_key},
+    )
+    assert allowed.status_code == 200
+
+    chat_key, _ = await _create_api_key(
+        test_client,
+        authenticated_header,
+        dashboard_password,
+        scopes=["chat"],
+        name_prefix="commands-chat-key",
+    )
+    denied = await test_client.get(
+        "/api/v1/commands",
+        headers={"X-API-Key": chat_key},
+    )
+    assert denied.status_code == 403
