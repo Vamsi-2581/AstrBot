@@ -126,3 +126,63 @@ def test_waking_stage_admits_only_active_waiter():
         await registry.terminate()
 
     asyncio.run(exercise())
+
+
+@pytest.mark.asyncio
+async def test_waking_stage_does_not_stop_admitted_waiter(monkeypatch):
+    """Route.stop must not end an event whose active waiter still owns it."""
+    from astrbot.core.pipeline.waking_check import stage as waking_module
+
+    registry = SessionWaiterRegistry()
+    event = _event("hello")
+    stage = object.__new__(WakingCheckStage)
+    stage.ctx = SimpleNamespace(
+        execution_context=SimpleNamespace(
+            session_waiter_registry=registry,
+            turn_window_manager=None,
+        ),
+        astrbot_config={"platform_settings": {}},
+        astrbot_config_id="test",
+        plugin_catalog=SimpleNamespace(),
+    )
+    stage.command_prefixes = ()
+    stage.command_catalog = SimpleNamespace(snapshot=())
+    stage.session_plugins = SimpleNamespace(
+        filter_handlers_by_session=AsyncMock(return_value=[])
+    )
+    stage._umo_auto_name_recorder = SimpleNamespace(schedule=lambda _event: None)
+    stage._attach_authorization = AsyncMock()
+    stage._is_bot_self_message = lambda _event: False
+    stage._resolve_reply_senders = AsyncMock()
+    stage._llm_access_for_event = lambda _event: {}
+    stage._collect_activated_handlers = AsyncMock(return_value=([], {}, False))
+    monkeypatch.setattr(
+        waking_module,
+        "route_turn",
+        lambda _input: SimpleNamespace(
+            message_str="hello",
+            should_run_command=False,
+            should_run_llm=False,
+            route_kind="drop",
+            wake_reasons=set(),
+            resolution=None,
+            stop=True,
+        ),
+    )
+
+    task = asyncio.create_task(
+        registry.wait_for(event, AsyncMock(), timeout_seconds=30)
+    )
+    for _ in range(100):
+        if registry.has_active_waiter(event):
+            break
+        await asyncio.sleep(0)
+    try:
+        await stage.process(event)
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        await registry.terminate()
+
+    assert event.is_wake is True
+    assert event.is_stopped() is False

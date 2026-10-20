@@ -225,6 +225,10 @@ class WakingCheckStage(Stage):
             or route.should_run_llm
             or route.route_kind in {"passthrough", "turn_flush"}
         )
+        # Admit follow-up input before route.stop can end the event, so the
+        # pipeline can dispatch it in ProcessStage after access checks.
+        if not event.is_wake:
+            self._admit_active_waiter(event)
         if route.resolution is not None and route.resolution.kind in {
             CommandResolutionKind.INCOMPLETE_GROUP,
             CommandResolutionKind.UNKNOWN_SUBCOMMAND,
@@ -259,7 +263,7 @@ class WakingCheckStage(Stage):
         )
         event.set_extra("activated_handlers", activated_handlers)
         event.set_extra("handlers_parsed_params", handlers_parsed_params)
-        if route.stop and not activated_handlers:
+        if route.stop and not activated_handlers and not event.is_wake:
             event.stop_event()
         elif activated_handlers:
             event.is_wake = True
@@ -268,10 +272,6 @@ class WakingCheckStage(Stage):
                 wake_reasons = set(wake_reasons)
             wake_reasons.add(WakeReason.PLUGIN_HANDLER.value)
             event.set_extra("wake_reasons", wake_reasons)
-        # Admit follow-up input without invoking callbacks before access checks.
-        if not event.is_wake:
-            self._admit_active_waiter(event)
-
         if event.is_wake:
             self._umo_auto_name_recorder.schedule(event)
 
