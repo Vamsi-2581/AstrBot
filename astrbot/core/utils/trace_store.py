@@ -536,8 +536,8 @@ class TraceStore:
         with closing(sqlite3.connect(self.path, timeout=1)) as connection:
             connection.execute("BEGIN")
             total = connection.execute(
-                "SELECT COUNT(*) FROM traces" + where,
-                values,  # noqa: S608 - conditions are fixed fragments
+                "SELECT COUNT(*) FROM traces" + where,  # noqa: S608 - conditions are fixed fragments
+                values,
             ).fetchone()[0]
             page = min(page, max(1, (total + limit - 1) // limit))
             if cursor:

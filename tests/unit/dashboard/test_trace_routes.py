@@ -6,11 +6,8 @@ import pytest
 
 from astrbot.core.utils.trace_store import TraceStore
 from astrbot.dashboard.services import log_service
-
-from tests.unit.dashboard.fastapi_v1_support import (  # noqa: F401
-    _jwt_headers,
-    asgi_client,
-)
+from tests.unit.dashboard.fastapi_v1_support import *  # noqa: F403
+from tests.unit.dashboard.fastapi_v1_support import _jwt_headers
 
 
 @pytest.mark.asyncio

@@ -63,6 +63,8 @@ import { statsApi } from '@/api/v1';
 import { useModuleI18n } from '@/i18n/composables';
 import { useToastStore, type ToastColor } from '@/stores/toast';
 import { askForConfirmation, useConfirmDialog } from '@/utils/confirmDialog';
+import { cleanupConfirmationKey } from '@/utils/storageCleanup';
+import type { CleanupTarget } from '@/utils/storageCleanup';
 
 const { tm } = useModuleI18n('features/settings');
 const toastStore = useToastStore();
@@ -74,8 +76,6 @@ interface StorageEntry {
   path: string;
   exists: boolean;
 }
-
-type CleanupTarget = 'logs' | 'cache' | 'traces' | 'all';
 
 interface StorageStatus {
   logs: StorageEntry;
@@ -179,7 +179,7 @@ const loadStorageStatus = async () => {
 
 const cleanupStorage = async (target: CleanupTarget) => {
   const confirmed = await askForConfirmation(
-    tm('system.cleanup.confirm', {
+    tm(cleanupConfirmationKey(target), {
       target: tm(`system.cleanup.targetNames.${target}`),
     }),
     confirmDialog,

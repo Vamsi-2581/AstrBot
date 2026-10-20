@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
-import TraceDisplayer from "@/components/shared/TraceDisplayer.vue";
-import { traceApi } from "@/api/v1";
-import { useModuleI18n } from "@/i18n/composables";
-import { useToast } from "@/utils/toast";
+import { onMounted, ref } from 'vue';
+import TraceDisplayer from '@/components/shared/TraceDisplayer.vue';
+import { traceApi } from '@/api/v1';
+import { useModuleI18n } from '@/i18n/composables';
+import { useToast } from '@/utils/toast';
 
-const { tm } = useModuleI18n("features/trace");
+const { tm } = useModuleI18n('features/trace');
 const toast = useToast();
 const traceEnabled = ref(true);
 const loading = ref(true);
@@ -13,13 +13,13 @@ const loading = ref(true);
 async function fetchTraceSettings() {
   try {
     const response = await traceApi.getSettings();
-    if (response.data?.status !== "ok")
-      throw new Error("Trace settings are unavailable");
+    if (response.data?.status !== 'ok')
+      throw new Error('Trace settings are unavailable');
     const enabled = response.data.data?.enabled;
-    traceEnabled.value = typeof enabled === "boolean" ? enabled : true;
+    traceEnabled.value = typeof enabled === 'boolean' ? enabled : true;
   } catch (error) {
-    console.error("Failed to fetch trace settings:", error);
-    toast.error(tm("controls.loadFailed"));
+    console.error('Failed to fetch trace settings:', error);
+    toast.error(tm('controls.loadFailed'));
   } finally {
     loading.value = false;
   }
@@ -33,12 +33,12 @@ async function updateTraceSettings() {
     const response = await traceApi.updateSettings({
       enabled: nextEnabled,
     });
-    if (response.data?.status !== "ok")
-      throw new Error("Trace settings update failed");
+    if (response.data?.status !== 'ok')
+      throw new Error('Trace settings update failed');
     traceEnabled.value = nextEnabled;
   } catch (error) {
-    console.error("Failed to update trace settings:", error);
-    toast.error(tm("controls.updateFailed"));
+    console.error('Failed to update trace settings:', error);
+    toast.error(tm('controls.updateFailed'));
   } finally {
     loading.value = false;
   }
