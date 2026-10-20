@@ -1,5 +1,6 @@
 <template>
   <div
+    id="console-wrapper"
     ref="consoleWrapper"
     class="console-displayer-wrapper"
     :class="{ 'console-displayer-wrapper--workspace': props.workspaceMode }"
