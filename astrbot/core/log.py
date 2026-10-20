@@ -460,6 +460,8 @@ class LogBroker:
                 try:
                     q.put_nowait(sanitized)
                 except asyncio.QueueFull:
+                    # A subscriber that cannot keep up drops this entry; log
+                    # streaming is best-effort and must never block publishing.
                     pass
                 continue
             # Reserve space before scheduling so queued callbacks stay bounded.
@@ -480,6 +482,8 @@ class LogBroker:
                 try:
                     queue.put_nowait(entry)
                 except asyncio.QueueFull:
+                    # The consumer's bounded queue is full; dropping one
+                    # best-effort log entry is preferable to unbounded growth.
                     pass
 
             try:

@@ -416,7 +416,11 @@ def test_database_pages_filters_details_and_restart(persisted, capture):
         restarted.close()
 
 
-@pytest.mark.parametrize("prompt", ["x" * 8192, "字" * 20000, "x" * 131072])
+@pytest.mark.parametrize(
+    "prompt",
+    ["x" * 8192, "字" * 20000, "x" * 131072],
+    ids=("ascii-8k", "cjk-20k", "ascii-128k"),
+)
 def test_long_prompt_is_preserved_in_spans_events_and_database(
     persisted, capture, prompt
 ):
@@ -443,9 +447,10 @@ def test_retention_deletes_whole_traces(persisted, capture):
     trace.record("event_received")
     trace.record("response_sent", message="Reply")
     trace.record("pipeline_end", status="success")
+    assert persisted._ready.wait(15), persisted.last_error
     for frame in capture:
         assert persisted.append(frame)
-    assert persisted.flush()
+    assert persisted.flush(timeout=15), persisted.last_error
     with sqlite3.connect(persisted.path) as connection:
         connection.execute("PRAGMA foreign_keys=ON")
         connection.execute(

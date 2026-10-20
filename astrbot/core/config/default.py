@@ -4627,11 +4627,6 @@ CONFIG_METADATA_3 = {
                         "description": "回复机器人时允许 LLM",
                         "type": "bool",
                     },
-                    "platform_settings.friend_message_needs_wake_prefix": {
-                        "description": "私聊消息需要唤醒词",
-                        "hint": "私聊消息也必须带上唤醒前缀才能唤醒机器人。",
-                        "type": "bool",
-                    },
                     "inbound_coalesce.enable": {
                         "description": "启用入站回合合并",
                         "type": "bool",

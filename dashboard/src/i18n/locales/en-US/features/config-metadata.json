@@ -1301,10 +1301,6 @@
             "description": "Ingress expansion fetch limit",
             "hint": "Maximum number of recursive get_forward_msg calls per message during ingress expansion."
           }
-        },
-        "friend_message_needs_wake_prefix": {
-          "description": "Private Messages Require Wake Word",
-          "hint": "Private messages must also include a wake prefix to activate the bot."
         }
       },
       "command_prefixes": {
