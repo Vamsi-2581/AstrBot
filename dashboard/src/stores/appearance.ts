@@ -42,6 +42,7 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let uploadController: AbortController | null = null;
 let channel: BroadcastChannel | null = null;
 let applyingRemote = false;
+let settingsRevision = 0;
 
 function clamp(
   value: unknown,
@@ -96,7 +97,7 @@ function normalizeSettings(value?: Partial<AppearanceSettings> | null) {
     auto_theme: saved.auto_theme === true,
     text_enhancement: isTextEnhancement(saved.text_enhancement)
       ? saved.text_enhancement
-      : 'off',
+      : defaults.text_enhancement,
     text_enhancement_strength: clamp(
       saved.text_enhancement_strength,
       0,
@@ -158,16 +159,8 @@ function readLegacySettings(): Partial<AppearanceSettings> | null {
 
 function isDefaultSettings(settings: AppearanceSettings): boolean {
   const defaults = defaultSettings();
-  return (
-    !settings.enabled &&
-    !settings.landscape_wallpaper_id &&
-    !settings.portrait_wallpaper_id &&
-    settings.fit === defaults.fit &&
-    settings.position === defaults.position &&
-    settings.blur === defaults.blur &&
-    settings.brightness === defaults.brightness &&
-    settings.dim === defaults.dim &&
-    settings.surface_opacity === defaults.surface_opacity
+  return (Object.keys(defaults) as (keyof AppearanceSettings)[]).every(
+    (key) => settings[key] === defaults[key],
   );
 }
 
@@ -294,6 +287,7 @@ export const useAppearanceStore = defineStore('appearance', {
           this.settings = normalizeSettings({ ...this.settings, ...legacy });
           localStorage.removeItem(LEGACY_STORAGE_KEY);
         }
+        settingsRevision += 1;
         const changed = this.reconcileSelections();
         this.loaded = true;
         this.setupChannel();
@@ -349,6 +343,7 @@ export const useAppearanceStore = defineStore('appearance', {
 
     update(patch: Partial<AppearanceSettings>): void {
       this.settings = normalizeSettings({ ...this.settings, ...patch });
+      settingsRevision += 1;
       this.scheduleSave();
       this.broadcastSettings();
     },
@@ -358,12 +353,17 @@ export const useAppearanceStore = defineStore('appearance', {
         clearTimeout(saveTimer);
         saveTimer = null;
       }
+      const revision = settingsRevision;
       this.saving = true;
       this.error = '';
       try {
-        const response = await appearanceApi.updateSettings(this.settings);
-        this.settings = normalizeSettings(response.data.data);
-        this.broadcastSettings();
+        const response = await appearanceApi.updateSettings({
+          ...this.settings,
+        });
+        if (revision === settingsRevision) {
+          this.settings = normalizeSettings(response.data.data);
+          this.broadcastSettings();
+        }
       } catch (error) {
         this.error = errorMessage(error);
         throw error;
@@ -415,6 +415,7 @@ export const useAppearanceStore = defineStore('appearance', {
             ? { portrait_wallpaper_id: wallpaper.id }
             : { landscape_wallpaper_id: wallpaper.id }),
         });
+        settingsRevision += 1;
         await this.saveNow();
         this.broadcastWallpapers();
         return wallpaper;
@@ -454,6 +455,7 @@ export const useAppearanceStore = defineStore('appearance', {
               ? ''
               : this.settings.portrait_wallpaper_id,
         });
+        settingsRevision += 1;
         await deleteWallpaperCache(wallpaperId);
         await this.saveNow();
         this.broadcastWallpapers();
@@ -475,11 +477,13 @@ export const useAppearanceStore = defineStore('appearance', {
             ? ''
             : this.settings.portrait_wallpaper_id,
       });
+      settingsRevision += 1;
       this.scheduleSave();
     },
 
     async reset(): Promise<void> {
       this.settings = defaultSettings();
+      settingsRevision += 1;
       await this.saveNow();
     },
 
@@ -507,6 +511,7 @@ export const useAppearanceStore = defineStore('appearance', {
           changed = true;
         }
       }
+      if (changed) settingsRevision += 1;
       return changed;
     },
 
@@ -522,6 +527,7 @@ export const useAppearanceStore = defineStore('appearance', {
           applyingRemote = true;
           try {
             this.settings = normalizeSettings(message.settings);
+            settingsRevision += 1;
           } finally {
             applyingRemote = false;
           }

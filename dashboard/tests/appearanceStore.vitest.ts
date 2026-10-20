@@ -178,4 +178,27 @@ describe('appearance store', () => {
     expect(selected?.id).toBe(other.id);
     expect(store.settings.landscape_wallpaper_id).toBe(other.id);
   });
+
+  it('keeps newer local edits when an older save response arrives late', async () => {
+    let resolveFirstSave: (value: unknown) => void = () => undefined;
+    api.updateSettings
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirstSave = resolve;
+          }),
+      )
+      .mockImplementation((settings) => Promise.resolve(ok(settings)));
+
+    const store = useAppearanceStore();
+    store.settings = { ...defaultSettings };
+    store.update({ blur: 4 });
+    const pendingSave = store.saveNow();
+    store.update({ blur: 9 });
+
+    resolveFirstSave(ok({ ...defaultSettings, blur: 4 }));
+    await pendingSave;
+
+    expect(store.settings.blur).toBe(9);
+  });
 });

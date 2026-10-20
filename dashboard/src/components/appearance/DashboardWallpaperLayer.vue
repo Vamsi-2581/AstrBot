@@ -216,6 +216,7 @@ async function runRotation(): Promise<void> {
   if (
     rotationBusy ||
     !appearance.loaded ||
+    !appearance.settings.enabled ||
     !appearance.settings.rotation_enabled ||
     document.visibilityState !== 'visible'
   ) {
@@ -257,6 +258,7 @@ function scheduleRotation(): void {
   clearRotation();
   if (
     !appearance.loaded ||
+    !appearance.settings.enabled ||
     !appearance.settings.rotation_enabled ||
     document.visibilityState !== 'visible'
   ) {
@@ -307,6 +309,7 @@ watch(
   () =>
     [
       appearance.loaded,
+      appearance.settings.enabled,
       appearance.settings.rotation_enabled,
       appearance.settings.rotation_interval_minutes,
     ] as const,

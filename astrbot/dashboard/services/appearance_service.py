@@ -163,6 +163,7 @@ class AppearanceService:
         target_path: Path | None = None
         thumbnail_path = self._thumbnail_path(wallpaper_id)
         original_name = self._safe_original_name(upload.filename)
+        committed = False
         try:
             await self._write_upload(upload, temporary_path)
             async with self._processing_semaphore:
@@ -193,9 +194,8 @@ class AppearanceService:
                     await asyncio.to_thread(self._save_state)
                 except Exception:
                     self._state_dict()["wallpapers"].pop(wallpaper_id, None)
-                    target_path.unlink(missing_ok=True)
-                    thumbnail_path.unlink(missing_ok=True)
                     raise
+                committed = True
             return self._wallpaper_item(item)
         except AppearanceServiceError:
             raise
@@ -204,8 +204,10 @@ class AppearanceService:
         finally:
             await upload.close()
             temporary_path.unlink(missing_ok=True)
-            if target_path is not None and not thumbnail_path.is_file():
-                target_path.unlink(missing_ok=True)
+            if not committed:
+                if target_path is not None:
+                    target_path.unlink(missing_ok=True)
+                thumbnail_path.unlink(missing_ok=True)
 
     async def delete_wallpaper(self, wallpaper_id: str) -> None:
         await self._ensure_state()

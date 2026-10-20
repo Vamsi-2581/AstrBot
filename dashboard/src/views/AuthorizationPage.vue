@@ -642,7 +642,7 @@ onMounted(refresh);
       </v-window-item>
 
       <v-window-item value="audit">
-        <p class="audit-mobile-note">
+        <p v-if="!auditExpanded" class="audit-mobile-note">
           {{
             t('features.authorization.recentAuditHint', {
               count: MOBILE_AUDIT_LIMIT,

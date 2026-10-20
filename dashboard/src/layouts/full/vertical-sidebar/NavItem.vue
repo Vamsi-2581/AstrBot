@@ -2,6 +2,7 @@
 import { useI18n } from '@/i18n/composables';
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
+import { isNavItemActive } from './navItemActive';
 
 type ChipVariant =
   'flat' | 'text' | 'plain' | 'elevated' | 'outlined' | 'tonal' | undefined;
@@ -46,11 +47,11 @@ const isItemActive = computed(() => {
     return route.path === path && route.hash === `#${hash}`;
   }
   const targetPath = props.item.to.replace(/\/$/, '') || '/';
-  const matchedPath = [...route.matched]
-    .reverse()
-    .map((record) => record.path.replace(/\/$/, '') || '/')
-    .find((path) => !path.includes(':'));
-  return route.path === targetPath || matchedPath === targetPath;
+  return isNavItemActive(
+    route.path,
+    route.matched.map((record) => record.path),
+    targetPath,
+  );
 });
 
 const itemTitle = computed(() => {

@@ -75,17 +75,17 @@ class AppearanceSettingsRequest(BaseModel):
     blur: int = Field(default=0, ge=0, le=40)
     brightness: float = Field(default=1.0, ge=0.5, le=1.5)
     dim: float = Field(default=0.5, ge=0.0, le=0.9)
-    surface_opacity: float = Field(default=1.0, ge=0.0, le=1.0)
-    surface_blur: int = Field(default=0, ge=0, le=40)
+    surface_opacity: float = Field(default=0.35, ge=0.0, le=1.0)
+    surface_blur: int = Field(default=14, ge=0, le=40)
     saturation: float = Field(default=1.0, ge=0.0, le=2.0)
     grayscale: float = Field(default=0.0, ge=0.0, le=1.0)
     random_on_load: bool = False
     rotation_enabled: bool = False
     rotation_interval_minutes: int = Field(default=30, ge=1, le=1440)
     auto_theme: bool = False
-    text_enhancement: Literal["off", "soft_shadow", "stroke"] = "off"
+    text_enhancement: Literal["off", "soft_shadow", "stroke"] = "soft_shadow"
     text_enhancement_strength: float = Field(default=1.0, ge=0.0, le=2.0)
-    mobile_sidebar_blur: int = Field(default=0, ge=0, le=40)
+    mobile_sidebar_blur: int = Field(default=18, ge=0, le=40)
 
 
 class DataFileContentRequest(BaseModel):
