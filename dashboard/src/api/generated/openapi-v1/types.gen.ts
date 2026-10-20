@@ -377,6 +377,28 @@ export type ProviderEmbeddingDimensionRequest = {
   config?: DynamicConfig;
 };
 
+/**
+ * Per-request ChatUI feature flags. A value here takes priority over its legacy top-level field, followed by the documented default.
+ */
+export type ChatFlags = {
+  /**
+   * Inject the inline HTML GenUI system prompt for this request.
+   */
+  enable_inline_genui?: boolean;
+  /**
+   * Allow the ChatUI default system prompt when no prompt overrides it.
+   */
+  enable_default_system_prompt?: boolean;
+  /**
+   * Enable streaming model output for this request. This value takes priority over the legacy top-level enable_streaming field.
+   */
+  enable_streaming?: boolean;
+  /**
+   * Display reasoning content for this WebChat request independently of the global display_reasoning_text setting.
+   */
+  enable_reasoning?: boolean;
+};
+
 export type ChatRequest = {
   /**
    * UI locale for built-in LLM error messages. Omitted or unsupported locales fall back to zh-CN.
@@ -393,6 +415,8 @@ export type ChatRequest = {
   selected_provider?: string;
   selected_model?: string;
   enable_streaming?: boolean;
+  enable_reasoning?: boolean;
+  flags?: ChatFlags;
   /**
    * Internal WebUI flag for edit/regenerate flows.
    */
@@ -440,6 +464,8 @@ export type ChatMessageRegenerateRequest = {
   selected_provider?: string;
   selected_model?: string;
   enable_streaming?: boolean;
+  enable_reasoning?: boolean;
+  flags?: ChatFlags;
 };
 
 export type ChatThreadCreateRequest = {
@@ -457,6 +483,8 @@ export type ChatThreadMessageRequest = {
   selected_provider?: string;
   selected_model?: string;
   enable_streaming?: boolean;
+  enable_reasoning?: boolean;
+  flags?: ChatFlags;
 };
 
 export type ChatProjectRequest = {
@@ -1139,6 +1167,8 @@ export type ChatRequestWritable = {
   selected_provider?: string;
   selected_model?: string;
   enable_streaming?: boolean;
+  enable_reasoning?: boolean;
+  flags?: ChatFlags;
   /**
    * Internal WebUI flag for edit/regenerate flows.
    */
@@ -1171,6 +1201,8 @@ export type ChatMessageRegenerateRequestWritable = {
   selected_provider?: string;
   selected_model?: string;
   enable_streaming?: boolean;
+  enable_reasoning?: boolean;
+  flags?: ChatFlags;
   /**
    * Internal WebUI in-memory WebChat step-up proofs.
    */
@@ -1188,6 +1220,8 @@ export type ChatThreadMessageRequestWritable = {
   selected_provider?: string;
   selected_model?: string;
   enable_streaming?: boolean;
+  enable_reasoning?: boolean;
+  flags?: ChatFlags;
   /**
    * Internal WebUI in-memory WebChat step-up proofs.
    */

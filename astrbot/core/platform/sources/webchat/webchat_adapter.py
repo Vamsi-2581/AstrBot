@@ -24,6 +24,7 @@ from astrbot.core.webchat.message_parts import (
     parse_webchat_message_parts,
 )
 from astrbot.core.webchat.queue_manager import WebChatQueueManager
+from astrbot.core.webchat.request_flags import resolve_webchat_request_flags
 
 from ...register import register_platform_adapter
 from .webchat_event import WebChatMessageEvent
@@ -275,18 +276,14 @@ class WebChatAdapter(Platform):
             payload = raw_message[2]
             if isinstance(payload, dict):
                 message_event.set_extra("locale", payload.get("locale"))
+                flags = resolve_webchat_request_flags(payload)
+                message_event.set_extra("flags", flags)
+                for key, value in flags.items():
+                    message_event.set_extra(key, value)
                 message_event.set_extra(
                     "selected_provider", payload.get("selected_provider")
                 )
                 message_event.set_extra("selected_model", payload.get("selected_model"))
-                if "enable_streaming" in payload:
-                    message_event.set_extra(
-                        "enable_streaming", payload.get("enable_streaming")
-                    )
-                if "enable_reasoning" in payload:
-                    message_event.set_extra(
-                        "enable_reasoning", payload.get("enable_reasoning")
-                    )
                 message_event.set_extra(
                     "llm_checkpoint_id", payload.get("llm_checkpoint_id")
                 )

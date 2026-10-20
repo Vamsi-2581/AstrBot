@@ -184,3 +184,57 @@ def test_webchat_create_event_does_not_promote_declared_username(tmp_path):
     assert event.platform_role_source == "none"
     assert event.get_extra("explicit_surface") is True
     assert event.message_str == "hello"
+
+
+def test_webchat_create_event_propagates_nested_request_flags(tmp_path):
+    from astrbot.core.platform.astrbot_message import AstrBotMessage, MessageMember
+    from astrbot.core.platform.message_type import MessageType
+    from astrbot.core.platform.sources.webchat.webchat_adapter import WebChatAdapter
+
+    adapter = WebChatAdapter.__new__(WebChatAdapter)
+    adapter.metadata = SimpleNamespace(id="webchat", name="webchat")
+    adapter._webchat_queue_manager = WebChatQueueManager()
+    adapter.attachments_dir = tmp_path
+    flags = {
+        "enable_inline_genui": False,
+        "enable_default_system_prompt": False,
+        "enable_streaming": False,
+        "enable_reasoning": False,
+    }
+    message = AstrBotMessage()
+    message.type = MessageType.FRIEND_MESSAGE
+    message.session_id = "webchat!admin!cid"
+    message.sender = MessageMember("admin", "admin")
+    message.raw_message = ("admin", "cid", {"flags": flags})
+    message.message_str = "hello"
+    message.message = []
+
+    event = adapter.create_event(message)
+
+    assert event.get_extra("flags") == flags
+    for key, value in flags.items():
+        assert event.get_extra(key) is value
+
+
+def test_webchat_create_event_defaults_flag_extras(tmp_path):
+    from astrbot.core.platform.astrbot_message import AstrBotMessage, MessageMember
+    from astrbot.core.platform.message_type import MessageType
+    from astrbot.core.platform.sources.webchat.webchat_adapter import WebChatAdapter
+
+    adapter = WebChatAdapter.__new__(WebChatAdapter)
+    adapter.metadata = SimpleNamespace(id="webchat", name="webchat")
+    adapter._webchat_queue_manager = WebChatQueueManager()
+    adapter.attachments_dir = tmp_path
+    message = AstrBotMessage()
+    message.type = MessageType.FRIEND_MESSAGE
+    message.session_id = "webchat!admin!cid"
+    message.sender = MessageMember("admin", "admin")
+    message.raw_message = ("admin", "cid", {"enable_streaming": False})
+    message.message_str = "hello"
+    message.message = []
+
+    event = adapter.create_event(message)
+
+    assert event.get_extra("enable_streaming") is False
+    assert event.get_extra("enable_reasoning") is True
+    assert event.get_extra("enable_default_system_prompt") is True

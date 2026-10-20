@@ -22,6 +22,9 @@ from astrbot.core.webchat.message_parts import (
     strip_message_parts_path_fields,
     webchat_message_parts_have_content,
 )
+from astrbot.core.webchat.request_flags import (
+    resolve_webchat_request_flags,
+)
 from astrbot.core.webchat.result_reducer import (
     BotMessageAccumulator,
     build_bot_history_content,
@@ -523,8 +526,7 @@ class WebChatService:
         session_id = message.get("session_id") or session.session_id
         selected_provider = message.get("selected_provider")
         selected_model = message.get("selected_model")
-        show_reasoning = message.get("show_reasoning")
-        enable_streaming = message.get("enable_streaming", True)
+        flags = resolve_webchat_request_flags(message)
         raw_step_up_tokens = message.get("webchat_step_up_tokens")
         step_up_tokens = (
             {
@@ -613,8 +615,7 @@ class WebChatService:
                     "message": message_parts,
                     "selected_provider": selected_provider,
                     "selected_model": selected_model,
-                    "show_reasoning": show_reasoning,
-                    "enable_streaming": enable_streaming,
+                    "flags": flags,
                     "llm_checkpoint_id": llm_checkpoint_id,
                     **principal_payload,
                 },

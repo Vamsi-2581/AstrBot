@@ -6389,6 +6389,28 @@ components:
           $ref: '#/components/schemas/DynamicConfig'
       additionalProperties: false
 
+    ChatFlags:
+      type: object
+      description: Per-request ChatUI feature flags. A value here takes priority over its legacy top-level field, followed by the documented default.
+      properties:
+        enable_inline_genui:
+          type: boolean
+          default: true
+          description: Inject the inline HTML GenUI system prompt for this request.
+        enable_default_system_prompt:
+          type: boolean
+          default: true
+          description: Allow the ChatUI default system prompt when no prompt overrides it.
+        enable_streaming:
+          type: boolean
+          default: true
+          description: Enable streaming model output for this request. This value takes priority over the legacy top-level enable_streaming field.
+        enable_reasoning:
+          type: boolean
+          default: true
+          description: Display reasoning content for this WebChat request independently of the global display_reasoning_text setting.
+      additionalProperties: false
+
     ChatRequest:
       type: object
       required: [message]
@@ -6418,6 +6440,11 @@ components:
         enable_streaming:
           type: boolean
           default: true
+        enable_reasoning:
+          type: boolean
+          default: true
+        flags:
+          $ref: '#/components/schemas/ChatFlags'
         _skip_user_history:
           type: boolean
           description: Internal WebUI flag for edit/regenerate flows.
@@ -6488,6 +6515,11 @@ components:
         enable_streaming:
           type: boolean
           default: true
+        enable_reasoning:
+          type: boolean
+          default: true
+        flags:
+          $ref: '#/components/schemas/ChatFlags'
         _webchat_step_up_tokens:
           type: object
           writeOnly: true
@@ -6531,6 +6563,11 @@ components:
         enable_streaming:
           type: boolean
           default: true
+        enable_reasoning:
+          type: boolean
+          default: true
+        flags:
+          $ref: '#/components/schemas/ChatFlags'
         _webchat_step_up_tokens:
           type: object
           writeOnly: true

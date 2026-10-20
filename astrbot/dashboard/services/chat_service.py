@@ -32,6 +32,9 @@ from astrbot.core.webchat.message_parts import (
     strip_message_parts_path_fields,
     webchat_message_parts_have_content,
 )
+from astrbot.core.webchat.request_flags import (
+    resolve_webchat_request_flags,
+)
 from astrbot.core.webchat.result_reducer import (
     BotMessageAccumulator,
     build_bot_history_content,
@@ -1296,8 +1299,7 @@ class ChatService:
         session_id = post_data.get("session_id", post_data.get("conversation_id"))
         selected_provider = post_data.get("selected_provider")
         selected_model = post_data.get("selected_model")
-        enable_streaming = post_data.get("enable_streaming", True)
-        enable_reasoning = post_data.get("enable_reasoning", True)
+        flags = resolve_webchat_request_flags(post_data)
         platform_history_id = post_data.get("_platform_history_id") or "webchat"
         thread_selected_text = post_data.get("_thread_selected_text")
         thread_parent_session_id: str | None = None
@@ -1366,8 +1368,7 @@ class ChatService:
                 "message": message_parts,
                 "selected_provider": selected_provider,
                 "selected_model": selected_model,
-                "enable_streaming": enable_streaming,
-                "enable_reasoning": enable_reasoning,
+                "flags": flags,
                 "llm_checkpoint_id": llm_checkpoint_id,
                 "thread_selected_text": thread_selected_text,
                 "locale": post_data.get("locale"),
@@ -1951,8 +1952,7 @@ class ChatService:
         payload = {
             "session_id": thread.thread_id,
             "message": data.get("message", []),
-            "enable_streaming": data.get("enable_streaming", True),
-            "enable_reasoning": data.get("enable_reasoning", True),
+            "flags": resolve_webchat_request_flags(data),
             "selected_provider": data.get("selected_provider"),
             "selected_model": data.get("selected_model"),
             "locale": data.get("locale"),
@@ -2202,8 +2202,7 @@ class ChatService:
         return {
             "session_id": session_id,
             "message": source_user_record.content.get("message", []),
-            "enable_streaming": data.get("enable_streaming", True),
-            "enable_reasoning": data.get("enable_reasoning", True),
+            "flags": resolve_webchat_request_flags(data),
             "selected_provider": data.get("selected_provider"),
             "selected_model": data.get("selected_model"),
             "locale": data.get("locale"),
