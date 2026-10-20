@@ -40,6 +40,7 @@ const defaultSettings = (): AppearanceSettings => ({
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let saveInFlight: Promise<void> | null = null;
+let saveInFlightToken: object | null = null;
 let uploadController: AbortController | null = null;
 let channel: BroadcastChannel | null = null;
 let applyingRemote = false;
@@ -400,11 +401,16 @@ export const useAppearanceStore = defineStore('appearance', {
           this.saving = false;
         }
       })();
+      const token = {};
+      saveInFlightToken = token;
       saveInFlight = request;
       try {
         await request;
       } finally {
-        if (saveInFlight === request) saveInFlight = null;
+        if (saveInFlightToken === token) {
+          saveInFlightToken = null;
+          saveInFlight = null;
+        }
       }
     },
 
