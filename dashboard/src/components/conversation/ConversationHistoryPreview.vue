@@ -431,7 +431,7 @@ const records = computed(() =>
   gap: 8px;
   padding: 8px 16px;
   border-block: 1px solid rgba(var(--v-theme-on-surface), 0.07);
-  font-size: 11px;
+  font-size: var(--astrbot-meta-size);
 }
 
 .record-count,
@@ -486,8 +486,8 @@ const records = computed(() =>
 .font-controls button {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  min-width: var(--astrbot-control-size);
+  height: var(--astrbot-control-size);
 }
 
 .font-controls button:disabled {
@@ -533,12 +533,12 @@ const records = computed(() =>
 .record-header {
   gap: 8px;
   margin-bottom: 9px;
-  font-size: 11px;
+  font-size: var(--astrbot-meta-size);
   min-width: 0;
 }
 .record-index {
   font-variant-numeric: tabular-nums;
-  font-size: 10px;
+  font-size: var(--astrbot-meta-size);
 }
 .record-role {
   font-weight: 650;
@@ -556,7 +556,7 @@ const records = computed(() =>
 .record-call-id {
   margin-left: auto;
   font-family: monospace;
-  font-size: 10px;
+  font-size: var(--astrbot-meta-size);
 }
 .record-body {
   font-size: var(--preview-font-size);

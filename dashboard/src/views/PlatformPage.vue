@@ -193,7 +193,9 @@
       :aria-label="tm('webhookDialog.title')"
     >
       <v-card>
-        <v-card-title class="text-h3 pa-4 pb-0 pl-6 d-flex align-center">
+        <v-card-title
+          class="text-headline-small pa-4 pb-0 pl-6 d-flex align-center"
+        >
           <v-icon class="me-2" color="primary">mdi-webhook</v-icon>
           {{ tm('webhookDialog.title') }}
         </v-card-title>
@@ -238,7 +240,9 @@
       :aria-label="tm('platformQr.title')"
     >
       <v-card>
-        <v-card-title class="text-h3 pa-4 pb-0 pl-6 d-flex align-center">
+        <v-card-title
+          class="text-headline-small pa-4 pb-0 pl-6 d-flex align-center"
+        >
           <v-icon class="me-2">mdi-qrcode</v-icon>
           {{ tm('platformQr.title') }}
         </v-card-title>
@@ -274,7 +278,9 @@
       :aria-label="tm('errorDialog.title')"
     >
       <v-card>
-        <v-card-title class="text-h3 pa-4 pb-0 pl-6 d-flex align-center">
+        <v-card-title
+          class="text-headline-small pa-4 pb-0 pl-6 d-flex align-center"
+        >
           <v-icon class="me-2" color="error">mdi-alert-circle</v-icon>
           {{ tm('errorDialog.title') }}
         </v-card-title>

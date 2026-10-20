@@ -49,7 +49,8 @@
       "senderInfo": "发送者主体 ID",
       "rulesOverview": "规则概览",
       "actions": "操作"
-    }
+    },
+    "scrollHint": "左右滑动表格可查看操作列；首列为会话或发送者主体。"
   },
   "prompt": {
     "none": "跟随配置文件"

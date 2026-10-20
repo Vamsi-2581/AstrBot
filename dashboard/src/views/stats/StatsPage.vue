@@ -785,6 +785,7 @@ onBeforeUnmount(() => {
 }
 
 .range-chip {
+  min-height: var(--astrbot-control-size);
   border: 0;
   border-radius: 999px;
   background: transparent;

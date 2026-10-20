@@ -9,7 +9,7 @@
       <v-card-title
         class="app-dialog__title prompt-preview__head d-flex justify-space-between align-center"
       >
-        <span class="text-h6">{{ displayName }}</span>
+        <span class="text-title-small">{{ displayName }}</span>
         <div class="d-flex align-center ga-1">
           <v-btn
             color="primary"

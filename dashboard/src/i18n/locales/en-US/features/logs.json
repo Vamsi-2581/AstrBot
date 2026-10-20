@@ -19,6 +19,10 @@
     "decrease": "Decrease font size",
     "increase": "Increase font size"
   },
+  "fullscreen": {
+    "enter": "Enter console fullscreen",
+    "exit": "Exit console fullscreen"
+  },
   "filters": {
     "title": "Filters",
     "button": "Filters",

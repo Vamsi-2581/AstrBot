@@ -1,9 +1,9 @@
 <template>
   <div class="btw-runs-page">
-    <header class="btw-runs-page__header">
-      <div>
-        <h1 class="btw-runs-page__title">{{ tm('btwRuns.title') }}</h1>
-        <p class="btw-runs-page__subtitle">{{ tm('btwRuns.subtitle') }}</p>
+    <header class="btw-runs-page__header page-header">
+      <div class="page-header__copy">
+        <h1 class="page-header__title">{{ tm('btwRuns.title') }}</h1>
+        <p class="page-header__subtitle">{{ tm('btwRuns.subtitle') }}</p>
       </div>
       <v-btn
         class="btw-runs-page__refresh"
@@ -298,22 +298,7 @@ onUnmounted(() => {
 }
 
 .btw-runs-page__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
   margin-bottom: 16px;
-}
-
-.btw-runs-page__title {
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.btw-runs-page__subtitle {
-  margin-top: 4px;
-  opacity: 0.7;
-  max-width: 72ch;
 }
 
 .btw-runs-page__session-meta {

@@ -41,7 +41,7 @@
       :aria-label="resolveDialogTitle"
     >
       <v-card class="app-dialog object-editor-dialog__card">
-        <v-card-title class="text-h3 pa-4 pb-0 pl-6">
+        <v-card-title class="text-headline-small pa-4 pb-0 pl-6">
           {{ resolveDialogTitle }}
         </v-card-title>
 

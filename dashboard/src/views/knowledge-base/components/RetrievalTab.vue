@@ -95,7 +95,7 @@
         <!-- 检索结果 -->
         <div v-if="hasSearched" class="results-section">
           <div class="d-flex align-center mb-4">
-            <h3 class="text-h6">{{ t('retrieval.results') }}</h3>
+            <h3 class="text-title-small">{{ t('retrieval.results') }}</h3>
             <v-chip class="ml-3" color="primary" variant="tonal" size="small">
               {{ results.length }} {{ t('retrieval.results') }}
             </v-chip>
@@ -145,7 +145,7 @@
             <v-icon size="80" color="on-surface-variant"
               >mdi-text-box-search-outline</v-icon
             >
-            <p class="text-h6 mt-4 text-medium-emphasis">
+            <p class="text-title-small mt-4 text-medium-emphasis">
               {{ t('retrieval.noResults') }}
             </p>
             <p class="text-body-2 text-medium-emphasis">

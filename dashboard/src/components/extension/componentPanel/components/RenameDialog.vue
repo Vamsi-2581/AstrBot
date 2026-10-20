@@ -67,7 +67,7 @@ watch(showAliasEditor, (open) => {
     @update:model-value="emit('update:show', $event)"
   >
     <v-card>
-      <v-card-title class="text-h5">{{
+      <v-card-title class="text-title-medium">{{
         tm('dialogs.rename.title')
       }}</v-card-title>
       <v-card-text>

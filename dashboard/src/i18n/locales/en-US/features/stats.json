@@ -111,6 +111,8 @@
   },
   "empty": {
     "platformStats": "No platform message statistics available.",
+    "messageTrend": "No message data in the selected range.",
+    "modelTrend": "No model usage trend data in the selected range.",
     "modelCalls": "No model call data for {range}.",
     "sessionCalls": "No session call data for {range}."
   },

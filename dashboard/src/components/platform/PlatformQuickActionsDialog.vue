@@ -6,7 +6,9 @@
     @update:model-value="emitModelValue"
   >
     <v-card>
-      <v-card-title class="text-h3 pa-4 pb-0 pl-6 d-flex align-center">
+      <v-card-title
+        class="text-headline-small pa-4 pb-0 pl-6 d-flex align-center"
+      >
         <v-icon class="me-2" color="secondary">
           mdi-lightning-bolt-outline
         </v-icon>

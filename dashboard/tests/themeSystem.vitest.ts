@@ -60,7 +60,7 @@ describe('AstrBot theme system', () => {
     expect(wrapper.text()).toContain('Install');
   });
 
-  it('keeps wallpaper opacity scoped to application surfaces', () => {
+  it('applies wallpaper surface tokens to cards and application chrome', () => {
     const wallpaperLayer = readFileSync(
       'src/components/appearance/DashboardWallpaperLayer.vue',
       'utf8',
@@ -72,11 +72,13 @@ describe('AstrBot theme system', () => {
     expect(wallpaperLayer).toContain(
       'background-color: var(--dashboard-wallpaper-surface);',
     );
-    expect(wallpaperLayer).not.toMatch(
-      /\.dashboard-appearance-active \.v-(?:card|app-bar|navigation-drawer)/,
+    expect(wallpaperLayer).toContain('.v-card:where(');
+    expect(wallpaperLayer).toContain(
+      '.dashboard-appearance-active .v-app-bar.top-header',
     );
-    expect(wallpaperLayer).not.toContain(
-      '.dashboard-appearance-active .top-header',
+    expect(wallpaperLayer).toContain(
+      '.dashboard-appearance-active .v-navigation-drawer.leftSidebar',
     );
+    expect(wallpaperLayer).toContain('var(--dashboard-floating-opacity, 0.78)');
   });
 });

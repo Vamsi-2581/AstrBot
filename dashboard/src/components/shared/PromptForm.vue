@@ -12,10 +12,20 @@
       class="prompt-form-card"
       :class="{ 'prompt-form-card-mobile': smAndDown }"
     >
-      <v-card-title class="prompt-form-title text-h2 px-6 pt-6 pl-6">
-        {{
-          editingPrompt ? tm('dialog.edit.title') : tm('dialog.create.title')
-        }}
+      <v-card-title
+        class="prompt-form-title text-headline-medium px-6 pt-6 pl-6 d-flex align-center justify-space-between"
+      >
+        <span>
+          {{
+            editingPrompt ? tm('dialog.edit.title') : tm('dialog.create.title')
+          }}
+        </span>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          :aria-label="tm('buttons.cancel')"
+          @click="closeDialog"
+        />
       </v-card-title>
 
       <v-card-text class="prompt-form-content">

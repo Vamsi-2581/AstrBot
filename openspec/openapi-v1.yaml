@@ -1971,12 +1971,48 @@ paths:
         '200':
           $ref: '#/components/responses/Ok'
 
+  /api/v1/appearance/settings:
+    get:
+      tags: [Appearance]
+      summary: Get Dashboard appearance settings
+      operationId: getAppearanceSettings
+      x-astrbot-scope: config
+      responses:
+        '200':
+          description: Dashboard appearance settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppearanceSettingsResponse'
+    put:
+      tags: [Appearance]
+      summary: Update Dashboard appearance settings
+      operationId: updateAppearanceSettings
+      x-astrbot-scope: config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppearanceSettings'
+      responses:
+        '200':
+          description: Updated Dashboard appearance settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppearanceSettingsResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /api/v1/appearance/wallpapers:
     get:
       tags: [Appearance]
       summary: List Dashboard wallpaper assets
       operationId: listAppearanceWallpapers
       x-astrbot-scope: config
+      parameters:
+        - $ref: '#/components/parameters/AppearanceOrientation'
       responses:
         '200':
           description: Dashboard wallpaper library
@@ -5392,6 +5428,13 @@ components:
         type: string
         minLength: 1
         maxLength: 4096
+    AppearanceOrientation:
+      name: orientation
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [landscape, portrait]
     AppearanceWallpaperId:
       name: wallpaper_id
       in: path
@@ -6698,17 +6741,35 @@ components:
 
     AppearanceWallpaperUploadRequest:
       type: object
-      required: [file]
+      required: [file, orientation]
       additionalProperties: false
       properties:
         file:
           type: string
           format: binary
+        orientation:
+          type: string
+          enum: [landscape, portrait]
 
     AppearanceWallpaper:
       type: object
       additionalProperties: false
-      required: [id, content_type, width, height, image_url, thumbnail_url]
+      required:
+        [
+          id,
+          content_type,
+          width,
+          height,
+          orientation,
+          original_name,
+          created_at,
+          size_bytes,
+          animated,
+          theme_primary,
+          theme_secondary,
+          image_url,
+          thumbnail_url,
+        ]
       properties:
         id:
           type: string
@@ -6722,6 +6783,25 @@ components:
         height:
           type: integer
           minimum: 1
+        orientation:
+          type: string
+          enum: [landscape, portrait, both]
+        original_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        size_bytes:
+          type: integer
+          minimum: 0
+        animated:
+          type: boolean
+        theme_primary:
+          type: string
+          pattern: '^#[0-9a-f]{6}$'
+        theme_secondary:
+          type: string
+          pattern: '^#[0-9a-f]{6}$'
         image_url:
           type: string
         thumbnail_url:
@@ -6761,6 +6841,117 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/AppearanceWallpaper'
+
+    AppearanceSettings:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          enabled,
+          landscape_wallpaper_id,
+          portrait_wallpaper_id,
+          fit,
+          position,
+          blur,
+          brightness,
+          dim,
+          surface_opacity,
+          surface_blur,
+          saturation,
+          grayscale,
+          random_on_load,
+          rotation_enabled,
+          rotation_interval_minutes,
+          auto_theme,
+          text_enhancement,
+          text_enhancement_strength,
+          mobile_sidebar_blur,
+        ]
+      properties:
+        enabled:
+          type: boolean
+        landscape_wallpaper_id:
+          type: string
+          maxLength: 32
+        portrait_wallpaper_id:
+          type: string
+          maxLength: 32
+        fit:
+          type: string
+          enum: [cover, contain]
+        position:
+          type: string
+          enum:
+            [
+              center center,
+              center top,
+              center bottom,
+              left center,
+              right center,
+            ]
+        blur:
+          type: integer
+          minimum: 0
+          maximum: 40
+        brightness:
+          type: number
+          minimum: 0.5
+          maximum: 1.5
+        dim:
+          type: number
+          minimum: 0
+          maximum: 0.9
+        surface_opacity:
+          type: number
+          minimum: 0
+          maximum: 1
+        surface_blur:
+          type: integer
+          minimum: 0
+          maximum: 40
+        saturation:
+          type: number
+          minimum: 0
+          maximum: 2
+        grayscale:
+          type: number
+          minimum: 0
+          maximum: 1
+        random_on_load:
+          type: boolean
+        rotation_enabled:
+          type: boolean
+        rotation_interval_minutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+        auto_theme:
+          type: boolean
+        text_enhancement:
+          type: string
+          enum: ['off', soft_shadow, stroke]
+        text_enhancement_strength:
+          type: number
+          minimum: 0
+          maximum: 2
+        mobile_sidebar_blur:
+          type: integer
+          minimum: 0
+          maximum: 40
+
+    AppearanceSettingsResponse:
+      type: object
+      additionalProperties: false
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        message:
+          type: string
+          nullable: true
+        data:
+          $ref: '#/components/schemas/AppearanceSettings'
 
     PluginUpdateRequest:
       type: object

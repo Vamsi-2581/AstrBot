@@ -185,13 +185,50 @@ export interface ChatSessionSummary {
   [key: string]: unknown;
 }
 
+export type AppearanceOrientation = 'landscape' | 'portrait';
+export type AppearanceWallpaperOrientation = AppearanceOrientation | 'both';
+
 export interface AppearanceWallpaper {
   id: string;
   content_type: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
   width: number;
   height: number;
+  orientation: AppearanceWallpaperOrientation;
+  original_name: string;
+  created_at: string;
+  size_bytes: number;
+  animated: boolean;
+  theme_primary: string;
+  theme_secondary: string;
   image_url: string;
   thumbnail_url: string;
+}
+
+export interface AppearanceSettings {
+  enabled: boolean;
+  landscape_wallpaper_id: string;
+  portrait_wallpaper_id: string;
+  fit: 'cover' | 'contain';
+  position:
+    | 'center center'
+    | 'center top'
+    | 'center bottom'
+    | 'left center'
+    | 'right center';
+  blur: number;
+  brightness: number;
+  dim: number;
+  surface_opacity: number;
+  surface_blur: number;
+  saturation: number;
+  grayscale: number;
+  random_on_load: boolean;
+  rotation_enabled: boolean;
+  rotation_interval_minutes: number;
+  auto_theme: boolean;
+  text_enhancement: 'off' | 'soft_shadow' | 'stroke';
+  text_enhancement_strength: number;
+  mobile_sidebar_blur: number;
 }
 
 export interface AppearanceWallpaperListData {

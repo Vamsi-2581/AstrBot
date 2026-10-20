@@ -23,7 +23,7 @@ const { tm } = useModuleI18n('features/conversation');
     :aria-label="tm('workspace.preview.rawData')"
   >
     <v-card class="raw-data-card">
-      <v-card-title class="text-h3 pa-4 pb-0 pl-6 raw-data-title">
+      <v-card-title class="text-headline-small pa-4 pb-0 pl-6 raw-data-title">
         <span>{{ tm('workspace.preview.rawData') }}</span>
         <v-btn
           icon

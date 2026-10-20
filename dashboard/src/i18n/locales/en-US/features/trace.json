@@ -13,7 +13,8 @@
     "eventId": "Event ID",
     "umo": "UMO",
     "sender": "Sender",
-    "outline": "Content"
+    "outline": "Content",
+    "scrollHint": "Scroll horizontally for all columns; narrow screens switch to a card layout."
   },
   "expand": "Expand",
   "collapse": "Collapse",

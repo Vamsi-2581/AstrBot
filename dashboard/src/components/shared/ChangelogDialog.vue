@@ -166,7 +166,7 @@ void getCurrentVersion();
   >
     <v-card class="changelog-dialog">
       <v-card-title class="d-flex justify-space-between align-center">
-        <span class="text-h3">{{
+        <span class="text-headline-small">{{
           t('core.navigation.changelogDialog.title')
         }}</span>
         <v-btn

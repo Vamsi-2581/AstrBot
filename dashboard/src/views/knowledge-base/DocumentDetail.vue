@@ -9,10 +9,8 @@
         @click="$router.push({ name: 'NativeKBDetail', params: { kbId } })"
       />
       <div class="header-content">
-        <h1 class="text-h4">{{ document.doc_name }}</h1>
-        <p class="text-subtitle-1 text-medium-emphasis mt-2">
-          {{ t('title') }}
-        </p>
+        <h1 class="page-header__title">{{ document.doc_name }}</h1>
+        <p class="page-header__subtitle">{{ t('title') }}</p>
       </div>
       <v-spacer />
       <v-btn
@@ -237,7 +235,9 @@
       :aria-label="t('view.title')"
     >
       <v-card class="app-dialog">
-        <v-card-title class="text-h3 pa-4 pb-0 pl-6 d-flex align-center">
+        <v-card-title
+          class="text-headline-small pa-4 pb-0 pl-6 d-flex align-center"
+        >
           <span>{{ t('view.title') }}</span>
           <v-spacer />
           <v-btn
@@ -547,9 +547,7 @@ onMounted(() => {
 }
 
 .page-header {
-  display: flex;
   align-items: flex-start;
-  gap: 16px;
   margin-bottom: 32px;
 }
 

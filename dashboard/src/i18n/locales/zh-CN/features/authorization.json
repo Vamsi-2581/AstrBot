@@ -13,6 +13,8 @@
   "scope": "作用域",
   "source": "来源",
   "status": "状态",
+  "showAllAudit": "显示全部 {count} 条记录",
+  "showRecentAudit": "只显示最近 {count} 条记录",
   "expired": "已过期",
   "active": "有效",
   "disabled": "已禁用",
@@ -52,5 +54,7 @@
   "totpCode": "TOTP 验证码（可选）",
   "stepUpRequired": "未能签发本次操作所需的一次性凭证。",
   "loadFailed": "无法加载授权数据。",
+  "tableScrollHint": "左右滑动表格可查看角色、状态和操作列；主体 ID 可在单元格内自然换行。",
+  "recentAuditHint": "移动端默认显示最近 {count} 条审计记录。",
   "actionFailed": "授权操作失败。"
 }

@@ -2,6 +2,7 @@
 import { useI18n } from '@/i18n/composables';
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
+import { isNavItemActive } from './navItemActive';
 
 type ChipVariant =
   'flat' | 'text' | 'plain' | 'elevated' | 'outlined' | 'tonal' | undefined;
@@ -33,7 +34,7 @@ const route = useRoute();
 
 const itemStyle = computed(() => {
   const lvl = props.level ?? 0;
-  const indent = props.rail ? '0px' : `${lvl * 24}px`;
+  const indent = props.rail ? '0px' : `${lvl * 16}px`;
   return { '--indent-padding': indent };
 });
 
@@ -46,9 +47,10 @@ const isItemActive = computed(() => {
     return route.path === path && route.hash === `#${hash}`;
   }
   const targetPath = props.item.to.replace(/\/$/, '') || '/';
-  return (
-    route.path === targetPath ||
-    (targetPath !== '/' && route.path.startsWith(`${targetPath}/`))
+  return isNavItemActive(
+    route.path,
+    route.matched.map((record) => record.path),
+    targetPath,
   );
 });
 
@@ -192,7 +194,13 @@ const itemTitle = computed(() => {
   font-size: 14px;
   font-weight: 500;
   line-height: 20px;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .nav-item {

@@ -180,7 +180,7 @@
       :aria-label="tm('folder.renameDialog.title')"
     >
       <v-card class="app-dialog">
-        <v-card-title class="text-h6">
+        <v-card-title class="text-title-small">
           {{ tm('folder.renameDialog.title') }}
         </v-card-title>
         <v-card-text>
@@ -228,7 +228,7 @@
       :aria-label="tm('folder.deleteDialog.title')"
     >
       <v-card class="app-dialog">
-        <v-card-title class="text-h6">
+        <v-card-title class="text-title-small">
           <v-icon class="mr-2" color="error">mdi-alert</v-icon>
           {{ tm('folder.deleteDialog.title') }}
         </v-card-title>

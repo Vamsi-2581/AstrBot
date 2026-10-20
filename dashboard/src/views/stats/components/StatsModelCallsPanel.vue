@@ -10,11 +10,15 @@
         </div>
       </div>
       <VueApexCharts
+        v-if="hasModelTrendData"
         type="bar"
         height="420"
         :options="providerChartOptions"
         :series="providerTrendSeries"
       />
+      <div v-else class="empty-state chart-empty-state">
+        {{ t('empty.modelTrend') }}
+      </div>
     </section>
 
     <section class="token-side-column">
@@ -86,6 +90,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { ApexOptions } from 'apexcharts';
 import VueApexCharts from 'vue3-apexcharts';
 import { useI18n, useModuleI18n } from '@/i18n/composables';
@@ -102,7 +107,7 @@ interface ProviderRankingItem {
   tokens: number;
 }
 
-defineProps<{
+const props = defineProps<{
   providerChartOptions: ApexOptions;
   providerTrendSeries: ChartSeries;
   rangeTotalTokens: number;
@@ -117,6 +122,10 @@ defineProps<{
 
 const { locale } = useI18n();
 const { tm: t } = useModuleI18n('features/stats');
+
+const hasModelTrendData = computed(() =>
+  props.providerTrendSeries.some((series) => series.data.length > 0),
+);
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat(locale.value).format(value);
@@ -227,6 +236,13 @@ function formatNumber(value: number): string {
 .empty-state {
   color: var(--stats-muted);
   font-size: 14px;
+}
+
+.chart-empty-state {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 420px;
 }
 
 .stats-page.is-dark .empty-state {

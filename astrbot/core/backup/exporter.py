@@ -54,6 +54,7 @@ class AstrBotExporter:
     - 配置目录（data/config）
     - T2I 模板目录（data/t2i_templates）
     - WebChat 数据目录（data/webchat）
+    - Dashboard 外观素材（data/dashboard）
     - 临时文件目录（data/temp）
     """
 

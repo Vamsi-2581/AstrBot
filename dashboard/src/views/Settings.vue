@@ -1,7 +1,7 @@
 <template>
   <div class="settings-page">
     <header class="settings-page__header">
-      <h1 class="settings-page__title">{{ tm('page.title') }}</h1>
+      <h1 class="page-header__title">{{ tm('page.title') }}</h1>
     </header>
 
     <div class="settings-layout">
@@ -1464,15 +1464,6 @@ onUnmounted(() => {
   margin-bottom: 28px;
 }
 
-.settings-page__title {
-  margin: 0;
-  color: rgb(var(--v-theme-on-surface));
-  font-size: 1.72rem;
-  font-weight: 780;
-  letter-spacing: 0;
-  line-height: 1.25;
-}
-
 .settings-layout {
   display: grid;
   grid-template-columns: 126px minmax(0, 1fr);
@@ -2026,10 +2017,6 @@ onUnmounted(() => {
     margin-bottom: 22px;
   }
 
-  .settings-page__title {
-    font-size: 1.36rem;
-  }
-
   .settings-layout {
     grid-template-columns: 1fr;
     gap: 22px;
@@ -2044,6 +2031,7 @@ onUnmounted(() => {
   .settings-nav__item {
     border: 1px solid var(--settings-border);
     background: rgb(var(--v-theme-surface));
+    min-height: var(--astrbot-control-size);
   }
 
   .settings-item,

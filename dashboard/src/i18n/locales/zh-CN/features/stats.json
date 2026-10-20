@@ -111,6 +111,8 @@
   },
   "empty": {
     "platformStats": "当前没有平台消息统计数据。",
+    "messageTrend": "所选范围内还没有消息数据。",
+    "modelTrend": "所选范围内还没有模型调用趋势数据。",
     "modelCalls": "{range}还没有模型调用数据。",
     "sessionCalls": "{range}还没有会话调用数据。"
   },

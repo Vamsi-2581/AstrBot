@@ -58,7 +58,35 @@ describe('TraceDisplayer', () => {
     expect(state.history).toHaveBeenCalledOnce();
   });
 
+  it('renders the scroll hint instead of an empty table header', async () => {
+    const wrapper = mountWithVuetify(TraceDisplayer);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain(
+      'Scroll horizontally for all columns; narrow screens switch to a card layout.',
+    );
+    expect(wrapper.text()).toContain('No trace data yet');
+    expect(wrapper.text()).not.toContain('Event ID');
+  });
+
   it('renders table chrome from the trace catalog', async () => {
+    state.history.mockResolvedValue({
+      data: {
+        data: {
+          logs: [
+            {
+              type: 'trace',
+              span_id: 'span-1',
+              action: 'astr_agent_prepare',
+              time: 1,
+              umo: 'webchat:FriendMessage:user',
+              sender_name: 'Tester',
+              message_outline: 'Hello',
+            },
+          ],
+        },
+      },
+    });
     const wrapper = mountWithVuetify(TraceDisplayer);
     await flushPromises();
 
@@ -67,7 +95,6 @@ describe('TraceDisplayer', () => {
     expect(wrapper.text()).toContain('UMO');
     expect(wrapper.text()).toContain('Sender');
     expect(wrapper.text()).toContain('Content');
-    expect(wrapper.text()).toContain('No trace data yet');
     expect(wrapper.text()).not.toContain('Outline');
   });
 });

@@ -1,7 +1,9 @@
 <template>
   <v-dialog v-model="modelValue" max-width="620" scrollable :aria-label="title">
     <v-card class="dashboard-dialog-card cron-dialog__card">
-      <v-card-title class="text-h3 pt-5 px-5">{{ title }}</v-card-title>
+      <v-card-title class="text-headline-small pt-5 px-5">{{
+        title
+      }}</v-card-title>
       <v-card-text class="px-5 pb-2 cron-dialog__content">
         <div class="dashboard-form-grid dashboard-form-grid--single">
           <v-text-field

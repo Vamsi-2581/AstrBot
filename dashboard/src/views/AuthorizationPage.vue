@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useDisplay } from 'vuetify';
 import {
   authorizationApi,
   type AuthorizationBinding,
@@ -8,6 +9,7 @@ import {
 import { useI18n } from '@/i18n/composables';
 import { resolveErrorMessage } from '@/utils/errorUtils';
 import { useToast } from '@/utils/toast';
+import { formatDate } from '@/utils/text';
 import DashboardStepUpDialog from '@/components/shared/DashboardStepUpDialog.vue';
 import ConfigDocsLink from '@/components/shared/ConfigDocsLink.vue';
 
@@ -64,6 +66,7 @@ type AccountForm = {
 };
 
 const { t } = useI18n();
+const { xs } = useDisplay();
 const { success: showSuccess, error: showError } = useToast();
 const bindings = ref<AuthorizationBinding[]>([]);
 const audit = ref<AuditRecord[]>([]);
@@ -79,6 +82,8 @@ const accountDialog = ref(false);
 const stepUpDialog = ref(false);
 const stepUpError = ref('');
 const pendingOperation = ref<ProtectedOperation | null>(null);
+const auditExpanded = ref(false);
+const MOBILE_AUDIT_LIMIT = 20;
 const bindingForm = ref<BindingForm>(emptyBindingForm());
 const accountForm = ref<AccountForm>(emptyAccountForm());
 
@@ -114,6 +119,12 @@ const filteredBindings = computed(() => {
       .includes(needle),
   );
 });
+
+const visibleAudit = computed(() =>
+  !xs.value || auditExpanded.value
+    ? audit.value
+    : audit.value.slice(0, MOBILE_AUDIT_LIMIT),
+);
 
 function emptyBindingForm(): BindingForm {
   return {
@@ -429,25 +440,27 @@ onMounted(refresh);
 </script>
 
 <template>
-  <v-container fluid class="pa-6">
-    <div class="d-flex align-center mb-5">
-      <div>
-        <h1 class="text-h5 d-flex align-center">
+  <v-container fluid class="pa-4 pa-md-6 authorization-page">
+    <header class="page-header">
+      <div class="page-header__copy">
+        <h1 class="page-header__title">
           {{ t('features.authorization.title') }}
           <ConfigDocsLink docs="use/authorization.html" />
         </h1>
-        <p class="text-body-2 text-medium-emphasis mb-0">
+        <p class="page-header__subtitle">
           {{ t('features.authorization.description') }}
         </p>
       </div>
-      <v-spacer />
-      <v-btn
-        icon="mdi-refresh"
-        :loading="loading"
-        :aria-label="t('features.authorization.refresh')"
-        @click="refresh"
-      />
-    </div>
+      <div class="page-header__actions">
+        <v-btn
+          icon="mdi-refresh"
+          variant="text"
+          :loading="loading"
+          :aria-label="t('features.authorization.refresh')"
+          @click="refresh"
+        />
+      </div>
+    </header>
 
     <v-tabs v-model="tab" color="primary">
       <v-tab value="bindings">{{ t('features.authorization.bindings') }}</v-tab>
@@ -457,27 +470,39 @@ onMounted(refresh);
 
     <v-window v-model="tab" class="mt-4">
       <v-window-item value="bindings">
-        <div class="d-flex align-center ga-3 mb-3">
+        <div class="authorization-toolbar">
           <v-text-field
             v-model="query"
             density="compact"
             hide-details
+            class="authorization-toolbar__search"
             prepend-inner-icon="mdi-magnify"
             :label="t('features.authorization.filter')"
           />
-          <v-btn color="primary" @click="openCreateBinding">
-            {{ t('features.authorization.grantBinding') }}
-          </v-btn>
-          <v-btn
-            color="error"
-            variant="tonal"
-            :disabled="!selected.length"
-            @click="beginBulkRevoke"
-          >
-            {{ t('features.authorization.revokeSelected') }}
-          </v-btn>
+          <div class="authorization-toolbar__actions">
+            <v-btn color="primary" @click="openCreateBinding">
+              {{ t('features.authorization.grantBinding') }}
+            </v-btn>
+            <v-btn
+              color="error"
+              variant="tonal"
+              :disabled="!selected.length"
+              @click="beginBulkRevoke"
+            >
+              {{ t('features.authorization.revokeSelected') }}
+            </v-btn>
+          </div>
         </div>
-        <v-table density="compact">
+        <p class="table-scroll-hint authorization-table-hint">
+          <v-icon size="14" aria-hidden="true"
+            >mdi-gesture-swipe-horizontal</v-icon
+          >
+          {{ t('features.authorization.tableScrollHint') }}
+        </p>
+        <v-table
+          density="compact"
+          class="authorization-table authorization-table--bindings authorization-table--scroll"
+        >
           <thead>
             <tr>
               <th />
@@ -510,11 +535,22 @@ onMounted(refresh);
                   </template>
                 </v-tooltip>
               </td>
-              <td class="text-break">{{ binding.subject_id }}</td>
-              <td>{{ binding.role }}</td>
-              <td>{{ binding.scope_type }}: {{ binding.scope_id }}</td>
-              <td>{{ binding.source }}</td>
-              <td>
+              <td
+                class="text-break"
+                :data-label="t('features.authorization.subject')"
+              >
+                {{ binding.subject_id }}
+              </td>
+              <td :data-label="t('features.authorization.role')">
+                {{ binding.role }}
+              </td>
+              <td :data-label="t('features.authorization.scope')">
+                {{ binding.scope_type }}: {{ binding.scope_id }}
+              </td>
+              <td :data-label="t('features.authorization.source')">
+                {{ binding.source }}
+              </td>
+              <td :data-label="t('features.authorization.status')">
                 <v-chip
                   v-if="isExpired(binding)"
                   size="x-small"
@@ -526,7 +562,7 @@ onMounted(refresh);
                   {{ t('features.authorization.active') }}
                 </v-chip>
               </td>
-              <td>
+              <td :data-label="t('features.authorization.actions')">
                 <v-btn
                   v-if="canRevoke(binding)"
                   size="small"
@@ -542,12 +578,21 @@ onMounted(refresh);
       </v-window-item>
 
       <v-window-item value="accounts">
-        <div class="d-flex justify-end mb-3">
+        <div class="authorization-toolbar authorization-toolbar--end">
           <v-btn color="primary" @click="openCreateAccount">
             {{ t('features.authorization.createAccount') }}
           </v-btn>
         </div>
-        <v-table density="compact">
+        <p class="table-scroll-hint authorization-table-hint">
+          <v-icon size="14" aria-hidden="true"
+            >mdi-gesture-swipe-horizontal</v-icon
+          >
+          {{ t('features.authorization.tableScrollHint') }}
+        </p>
+        <v-table
+          density="compact"
+          class="authorization-table authorization-table--accounts authorization-table--scroll"
+        >
           <thead>
             <tr>
               <th>{{ t('features.authorization.account') }}</th>
@@ -559,17 +604,30 @@ onMounted(refresh);
           </thead>
           <tbody>
             <tr v-for="account in accounts" :key="account.account_id">
-              <td>{{ account.account_id }}</td>
-              <td>{{ account.username }}</td>
-              <td>
+              <td
+                class="text-break"
+                :data-label="t('features.authorization.account')"
+              >
+                {{ account.account_id }}
+              </td>
+              <td :data-label="t('features.authorization.username')">
+                {{ account.username }}
+              </td>
+              <td :data-label="t('features.authorization.status')">
                 {{
                   account.is_active
                     ? t('features.authorization.active')
                     : t('features.authorization.disabled')
                 }}
               </td>
-              <td>{{ account.last_login_at || '—' }}</td>
-              <td>
+              <td :data-label="t('features.authorization.lastLogin')">
+                {{
+                  account.last_login_at
+                    ? formatDate(account.last_login_at)
+                    : '—'
+                }}
+              </td>
+              <td :data-label="t('features.authorization.actions')">
                 <v-btn
                   size="small"
                   variant="text"
@@ -584,7 +642,23 @@ onMounted(refresh);
       </v-window-item>
 
       <v-window-item value="audit">
-        <v-table density="compact">
+        <p v-if="!auditExpanded" class="audit-mobile-note">
+          {{
+            t('features.authorization.recentAuditHint', {
+              count: MOBILE_AUDIT_LIMIT,
+            })
+          }}
+        </p>
+        <p class="table-scroll-hint authorization-table-hint">
+          <v-icon size="14" aria-hidden="true"
+            >mdi-gesture-swipe-horizontal</v-icon
+          >
+          {{ t('features.authorization.tableScrollHint') }}
+        </p>
+        <v-table
+          density="compact"
+          class="authorization-table authorization-table--audit authorization-table--scroll"
+        >
           <thead>
             <tr>
               <th>{{ t('features.authorization.time') }}</th>
@@ -595,15 +669,44 @@ onMounted(refresh);
             </tr>
           </thead>
           <tbody>
-            <tr v-for="record in audit" :key="record.audit_id">
-              <td>{{ record.timestamp }}</td>
-              <td class="text-break">{{ record.subject_id }}</td>
-              <td>{{ record.action }}</td>
-              <td>{{ record.source || '—' }}</td>
-              <td>{{ record.decision }}</td>
+            <tr v-for="record in visibleAudit" :key="record.audit_id">
+              <td :data-label="t('features.authorization.time')">
+                {{ formatDate(record.timestamp) }}
+              </td>
+              <td
+                class="text-break"
+                :data-label="t('features.authorization.subject')"
+              >
+                {{ record.subject_id }}
+              </td>
+              <td :data-label="t('features.authorization.action')">
+                {{ record.action }}
+              </td>
+              <td :data-label="t('features.authorization.source')">
+                {{ record.source || '—' }}
+              </td>
+              <td :data-label="t('features.authorization.status')">
+                {{ record.decision }}
+              </td>
             </tr>
           </tbody>
         </v-table>
+        <div
+          v-if="audit.length > MOBILE_AUDIT_LIMIT"
+          class="audit-mobile-actions"
+        >
+          <v-btn variant="text" @click="auditExpanded = !auditExpanded">
+            {{
+              auditExpanded
+                ? t('features.authorization.showRecentAudit', {
+                    count: MOBILE_AUDIT_LIMIT,
+                  })
+                : t('features.authorization.showAllAudit', {
+                    count: audit.length,
+                  })
+            }}
+          </v-btn>
+        </div>
       </v-window-item>
     </v-window>
 
@@ -773,3 +876,239 @@ onMounted(refresh);
     />
   </v-container>
 </template>
+
+<style scoped>
+.authorization-page {
+  min-width: 0;
+}
+
+.authorization-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--astrbot-space-3);
+  margin-bottom: var(--astrbot-space-3);
+}
+
+.authorization-toolbar__search {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.authorization-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--astrbot-space-2);
+}
+
+.authorization-toolbar--end {
+  justify-content: flex-end;
+}
+
+.audit-mobile-note,
+.audit-mobile-actions {
+  display: none;
+}
+
+.authorization-table :deep(table) {
+  min-width: 760px;
+}
+
+.authorization-table :deep(td),
+.authorization-table :deep(th) {
+  white-space: nowrap;
+}
+
+.authorization-table :deep(td.text-break) {
+  min-width: 240px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.authorization-table :deep(.v-table__wrapper) {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 600px) {
+  .authorization-toolbar__search,
+  .authorization-toolbar__actions {
+    flex-basis: 100%;
+  }
+
+  .authorization-toolbar__actions :deep(.v-btn) {
+    flex: 1 1 0;
+  }
+
+  .authorization-table-hint {
+    display: none;
+  }
+
+  .audit-mobile-note {
+    color: rgb(var(--v-theme-on-surface-variant));
+    display: block;
+    font-size: var(--astrbot-meta-size);
+    line-height: 1.5;
+    margin: 0 0 var(--astrbot-space-2);
+  }
+
+  .audit-mobile-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--astrbot-space-2);
+  }
+
+  .authorization-table :deep(table),
+  .authorization-table :deep(tbody) {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .authorization-table :deep(thead) {
+    display: none;
+  }
+
+  .authorization-table :deep(tbody) {
+    display: grid;
+    gap: var(--astrbot-space-2);
+  }
+
+  .authorization-table :deep(tbody tr) {
+    background: rgb(var(--v-theme-surface));
+    border: 1px solid rgb(var(--v-theme-outline-variant));
+    border-radius: 8px;
+    column-gap: var(--astrbot-space-3);
+    display: grid;
+    padding: var(--astrbot-space-3);
+    row-gap: var(--astrbot-space-2);
+  }
+
+  .authorization-table :deep(td) {
+    border-bottom: 0;
+    min-width: 0;
+    padding: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .authorization-table :deep(td[data-label]::before) {
+    color: rgb(var(--v-theme-on-surface-variant));
+    content: attr(data-label);
+    display: block;
+    font-size: var(--astrbot-meta-size);
+    font-weight: 500;
+    line-height: 1.5;
+    margin-bottom: 2px;
+  }
+
+  .authorization-table :deep(td:last-child .v-btn) {
+    min-height: var(--astrbot-control-size);
+  }
+
+  .authorization-table--bindings :deep(tbody tr) {
+    grid-template-areas:
+      'select subject'
+      'status status'
+      'role role'
+      'scope scope'
+      'source source'
+      'actions actions';
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .authorization-table--bindings :deep(td:nth-child(1)) {
+    align-self: start;
+    grid-area: select;
+  }
+
+  .authorization-table--bindings :deep(td:nth-child(2)) {
+    grid-area: subject;
+  }
+
+  .authorization-table--bindings :deep(td:nth-child(3)) {
+    grid-area: role;
+  }
+
+  .authorization-table--bindings :deep(td:nth-child(4)) {
+    grid-area: scope;
+  }
+
+  .authorization-table--bindings :deep(td:nth-child(5)) {
+    grid-area: source;
+  }
+
+  .authorization-table--bindings :deep(td:nth-child(6)) {
+    align-self: start;
+    grid-area: status;
+  }
+
+  .authorization-table--bindings :deep(td:nth-child(7)) {
+    grid-area: actions;
+  }
+
+  .authorization-table--accounts :deep(tbody tr) {
+    grid-template-areas:
+      'account account'
+      'status status'
+      'username username'
+      'lastLogin lastLogin'
+      'actions actions';
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .authorization-table--accounts :deep(td:nth-child(1)) {
+    grid-area: account;
+  }
+
+  .authorization-table--accounts :deep(td:nth-child(2)) {
+    grid-area: username;
+  }
+
+  .authorization-table--accounts :deep(td:nth-child(3)) {
+    align-self: start;
+    grid-area: status;
+  }
+
+  .authorization-table--accounts :deep(td:nth-child(4)) {
+    grid-area: lastLogin;
+  }
+
+  .authorization-table--accounts :deep(td:nth-child(5)) {
+    grid-area: actions;
+  }
+
+  .authorization-table--audit :deep(tbody tr) {
+    grid-template-areas:
+      'time time'
+      'status status'
+      'subject subject'
+      'action action'
+      'source source';
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .authorization-table--audit :deep(td:nth-child(1)) {
+    grid-area: time;
+  }
+
+  .authorization-table--audit :deep(td:nth-child(2)) {
+    grid-area: subject;
+  }
+
+  .authorization-table--audit :deep(td:nth-child(3)) {
+    grid-area: action;
+  }
+
+  .authorization-table--audit :deep(td:nth-child(4)) {
+    grid-area: source;
+  }
+
+  .authorization-table--audit :deep(td:nth-child(5)) {
+    align-self: start;
+    grid-area: status;
+  }
+}
+</style>
