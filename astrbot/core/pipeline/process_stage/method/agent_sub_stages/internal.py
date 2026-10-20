@@ -6,12 +6,15 @@ from copy import deepcopy
 from dataclasses import replace
 
 from astrbot import logger
-from astrbot.core.agent.btw.types import WORK_FAILED_EXTRA
 from astrbot.core.agent.follow_up import FollowUpCapture
 from astrbot.core.agent.llm_types import (
     LLMResponse,
     ProviderRequest,
 )
+from astrbot.core.agent.loop_policy import (
+    btw_config as btw_config_for,
+)
+from astrbot.core.agent.loop_policy import is_btw_enabled, loop_mode_of
 from astrbot.core.agent.message import (
     Message,
     dump_messages_with_checkpoints,
@@ -22,6 +25,7 @@ from astrbot.core.agent.request_preparation import (
     prepare_provider_request,
 )
 from astrbot.core.agent.response import AgentStats
+from astrbot.core.agent.run_state import WORK_FAILED_EXTRA
 from astrbot.core.assistant_history import (
     AssistantHistoryCommitter,
     AssistantHistoryFinalized,
@@ -327,10 +331,11 @@ class InternalAgentSubStage:
         streaming_response: bool,
     ) -> MainAgentBuildResult | None:
         """Build a runner and reject configured provider endpoints unsafe for use."""
-        btw = self._profile_config(event).get("btw", {})
+        profile = self._profile_config(event)
+        btw = btw_config_for(profile)
         provider_id_override = ""
-        if isinstance(btw, dict) and btw.get("enabled", False):
-            loop = "work" if event.get_extra("btw_loop") == "work" else "conversation"
+        if is_btw_enabled(profile):
+            loop = loop_mode_of(event.get_extra("btw_loop"))
             loop_config = btw.get(f"{loop}_loop", {})
             if isinstance(loop_config, dict):
                 provider_id = loop_config.get("provider_id", "")

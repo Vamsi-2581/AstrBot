@@ -7,15 +7,16 @@ from dataclasses import asdict
 from typing import TYPE_CHECKING
 
 from astrbot.core.agent.btw import i18n as work_i18n
+from astrbot.core.agent.btw.capabilities import resolve_btw_capabilities
 from astrbot.core.agent.btw.classifier import (
     RoutingResult,
     classify_request,
     routing_state,
 )
 from astrbot.core.agent.btw.conversation_report import compose_work_report
-from astrbot.core.agent.btw.types import is_work_loop_enabled
 from astrbot.core.agent.btw.work_loop import WorkLoop
 from astrbot.core.agent.btw.work_sessions import WorkSessionManager
+from astrbot.core.agent.loop_policy import is_work_loop_enabled
 from astrbot.core.message.components import Mention, Plain
 from astrbot.core.message.message_event_result import MessageEventResult
 from astrbot.core.platform.astr_message_event import AstrMessageEvent
@@ -191,11 +192,7 @@ class ConversationLoop:
         )
 
     async def _classify(self, event: AstrMessageEvent, settings: dict) -> RoutingResult:
-        from astrbot.core.astr_main_agent import (
-            _is_chat_model,
-            _select_provider,
-            resolve_btw_capabilities,
-        )
+        from astrbot.core.astr_main_agent import _is_chat_model, _select_provider
 
         try:
             threshold = settings.get("confidence_threshold", 0.85)

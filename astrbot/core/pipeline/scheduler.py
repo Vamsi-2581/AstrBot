@@ -3,7 +3,6 @@ from time import time
 from typing import Protocol, cast
 
 from astrbot import logger
-from astrbot.core.agent.btw import runtime_registry
 from astrbot.core.log import log_context
 from astrbot.core.message.message_event_result import MessageChain
 from astrbot.core.platform.astr_message_event import AstrMessageEvent
@@ -168,4 +167,7 @@ class PipelineScheduler:
                 # A work submission acknowledges its request before the work loop
                 # registers the background run.  Ending the event is the last chance
                 # to reclaim a queued task whose request stopped in between.
-                await runtime_registry.cancel_pending_work(event)
+                if event.get_extra("btw_work_session_id"):
+                    from astrbot.core.agent.btw import runtime_registry
+
+                    await runtime_registry.cancel_pending_work(event)

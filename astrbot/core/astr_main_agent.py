@@ -12,16 +12,20 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeGuard, cast
 
 from astrbot import logger
-from astrbot.core.agent.btw.coding_agents import has_enabled_coding_agent
-from astrbot.core.agent.btw.loop_routes import route_is_available_in_loop
-from astrbot.core.agent.btw.runtime_policy import (
-    resolve_computer_runtime,
-    work_loop_is_read_only,
-)
-from astrbot.core.agent.btw.types import is_work_loop_enabled
 from astrbot.core.agent.chat_model import ChatModel
 from astrbot.core.agent.handoff import HandoffTool
 from astrbot.core.agent.llm_types import ProviderRequest
+from astrbot.core.agent.loop_policy import (
+    btw_config as btw_config_for,
+)
+from astrbot.core.agent.loop_policy import (
+    is_btw_enabled,
+    is_work_loop_enabled,
+    loop_mode_of,
+    resolve_computer_runtime,
+    route_is_available_in_loop,
+    work_loop_is_read_only,
+)
 from astrbot.core.agent.message import TextPart
 from astrbot.core.agent.request_preparation import (
     clone_provider_request,
@@ -627,6 +631,18 @@ async def _apply_local_env_tools(
         )
 
 
+def _has_enabled_coding_agent(profile: object) -> bool:
+    """Read the BTW-only delegation setting lazily.
+
+    The default agent path must not load the BTW package; this helper only
+    imports it when the active loop is the work loop and its catalog asks for
+    delegation.
+    """
+    from astrbot.core.agent.btw.coding_agents import has_enabled_coding_agent
+
+    return has_enabled_coding_agent(profile)
+
+
 def _apply_btw_work_loop_prompt(
     req: ProviderRequest,
     event: AstrMessageEvent,
@@ -640,7 +656,7 @@ def _apply_btw_work_loop_prompt(
     replaces them.  Delegation starts a local process, so it is described only
     when the request's own computer boundary would actually expose it.
     """
-    if event.get_extra("btw_loop") != "work":
+    if loop_mode_of(event.get_extra("btw_loop")) != "work":
         return
     profile = plugin_context.get_config(umo=event.unified_msg_origin)
     fragments: list[str] = []
@@ -649,7 +665,7 @@ def _apply_btw_work_loop_prompt(
     if (
         config.computer_use_runtime == "local"
         and config.allow_computer_tools
-        and has_enabled_coding_agent(profile)
+        and _has_enabled_coding_agent(profile)
     ):
         fragments.append(WORK_LOOP_DELEGATION_PROMPT)
     if fragments:
@@ -745,10 +761,9 @@ def _append_skills_prompt(
 ) -> SkillSnapshot:
     runtime = str(cfg.get("computer_use_runtime", "none") or "none")
     profile = plugin_context.get_config(umo=event.unified_msg_origin)
-    btw_config = profile.get("btw", {})
-    btw_config = btw_config if isinstance(btw_config, dict) else {}
-    btw_enabled = bool(btw_config.get("enabled", False))
-    loop_mode = "work" if event.get_extra("btw_loop") == "work" else "conversation"
+    btw_config = btw_config_for(profile)
+    btw_enabled = is_btw_enabled(profile)
+    loop_mode = loop_mode_of(event.get_extra("btw_loop"))
     skills: list[SkillInfo] = []
     skill_manager: SkillManager | None = None
     try:
@@ -1447,7 +1462,7 @@ def _assemble_request_tool_catalog(
     cfg = plugin_context.get_config(umo=event.unified_msg_origin)
     provider_settings = cfg.get("provider_settings", {})
     ltm_settings = cfg.get("provider_ltm_settings", {})
-    btw_config = cfg.get("btw", {})
+    btw_config = btw_config_for(cfg)
     memory_manager = _get_context_runtime_attr(plugin_context, "memory_manager")
     tool_manager = plugin_context.get_llm_tool_manager()
     registered_tools = _registered_tools_table(tool_manager)
@@ -1472,7 +1487,7 @@ def _assemble_request_tool_catalog(
         authenticated=authenticated,
         subject_kind=subject_kind,
     )
-    loop_mode = "work" if event.get_extra("btw_loop") == "work" else "conversation"
+    loop_mode = loop_mode_of(event.get_extra("btw_loop"))
     web_search_route = normalize_route(provider_settings.get("websearch_route"))
     catalog_inputs = ToolCatalogInputs(
         snapshot=snapshot,
@@ -1502,7 +1517,7 @@ def _assemble_request_tool_catalog(
         sandbox_capabilities=sandbox_capabilities,
         elevated_instance_tool_actions=elevated_instance_tool_actions,
         plugins=plugin_context.catalogs.plugins,
-        btw_config=btw_config if isinstance(btw_config, dict) else None,
+        btw_config=dict(btw_config) if btw_config else None,
         loop_mode=loop_mode,
         # Only the conversation loop submits work; the work loop runs it.
         work_loop_submission=(
@@ -1512,75 +1527,13 @@ def _assemble_request_tool_catalog(
         ),
         # The work loop plans and reads; writes belong to a coding agent.
         work_loop_read_only=work_loop_is_read_only(cfg, loop_mode),
-        work_loop_delegation=loop_mode == "work" and has_enabled_coding_agent(cfg),
+        work_loop_delegation=loop_mode == "work" and _has_enabled_coding_agent(cfg),
     )
     existing = req.func_tool
     if existing is not None:
         catalog_inputs = merge_existing_tools(catalog_inputs, existing.tools)
     req.func_tool = assemble_tool_catalog(catalog_inputs)
     _add_subagent_tools(req, plugin_context, tool_manager)
-
-
-async def resolve_btw_capabilities(
-    event: AstrMessageEvent, plugin_context: CoreExecutionContext
-) -> dict[str, list[dict[str, str]]]:
-    """Preview both catalogs without running tools, hooks, models or creating history.
-
-    Uses the same prompt resolution, Skill snapshots and catalog assembly as
-    the main Agent. The returned allowlist contains no schemas or host paths;
-    callers must redact its free-text fields before sending them off-device.
-    """
-    profile = plugin_context.get_config(umo=event.unified_msg_origin)
-    config, _ = local_agent_runtime_from_profile(profile)
-    capabilities = {}
-    for loop, scope in (
-        ("conversation", DIALOGUE_LOOP_SCOPE),
-        ("work", WORK_LOOP_SCOPE),
-    ):
-        probe = copy.copy(event)
-        probe._extras = {"btw_loop": loop}
-        runtime = resolve_computer_runtime(profile, loop, config.computer_use_runtime)
-        loop_config = replace(
-            config,
-            computer_use_runtime=runtime,
-            allow_computer_tools=runtime != "none",
-            provider_settings={
-                **config.provider_settings,
-                "computer_use_runtime": runtime,
-            },
-        )
-        manager = plugin_context.conversation_manager
-        cid = await manager.get_curr_conversation_id(event.unified_msg_origin, scope)
-        conversation = (
-            await manager.get_conversation(event.unified_msg_origin, cid)
-            if cid
-            else None
-        )
-        (
-            _,
-            prompt,
-            _,
-            _,
-        ) = await plugin_context.prompt_manager.resolve_selected_prompt(
-            umo=event.unified_msg_origin,
-            conversation_prompt_id=conversation.prompt_id if conversation else None,
-            platform_name=event.get_platform_name(),
-        )
-        req = ProviderRequest()
-        snapshot = _append_skills_prompt(
-            req, loop_config.provider_settings, prompt, probe, plugin_context
-        )
-        _assemble_request_tool_catalog(probe, req, plugin_context, loop_config)
-        tools = req.func_tool.tools if req.func_tool else []
-        capabilities[loop] = [
-            {"name": f"tool:{tool.name}", "summary": tool.description}
-            for tool in tools
-            if tool.name != "submit_work_task"
-        ] + [
-            {"name": f"skill:{skill.name}", "summary": skill.description}
-            for skill in snapshot.skills
-        ]
-    return capabilities
 
 
 async def _handle_webchat(
@@ -2269,8 +2222,7 @@ async def build_main_agent(
     OnLLMRequestEvent hook can replace original attachment paths first.
     """
     profile = plugin_context.get_config(umo=event.unified_msg_origin)
-    btw = profile.get("btw", {})
-    if isinstance(btw, Mapping) and btw.get("enabled", False):
+    if is_btw_enabled(profile):
         runtime = resolve_computer_runtime(
             profile, event.get_extra("btw_loop"), config.computer_use_runtime
         )
@@ -2312,7 +2264,7 @@ async def build_main_agent(
                 event.message_str,
             )
 
-            is_work_run = event.get_extra("btw_loop") == "work"
+            is_work_run = loop_mode_of(event.get_extra("btw_loop")) == "work"
             conversation = await _get_session_conv(
                 event,
                 plugin_context,

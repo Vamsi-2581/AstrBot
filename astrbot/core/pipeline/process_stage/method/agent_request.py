@@ -1,7 +1,7 @@
 from collections.abc import AsyncGenerator
 
 from astrbot import logger
-from astrbot.core.agent.btw.types import mark_work_run_failed
+from astrbot.core.agent.run_state import mark_work_run_failed
 from astrbot.core.config.agent_runner import normalize_agent_runner_for_load
 from astrbot.core.platform.astr_message_event import AstrMessageEvent
 from astrbot.core.star.session_llm_manager import SessionServiceManager

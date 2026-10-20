@@ -1,8 +1,6 @@
 import asyncio
 from collections.abc import AsyncGenerator, Awaitable, Callable
 
-from astrbot.core.agent.btw import runtime_registry
-from astrbot.core.agent.conversation_loop import ConversationLoop
 from astrbot.core.agent.llm_types import ProviderRequest
 from astrbot.core.platform.astr_message_event import AstrMessageEvent
 from astrbot.core.star.star_handler import StarHandlerMetadata
@@ -21,6 +19,8 @@ class ProcessStage(Stage):
         self.agent_sub_stage = AgentRequestSubStage()
         btw = self.config.get("btw", {})
         if isinstance(btw, dict) and btw.get("enabled", False):
+            from astrbot.core.agent.conversation_loop import ConversationLoop
+
             self.conversation_loop = ConversationLoop(self.agent_sub_stage)
             await self.conversation_loop.initialize(ctx)
         else:
@@ -31,6 +31,8 @@ class ProcessStage(Stage):
         self.star_request_sub_stage = StarRequestSubStage()
         await self.star_request_sub_stage.initialize(ctx)
         if self.conversation_loop is not None:
+            from astrbot.core.agent.btw import runtime_registry
+
             runtime_registry.register(
                 ctx.astrbot_config_id, self.conversation_loop.work_sessions
             )
@@ -57,6 +59,8 @@ class ProcessStage(Stage):
     async def close(self) -> None:
         """Reclaim work before this profile's scheduler is replaced."""
         if self.conversation_loop is not None:
+            from astrbot.core.agent.btw import runtime_registry
+
             try:
                 await self.conversation_loop.close()
             finally:

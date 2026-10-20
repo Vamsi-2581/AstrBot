@@ -3,7 +3,6 @@
 from pydantic import Field
 from pydantic.dataclasses import dataclass
 
-from astrbot.core.agent.btw.submission import submit_work_task
 from astrbot.core.agent.run_context import ContextWrapper
 from astrbot.core.agent.tool import FunctionTool, ToolExecResult
 from astrbot.core.astr_agent_context import AstrAgentContext
@@ -48,6 +47,8 @@ class SubmitWorkTaskTool(FunctionTool[AstrAgentContext]):
         prompt: str = "",
         **_: object,
     ) -> ToolExecResult:
+        from astrbot.core.agent.btw.submission import submit_work_task
+
         event = context.context.event
         session = await submit_work_task(
             context.context.context,
