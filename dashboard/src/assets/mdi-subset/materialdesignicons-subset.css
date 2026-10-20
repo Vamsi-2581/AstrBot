@@ -1,4 +1,4 @@
-/* Auto-generated MDI subset – 287 icons */
+/* Auto-generated MDI subset – 288 icons */
 /* Do not edit manually. Run: pnpm run subset-icons */
 
 @font-face {
@@ -558,6 +558,10 @@
 
 .mdi-function-variant::before {
   content: "\F0871";
+}
+
+.mdi-gesture-swipe-horizontal::before {
+  content: "\F0ABF";
 }
 
 .mdi-github::before {
