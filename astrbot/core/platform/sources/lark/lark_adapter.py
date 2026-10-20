@@ -46,6 +46,23 @@ USER_NAME_FAILURE_CACHE_TTL_SECONDS = 60
 USER_NAME_CACHE_MAX_SIZE = 1000
 USER_NAME_LOOKUP_TIMEOUT_SECONDS = 5
 
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+_MAX_TEMP_STEM_LENGTH = 80
+
+
+def _build_temp_file_name(
+    message_type: str,
+    file_name: str,
+    default_suffix: str,
+) -> str:
+    """Build a bounded, path-component-safe temporary file name."""
+
+    safe_name = _CONTROL_CHARS.sub("", Path(file_name).name) if file_name else ""
+    stem = Path(safe_name).stem[:_MAX_TEMP_STEM_LENGTH]
+    suffix = Path(safe_name).suffix or default_suffix
+    parts = [part for part in (f"lark_{message_type}", stem, uuid4().hex) if part]
+    return "_".join(parts) + suffix
+
 
 @register_platform_adapter(
     "lark",
@@ -109,6 +126,14 @@ class LarkPlatformAdapter(Platform):
 
         self.webhook_server = None
         if self.connection_mode == "webhook":
+            if not (
+                platform_config.get("lark_encrypt_key")
+                or platform_config.get("lark_verification_token")
+            ):
+                raise ValueError(
+                    "Lark webhook mode requires lark_encrypt_key or "
+                    "lark_verification_token"
+                )
             self.webhook_server = LarkWebhookServer(platform_config, event_queue)
             self.webhook_server.set_callback(self.handle_webhook_event)
 
@@ -658,11 +683,12 @@ class LarkPlatformAdapter(Platform):
         if file_bytes is None:
             return None
 
-        suffix = Path(file_name).suffix if file_name else default_suffix
         temp_dir = Path(get_astrbot_temp_path())
         temp_dir.mkdir(parents=True, exist_ok=True)
-        temp_path = (
-            temp_dir / f"lark_{message_type}_{file_name}_{uuid4().hex[:4]}{suffix}"
+        temp_path = temp_dir / _build_temp_file_name(
+            message_type,
+            file_name,
+            default_suffix,
         )
         temp_path.write_bytes(file_bytes)
         return str(temp_path.resolve())

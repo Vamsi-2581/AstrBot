@@ -905,3 +905,23 @@ def test_lark_create_event_does_not_promote_group_roles():
     event = adapter.create_event(message)
     assert event.platform_member_role == "member"
     assert event.platform_role_source == "none"
+
+
+def test_lark_temp_file_name_is_sanitized_and_bounded():
+    import re
+    from pathlib import Path
+
+    from astrbot.core.platform.sources.lark.lark_adapter import _build_temp_file_name
+
+    traversal = _build_temp_file_name("file", "../../evil.txt", ".bin")
+    assert Path(traversal).name == traversal
+    assert traversal.endswith(".txt")
+    assert not traversal.endswith(".txt.txt")
+
+    long_name = _build_temp_file_name("file", "a" * 300 + ".txt", ".bin")
+    assert len(Path(long_name).stem) <= 80 + len("lark_file_") + 33
+    assert long_name.endswith(".txt")
+    assert re.search(r"[0-9a-f]{32}", long_name)
+
+    no_extension = _build_temp_file_name("file", "notes", ".bin")
+    assert no_extension.endswith(".bin")

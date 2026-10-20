@@ -893,6 +893,12 @@ async def test_slack_get_file_base64_returns_base64_for_success(monkeypatch):
         status = 200
         headers: dict[str, str] = {}
 
+        def __init__(self):
+            self.content = SimpleNamespace(iter_chunked=self._iter_chunked)
+
+        async def _iter_chunked(self, _size: int):
+            yield b"file-bytes"
+
         async def read(self):
             return b"file-bytes"
 
@@ -1123,3 +1129,42 @@ def test_slack_create_event_does_not_promote_workspace_admin():
     event = adapter.create_event(message)
     assert event.platform_member_role == "member"
     assert event.platform_role_source == "none"
+
+
+@pytest.mark.asyncio
+async def test_slack_get_file_base64_enforces_streamed_size_limit(
+    monkeypatch,
+):
+    import astrbot.core.platform.sources.slack.slack_adapter as slack_module
+
+    adapter = _build_adapter()
+    session = _FakeSlackFileSession(
+        _FakeSlackFileResponse(
+            headers={},
+            chunks=[b"123456", b"789012"],
+        )
+    )
+    monkeypatch.setattr(slack_module.aiohttp, "ClientSession", lambda: session)
+    monkeypatch.setattr(slack_module, "_SLACK_FILE_MAX_BYTES", 10)
+
+    with pytest.raises(Exception, match="size limit exceeded"):
+        await adapter.get_file_base64("https://files.example.com/file")
+
+
+@pytest.mark.asyncio
+async def test_slack_get_file_base64_streams_chunked_success(monkeypatch):
+    import astrbot.core.platform.sources.slack.slack_adapter as slack_module
+
+    adapter = _build_adapter()
+    session = _FakeSlackFileSession(
+        _FakeSlackFileResponse(
+            headers={},
+            chunks=[b"12345", b"67890"],
+        )
+    )
+    monkeypatch.setattr(slack_module.aiohttp, "ClientSession", lambda: session)
+    monkeypatch.setattr(slack_module, "_SLACK_FILE_MAX_BYTES", 10)
+
+    encoded = await adapter.get_file_base64("https://files.example.com/file")
+
+    assert base64.b64decode(encoded) == b"1234567890"
