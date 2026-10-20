@@ -281,8 +281,11 @@ export const useAppearanceStore = defineStore('appearance', {
         orientation === 'portrait'
           ? settings.landscape_wallpaper_id
           : settings.portrait_wallpaper_id;
-      const id = primary || fallback;
-      return this.wallpapers.find((wallpaper) => wallpaper.id === id) ?? null;
+      return (
+        this.wallpapers.find((wallpaper) => wallpaper.id === primary) ??
+        this.wallpapers.find((wallpaper) => wallpaper.id === fallback) ??
+        null
+      );
     },
 
     async hydrate(): Promise<void> {
@@ -299,12 +302,9 @@ export const useAppearanceStore = defineStore('appearance', {
         await pruneWallpaperCache(this.wallpapers.map((item) => item.id));
         const legacy = readLegacySettings();
         let migrated = false;
-        if (legacy) {
-          clearLegacySettings();
-          if (isDefaultSettings(this.settings)) {
-            this.settings = normalizeSettings({ ...this.settings, ...legacy });
-            migrated = true;
-          }
+        if (legacy && isDefaultSettings(this.settings)) {
+          this.settings = normalizeSettings({ ...this.settings, ...legacy });
+          migrated = true;
         }
         settingsRevision += 1;
         const changed = this.reconcileSelections();
@@ -312,6 +312,9 @@ export const useAppearanceStore = defineStore('appearance', {
         this.setupChannel();
         if (changed || migrated) {
           await this.saveNow();
+        }
+        if (legacy) {
+          clearLegacySettings();
         }
       } catch (error) {
         this.error = errorMessage(error);

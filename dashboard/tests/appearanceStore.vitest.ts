@@ -101,6 +101,20 @@ describe('appearance store', () => {
     ]);
   });
 
+  it('falls back to the other orientation when the primary selection is missing', () => {
+    const store = useAppearanceStore();
+    store.wallpapers = [wallpaper];
+    store.settings = {
+      ...defaultSettings,
+      enabled: true,
+      landscape_wallpaper_id: wallpaper.id,
+      portrait_wallpaper_id: 'c'.repeat(32),
+    };
+
+    expect(store.currentWallpaper('portrait')?.id).toBe(wallpaper.id);
+    expect(store.currentWallpaper('landscape')?.id).toBe(wallpaper.id);
+  });
+
   it('selects a wallpaper and saves the selection after the debounce', async () => {
     const store = useAppearanceStore();
     store.wallpapers = [wallpaper];

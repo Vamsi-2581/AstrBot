@@ -3,6 +3,7 @@
     v-model="showDialog"
     :max-width="smAndDown ? undefined : '1200px'"
     scrollable
+    persistent
     :aria-label="
       editingPrompt ? tm('dialog.edit.title') : tm('dialog.create.title')
     "

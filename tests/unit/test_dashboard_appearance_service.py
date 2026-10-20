@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from io import BytesIO
 from tempfile import SpooledTemporaryFile
 
@@ -231,6 +232,36 @@ async def test_upload_rejects_invalid_orientation(tmp_path):
     service = AppearanceService(tmp_path)
     with pytest.raises(AppearanceServiceError, match="orientation"):
         await service.save_wallpaper(_upload(), "square")
+
+
+@pytest.mark.asyncio
+async def test_corrupt_asset_is_skipped_without_failing_state_load(tmp_path):
+    service = AppearanceService(tmp_path)
+    service.wallpaper_dir.mkdir(parents=True, exist_ok=True)
+    (service.wallpaper_dir / f"{'a' * 32}.png").write_bytes(b"not an image")
+
+    assert await service.list_wallpapers() == []
+    assert (await service.get_settings())["enabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_invalid_persisted_metadata_is_rebuilt(tmp_path):
+    service = AppearanceService(tmp_path)
+    uploaded = await service.save_wallpaper(_upload(), "landscape")
+    state = json.loads(service.state_path.read_text(encoding="utf-8"))
+    state["wallpapers"][uploaded["id"]]["width"] = "invalid"
+    state["wallpapers"][uploaded["id"]]["theme_primary"] = "not-a-color"
+    service.state_path.write_text(json.dumps(state), encoding="utf-8")
+
+    restarted = AppearanceService(tmp_path)
+    listed = await restarted.list_wallpapers()
+
+    assert listed[0]["id"] == uploaded["id"]
+    assert listed[0]["width"] == 640
+    assert listed[0]["theme_primary"].startswith("#")
+    rebuilt = json.loads(restarted.state_path.read_text(encoding="utf-8"))
+    assert rebuilt["wallpapers"][uploaded["id"]]["width"] == 640
+    assert rebuilt["wallpapers"][uploaded["id"]]["theme_primary"].startswith("#")
 
 
 def test_safe_original_name_strips_paths_and_controls():

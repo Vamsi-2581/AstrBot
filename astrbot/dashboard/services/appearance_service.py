@@ -6,6 +6,7 @@ import asyncio
 import json
 import math
 import os
+import re
 import warnings
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -69,6 +70,7 @@ _IMAGE_FORMATS = {
 _WALLPAPER_SUFFIXES = frozenset(suffix for suffix, _ in _IMAGE_FORMATS.values())
 _THUMBNAIL_RESAMPLE = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
 _ANIMATED_FORMATS = frozenset({"GIF", "WEBP"})
+_HEX_COLOR_RE = re.compile(r"#[0-9a-fA-F]{6}")
 
 
 class AppearanceServiceError(ValueError):
@@ -279,7 +281,8 @@ class AppearanceService:
 
         state["settings"] = self._normalize_settings(state.get("settings"))
         self._state = state
-        self._reconcile_selections(state["settings"])
+        if self._reconcile_selections(state["settings"]):
+            changed = True
         if changed:
             self._save_state()
 
@@ -294,7 +297,7 @@ class AppearanceService:
                     wallpapers = raw.get("wallpapers")
                     try:
                         revision = int(raw.get("revision", 0))
-                    except TypeError, ValueError:
+                    except TypeError, ValueError, OverflowError:
                         revision = 0
                     return {
                         "version": STATE_VERSION,
@@ -366,11 +369,28 @@ class AppearanceService:
     ) -> bool:
         if not isinstance(metadata, dict):
             return False
+        if str(metadata.get("id", "")) != wallpaper_id:
+            return False
         if metadata.get("content_type") not in {
             content_type for _, content_type in _IMAGE_FORMATS.values()
         }:
             return False
         if metadata.get("orientation") not in STORED_ORIENTATIONS:
+            return False
+        for key in ("theme_primary", "theme_secondary"):
+            value = metadata.get(key)
+            if not isinstance(value, str) or not _HEX_COLOR_RE.fullmatch(value):
+                return False
+        raw_width: Any = metadata.get("width")
+        raw_height: Any = metadata.get("height")
+        raw_size: Any = metadata.get("size_bytes", 0)
+        try:
+            width = int(raw_width)
+            height = int(raw_height)
+            size_bytes = int(raw_size)
+        except TypeError, ValueError, OverflowError:
+            return False
+        if width <= 0 or height <= 0 or size_bytes < 0:
             return False
         if not self._thumbnail_path(wallpaper_id).is_file():
             return False
@@ -382,14 +402,24 @@ class AppearanceService:
         path: Path,
         metadata: Any,
     ) -> dict[str, Any]:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(path) as image:
-                fmt = (image.format or "").upper()
-                width, height = image.size
-                animated = bool(getattr(image, "is_animated", False)) and (
-                    getattr(image, "n_frames", 1) > 1
-                )
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", Image.DecompressionBombWarning)
+                with Image.open(path) as image:
+                    fmt = (image.format or "").upper()
+                    width, height = image.size
+                    animated = bool(getattr(image, "is_animated", False)) and (
+                        getattr(image, "n_frames", 1) > 1
+                    )
+            stat_result = path.stat()
+        except (
+            OSError,
+            UnidentifiedImageError,
+            ValueError,
+            Image.DecompressionBombError,
+            Image.DecompressionBombWarning,
+        ) as exc:
+            raise AppearanceServiceError("Unsupported wallpaper image") from exc
         detected = _IMAGE_FORMATS.get(fmt)
         if detected is None:
             raise AppearanceServiceError("Unsupported wallpaper image")
@@ -405,6 +435,22 @@ class AppearanceService:
             and metadata.get("orientation") in STORED_ORIENTATIONS
             else "both"
         )
+        raw_primary = (
+            metadata.get("theme_primary") if isinstance(metadata, dict) else None
+        )
+        raw_secondary = (
+            metadata.get("theme_secondary") if isinstance(metadata, dict) else None
+        )
+        theme_primary = (
+            raw_primary
+            if isinstance(raw_primary, str) and _HEX_COLOR_RE.fullmatch(raw_primary)
+            else colors[0]
+        )
+        theme_secondary = (
+            raw_secondary
+            if isinstance(raw_secondary, str) and _HEX_COLOR_RE.fullmatch(raw_secondary)
+            else colors[1]
+        )
         item = {
             "id": wallpaper_id,
             "content_type": detected[1],
@@ -419,20 +465,12 @@ class AppearanceService:
             "created_at": (
                 str(metadata.get("created_at", ""))
                 if isinstance(metadata, dict) and metadata.get("created_at")
-                else datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).isoformat()
+                else datetime.fromtimestamp(stat_result.st_mtime, tz=UTC).isoformat()
             ),
-            "size_bytes": path.stat().st_size,
+            "size_bytes": stat_result.st_size,
             "animated": animated,
-            "theme_primary": (
-                str(metadata.get("theme_primary", ""))
-                if isinstance(metadata, dict) and metadata.get("theme_primary")
-                else colors[0]
-            ),
-            "theme_secondary": (
-                str(metadata.get("theme_secondary", ""))
-                if isinstance(metadata, dict) and metadata.get("theme_secondary")
-                else colors[1]
-            ),
+            "theme_primary": theme_primary,
+            "theme_secondary": theme_secondary,
         }
         return item
 
@@ -667,7 +705,10 @@ class AppearanceService:
         settings["brightness"] = self._clamp(settings["brightness"], 0.5, 1.5, 1.0)
         settings["dim"] = self._clamp(settings["dim"], 0, 0.9, 0.5)
         settings["surface_opacity"] = self._clamp(
-            settings["surface_opacity"], 0, 1, 1.0
+            settings["surface_opacity"],
+            0,
+            1,
+            DEFAULT_SETTINGS["surface_opacity"],
         )
         settings["saturation"] = self._clamp(settings["saturation"], 0, 2, 1.0)
         settings["grayscale"] = self._clamp(settings["grayscale"], 0, 1, 0.0)
@@ -676,8 +717,9 @@ class AppearanceService:
         )
         return settings
 
-    def _reconcile_selections(self, settings: dict[str, Any]) -> None:
+    def _reconcile_selections(self, settings: dict[str, Any]) -> bool:
         wallpapers = self._state_dict()["wallpapers"] if self._state else {}
+        changed = False
         for key, orientation in (
             ("landscape_wallpaper_id", "landscape"),
             ("portrait_wallpaper_id", "portrait"),
@@ -685,13 +727,16 @@ class AppearanceService:
             wallpaper_id = settings.get(key)
             item = wallpapers.get(wallpaper_id) if wallpaper_id else None
             if item is None or item.get("orientation") not in {orientation, "both"}:
+                if settings.get(key):
+                    changed = True
                 settings[key] = ""
+        return changed
 
     @staticmethod
     def _clamp(value: Any, minimum: float, maximum: float, fallback: float) -> float:
         try:
             parsed = float(value)
-        except TypeError, ValueError:
+        except TypeError, ValueError, OverflowError:
             return fallback
         if math.isnan(parsed) or parsed in {float("inf"), float("-inf")}:
             return fallback

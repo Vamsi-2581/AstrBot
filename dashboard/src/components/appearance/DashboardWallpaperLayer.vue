@@ -18,13 +18,17 @@ import {
 
 const ROTATION_LOCK_NAME = 'astrbot-wallpaper-rotation';
 const ROTATION_LEASE_KEY = 'astrbot:appearance:rotation-lease';
-const ROTATION_LEASE_MS = 15_000;
+const ROTATION_TIMER_GRACE_MS = 5_000;
 
 const appearance = useAppearanceStore();
 const toast = useToastStore();
 const { tm } = useModuleI18n('features/settings');
-const portrait = ref(false);
-const reducedMotion = ref(false);
+const portrait = ref(
+  window.matchMedia?.('(orientation: portrait)').matches ?? false,
+);
+const reducedMotion = ref(
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
+);
 const activeLayer = ref(0);
 const layers = ref(['', '']);
 
@@ -199,13 +203,23 @@ async function applyWallpaper(url: string): Promise<void> {
   }
 }
 
-function acquireRotationLease(): boolean {
+function acquireRotationLease(intervalMs: number): boolean {
   if (typeof localStorage === 'undefined') return true;
   const now = Date.now();
-  const until = Number(localStorage.getItem(ROTATION_LEASE_KEY) || 0);
-  if (Number.isFinite(until) && until > now) return false;
+  let lastRotation = 0;
   try {
-    localStorage.setItem(ROTATION_LEASE_KEY, String(now + ROTATION_LEASE_MS));
+    lastRotation = Number(localStorage.getItem(ROTATION_LEASE_KEY) || 0);
+  } catch {
+    return false;
+  }
+  if (
+    Number.isFinite(lastRotation) &&
+    now - lastRotation < intervalMs - ROTATION_TIMER_GRACE_MS
+  ) {
+    return false;
+  }
+  try {
+    localStorage.setItem(ROTATION_LEASE_KEY, String(now));
   } catch {
     return false;
   }
@@ -223,6 +237,8 @@ async function runRotation(): Promise<void> {
     return;
   }
   if (appearance.wallpapersFor(orientation.value).length < 2) return;
+  const intervalMs =
+    Math.max(1, appearance.settings.rotation_interval_minutes) * 60_000;
   const run = async () => {
     rotationBusy = true;
     try {
@@ -239,12 +255,12 @@ async function runRotation(): Promise<void> {
       ROTATION_LOCK_NAME,
       { ifAvailable: true },
       async (lock) => {
-        if (lock) await run();
+        if (lock && acquireRotationLease(intervalMs)) await run();
       },
     );
     return;
   }
-  if (acquireRotationLease()) await run();
+  if (acquireRotationLease(intervalMs)) await run();
 }
 
 function clearRotation(): void {
@@ -289,16 +305,14 @@ watch(
 );
 
 watch(
-  () =>
-    [
-      appearance.loaded,
-      appearance.settings.random_on_load,
-      appearance.settings.enabled,
-    ] as const,
-  async ([loaded, randomOnLoad, enabled]) => {
-    if (!loaded || !randomOnLoad || !enabled || randomApplied) return;
-    if (!appearance.wallpapersFor(orientation.value).length) return;
+  () => appearance.loaded,
+  async (loaded) => {
+    if (!loaded || randomApplied) return;
     randomApplied = true;
+    if (!appearance.settings.random_on_load || !appearance.settings.enabled) {
+      return;
+    }
+    if (!appearance.wallpapersFor(orientation.value).length) return;
     const selected = appearance.selectRandom(orientation.value);
     if (selected) await appearance.saveNow().catch(() => undefined);
   },
