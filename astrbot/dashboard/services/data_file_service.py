@@ -429,14 +429,7 @@ class DataFileService:
         category, protected, hard_readonly = self._category(relative_path, info)
         if category == "text" and self._is_binary_content(path, info):
             category = "binary"
-        sensitive = protected and (
-            category in {"database", "temporary"}
-            or (
-                (relative_path.split("/", 1)[0] if relative_path else "")
-                in _SENSITIVE_DIRS
-            )
-            or (relative_path.casefold() in _SENSITIVE_ROOT_FILES)
-        )
+        sensitive = protected and self.path_is_sensitive(relative_path)
         managed_config = stat_module.S_ISREG(
             info.st_mode
         ) and self.is_managed_config_path(relative_path)
