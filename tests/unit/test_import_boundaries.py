@@ -563,3 +563,69 @@ def test_public_sdk_and_core_leaf_imports_remain_available() -> None:
     assert "sender_service_config" in sdk.__all__
     assert dashboard_sdk.DashboardJsonAction is not None
     assert leaf.AstrMessageEvent is not None
+
+
+def _module_scope_imports(path: Path) -> set[str]:
+    """Return imports that execute when the module is imported."""
+    modules: set[str] = set()
+    for node in ast.parse(path.read_text(encoding="utf-8")).body:
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            modules.add(node.module)
+    return modules
+
+
+def test_default_agent_runtime_does_not_import_btw_at_module_scope() -> None:
+    """The BTW package is opt-in and must not load on the default path."""
+    default_paths = [
+        ROOT / "astrbot" / "core" / "astr_main_agent.py",
+        ROOT / "astrbot" / "core" / "astr_agent_run_util.py",
+        ROOT / "astrbot" / "core" / "astr_agent_tool_exec.py",
+        ROOT / "astrbot" / "core" / "tool_catalog.py",
+        ROOT / "astrbot" / "core" / "pipeline" / "scheduler.py",
+        ROOT
+        / "astrbot"
+        / "core"
+        / "pipeline"
+        / "process_stage"
+        / "method"
+        / "agent_request.py",
+        ROOT
+        / "astrbot"
+        / "core"
+        / "pipeline"
+        / "process_stage"
+        / "method"
+        / "agent_sub_stages"
+        / "internal.py",
+        ROOT
+        / "astrbot"
+        / "core"
+        / "pipeline"
+        / "process_stage"
+        / "method"
+        / "agent_sub_stages"
+        / "third_party.py",
+        ROOT / "astrbot" / "core" / "pipeline" / "process_stage" / "stage.py",
+    ]
+    for path in default_paths:
+        imports = _module_scope_imports(path)
+        assert not any(
+            _is_module_or_child(module, "astrbot.core.agent.btw") for module in imports
+        ), path.relative_to(ROOT)
+
+
+def test_importing_the_default_agent_does_not_load_btw() -> None:
+    """A default-path import must not pull the opt-in BTW package in."""
+    code = (
+        "import sys\n"
+        "import astrbot.core.astr_main_agent\n"
+        "import astrbot.core.pipeline.scheduler\n"
+        "import astrbot.core.pipeline.process_stage.stage\n"
+        "assert not any(\n"
+        "    name == 'astrbot.core.agent.btw' or name.startswith('astrbot.core.agent.btw.')\n"
+        "    for name in sys.modules\n"
+        ")\n"
+    )
+    subprocess.run([sys.executable, "-c", code], cwd=ROOT, check=True)

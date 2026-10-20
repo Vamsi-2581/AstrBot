@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from astrbot.core.agent.btw.coding_events import adapter_for
-from astrbot.core.agent.btw.types import is_work_loop_enabled
+from astrbot.core.agent.loop_policy import is_work_loop_enabled
 from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 from astrbot.core.utils.config_number import coerce_int_config
 
