@@ -208,9 +208,15 @@ export const useAppearanceStore = defineStore('appearance', {
       );
     },
     textEnhancementClass(state): string {
-      return state.settings.text_enhancement === 'off'
-        ? ''
-        : `dashboard-appearance-text-${state.settings.text_enhancement}`;
+      if (
+        !state.settings.enabled ||
+        (!state.settings.landscape_wallpaper_id &&
+          !state.settings.portrait_wallpaper_id) ||
+        state.settings.text_enhancement === 'off'
+      ) {
+        return '';
+      }
+      return `dashboard-appearance-text-${state.settings.text_enhancement}`;
     },
     rootStyle(state): Record<string, string> {
       const settings = state.settings;

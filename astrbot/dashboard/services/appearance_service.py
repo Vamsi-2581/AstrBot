@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import os
 import warnings
 from collections.abc import Mapping
@@ -217,12 +218,17 @@ class AppearanceService:
         except FileNotFoundError as exc:
             raise AppearanceServiceError("Wallpaper was not found") from exc
         try:
-            self._thumbnail_path(wallpaper_id).unlink(missing_ok=True)
-        except OSError:
-            logger.warning(
-                "Unable to remove Dashboard wallpaper thumbnail %s",
+            thumbnail = await asyncio.to_thread(
+                self._resolve_thumbnail,
                 wallpaper_id,
             )
+        except AppearanceServiceError:
+            thumbnail = None
+        if thumbnail is not None:
+            try:
+                await asyncio.to_thread(thumbnail.unlink)
+            except OSError:
+                logger.warning("Unable to remove Dashboard wallpaper thumbnail")
         async with self._state_lock:
             self._state_dict()["wallpapers"].pop(wallpaper_id, None)
             self._reconcile_selections(self._settings())
@@ -233,10 +239,7 @@ class AppearanceService:
         return path, self._content_type_for_path(path)
 
     async def resolve_thumbnail(self, wallpaper_id: str) -> tuple[Path, str]:
-        self._validate_wallpaper_id(wallpaper_id)
-        path = self._thumbnail_path(wallpaper_id)
-        if not path.is_file() or path.is_symlink():
-            raise AppearanceServiceError("Wallpaper thumbnail was not found")
+        path = await asyncio.to_thread(self._resolve_thumbnail, wallpaper_id)
         return path, "image/webp"
 
     async def _ensure_state(self) -> None:
@@ -567,13 +570,20 @@ class AppearanceService:
 
     def _resolve_wallpaper(self, wallpaper_id: str) -> Path:
         self._validate_wallpaper_id(wallpaper_id)
-        matches = list(self.wallpaper_dir.glob(f"{wallpaper_id}.*"))
-        if len(matches) != 1 or not matches[0].is_file() or matches[0].is_symlink():
-            raise AppearanceServiceError("Wallpaper was not found")
-        path = matches[0]
-        if path.suffix.lower() not in _WALLPAPER_SUFFIXES:
+        path = self._asset_paths().get(wallpaper_id)
+        if path is None:
             raise AppearanceServiceError("Wallpaper was not found")
         return path
+
+    def _resolve_thumbnail(self, wallpaper_id: str) -> Path:
+        self._validate_wallpaper_id(wallpaper_id)
+        if not self.thumbnail_dir.is_dir():
+            raise AppearanceServiceError("Wallpaper thumbnail was not found")
+        expected = f"{wallpaper_id}.webp"
+        for path in self.thumbnail_dir.iterdir():
+            if path.name == expected and path.is_file() and not path.is_symlink():
+                return path
+        raise AppearanceServiceError("Wallpaper thumbnail was not found")
 
     @staticmethod
     def _validate_wallpaper_id(wallpaper_id: str) -> None:
@@ -683,7 +693,7 @@ class AppearanceService:
             parsed = float(value)
         except TypeError, ValueError:
             return fallback
-        if parsed != parsed or parsed in {float("inf"), float("-inf")}:
+        if math.isnan(parsed) or parsed in {float("inf"), float("-inf")}:
             return fallback
         return min(max(parsed, minimum), maximum)
 

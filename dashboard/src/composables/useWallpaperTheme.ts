@@ -1,4 +1,4 @@
-import { watch, type Ref } from 'vue';
+import { onScopeDispose, watch, type Ref } from 'vue';
 import { useTheme } from 'vuetify';
 
 import type { AppearanceWallpaper } from '@/api/v1';
@@ -137,4 +137,6 @@ export function useWallpaperTheme(
     },
     { immediate: true },
   );
+
+  onScopeDispose(restore);
 }

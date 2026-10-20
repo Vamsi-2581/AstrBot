@@ -116,12 +116,10 @@ function clearLayers(): void {
 async function fetchWallpaper(
   wallpaperValue: AppearanceWallpaper,
   url: string,
+  variant: string,
   signal: AbortSignal,
 ): Promise<Blob> {
-  const cached = await readWallpaperCache(
-    wallpaperValue.id,
-    cacheVariant.value,
-  );
+  const cached = await readWallpaperCache(wallpaperValue.id, variant);
   if (cached) return cached;
 
   const response = await fetchWithAuth(url, { cache: 'no-store', signal });
@@ -131,11 +129,7 @@ async function fetchWallpaper(
       response.status,
     );
   }
-  await writeWallpaperCache(
-    wallpaperValue.id,
-    response.clone(),
-    cacheVariant.value,
-  );
+  await writeWallpaperCache(wallpaperValue.id, response.clone(), variant);
   return response.blob();
 }
 
@@ -150,10 +144,16 @@ async function applyWallpaper(url: string): Promise<void> {
   }
 
   const currentWallpaper = wallpaper.value;
+  const variant = cacheVariant.value;
   const controller = new AbortController();
   requestController = controller;
   try {
-    const blob = await fetchWallpaper(currentWallpaper, url, controller.signal);
+    const blob = await fetchWallpaper(
+      currentWallpaper,
+      url,
+      variant,
+      controller.signal,
+    );
     if (version !== requestVersion || controller.signal.aborted) return;
 
     const objectUrl = URL.createObjectURL(blob);

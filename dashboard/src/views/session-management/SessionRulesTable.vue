@@ -9,7 +9,6 @@
     :items-length="itemsLength"
     class="elevation-0 session-rules-table"
     show-select
-    :mobile-breakpoint="600"
     :item-value="itemValue"
     return-object
     @update:options="emit('update:options', $event)"

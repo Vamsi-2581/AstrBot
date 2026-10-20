@@ -272,4 +272,30 @@ describe('appearance store', () => {
     expect(localStorage.getItem('astrbot:appearance:v1')).toBeNull();
     expect(api.updateSettings).not.toHaveBeenCalled();
   });
+
+  it('applies text enhancement only while a wallpaper is active', () => {
+    const store = useAppearanceStore();
+
+    expect(store.textEnhancementClass).toBe('');
+
+    store.settings = {
+      ...defaultSettings,
+      text_enhancement: 'stroke',
+    };
+    expect(store.textEnhancementClass).toBe('');
+
+    store.settings = {
+      ...defaultSettings,
+      enabled: true,
+      landscape_wallpaper_id: wallpaper.id,
+      text_enhancement: 'stroke',
+    };
+    expect(store.textEnhancementClass).toBe('dashboard-appearance-text-stroke');
+
+    store.settings = {
+      ...store.settings,
+      text_enhancement: 'off',
+    };
+    expect(store.textEnhancementClass).toBe('');
+  });
 });

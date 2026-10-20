@@ -21,12 +21,6 @@ class ThemeColors:
     primary: str
     secondary: str
 
-    def to_dict(self) -> dict[str, str]:
-        return {
-            "theme_primary": self.primary,
-            "theme_secondary": self.secondary,
-        }
-
 
 @dataclass(frozen=True)
 class _ColorCandidate:
