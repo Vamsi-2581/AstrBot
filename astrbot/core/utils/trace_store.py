@@ -206,7 +206,7 @@ class TraceStore:
         )
         logical = sum(
             connection.execute(
-                f"SELECT COALESCE(SUM(size_bytes), 0) FROM {table}"  # noqa: S608 - fixed table list
+                f"SELECT COALESCE(SUM(size_bytes), 0) FROM {table}"  # nosec B608  # noqa: S608 - fixed table list
             ).fetchone()[0]
             for table in ("traces", "spans", "events")
         )
@@ -224,7 +224,7 @@ class TraceStore:
                 connection.executemany("DELETE FROM traces WHERE trace_id = ?", oldest)
                 logical = sum(
                     connection.execute(
-                        f"SELECT COALESCE(SUM(size_bytes), 0) FROM {table}"  # noqa: S608 - fixed table list
+                        f"SELECT COALESCE(SUM(size_bytes), 0) FROM {table}"  # nosec B608  # noqa: S608 - fixed table list
                     ).fetchone()[0]
                     for table in ("traces", "spans", "events")
                 )
@@ -305,65 +305,66 @@ class TraceStore:
                         ),
                     )
 
+    def _prepare_connection(self, connection: sqlite3.Connection) -> None:
+        """Validate the target database and ensure the trace schema exists."""
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+        if tables and "trace_meta" not in tables:
+            raise ValueError(
+                "Trace path contains a different database; choose a separate path."
+            )
+        application_id = connection.execute("PRAGMA application_id").fetchone()[0]
+        if application_id not in (0, 0x41535452):
+            raise ValueError("Trace path belongs to a different application.")
+        if "trace_meta" in tables:
+            if connection.execute("SELECT version FROM trace_meta").fetchone()[0] != 1:
+                raise ValueError("Unsupported trace database schema version.")
+        connection.execute("PRAGMA application_id=1095980114")
+        connection.execute("PRAGMA page_size=4096")
+        connection.execute("PRAGMA auto_vacuum=INCREMENTAL")
+        connection.execute("PRAGMA foreign_keys=ON")
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("PRAGMA journal_size_limit=4194304")
+        connection.execute("PRAGMA wal_autocheckpoint=128")
+        connection.executescript("""
+            CREATE TABLE IF NOT EXISTS trace_meta(version INTEGER NOT NULL);
+            INSERT INTO trace_meta SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM trace_meta);
+            CREATE TABLE IF NOT EXISTS traces(
+                trace_id TEXT PRIMARY KEY, start_ns INTEGER NOT NULL,
+                updated_ns INTEGER NOT NULL, state TEXT NOT NULL,
+                has_errors INTEGER NOT NULL, has_models INTEGER NOT NULL,
+                has_plugins INTEGER NOT NULL, search TEXT NOT NULL,
+                data TEXT NOT NULL, size_bytes INTEGER NOT NULL,
+                root_span_id TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS traces_time ON traces(start_ns DESC, trace_id DESC);
+            CREATE INDEX IF NOT EXISTS traces_errors ON traces(has_errors, start_ns DESC);
+            CREATE INDEX IF NOT EXISTS traces_models ON traces(has_models, start_ns DESC);
+            CREATE INDEX IF NOT EXISTS traces_plugins ON traces(has_plugins, start_ns DESC);
+            CREATE TABLE IF NOT EXISTS spans(
+                span_id TEXT PRIMARY KEY, trace_id TEXT NOT NULL REFERENCES traces(trace_id) ON DELETE CASCADE,
+                parent_span_id TEXT, data TEXT NOT NULL, size_bytes INTEGER NOT NULL);
+            CREATE INDEX IF NOT EXISTS spans_trace ON spans(trace_id);
+            CREATE TABLE IF NOT EXISTS events(
+                event_id TEXT PRIMARY KEY, trace_id TEXT NOT NULL REFERENCES traces(trace_id) ON DELETE CASCADE,
+                span_id TEXT NOT NULL, time_ns INTEGER NOT NULL,
+                data TEXT NOT NULL, size_bytes INTEGER NOT NULL);
+            CREATE INDEX IF NOT EXISTS events_trace ON events(trace_id, time_ns);
+        """)
+        if connection.execute("SELECT version FROM trace_meta").fetchone()[0] != 1:
+            raise ValueError("Unsupported trace database schema version.")
+        # A process restart cannot resume spans from a previous process.
+
     def _run(self) -> None:
         """Own the connection, batch writes, and perform bounded retention."""
         connection = None
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             connection = sqlite3.connect(self.path, timeout=1)
-            tables = {
-                row[0]
-                for row in connection.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table'"
-                )
-            }
-            if tables and "trace_meta" not in tables:
-                raise ValueError(
-                    "Trace path contains a different database; choose a separate path."
-                )
-            application_id = connection.execute("PRAGMA application_id").fetchone()[0]
-            if application_id not in (0, 0x41535452):
-                raise ValueError("Trace path belongs to a different application.")
-            if "trace_meta" in tables:
-                if (
-                    connection.execute("SELECT version FROM trace_meta").fetchone()[0]
-                    != 1
-                ):
-                    raise ValueError("Unsupported trace database schema version.")
-            connection.execute("PRAGMA application_id=1095980114")
-            connection.execute("PRAGMA page_size=4096")
-            connection.execute("PRAGMA auto_vacuum=INCREMENTAL")
-            connection.execute("PRAGMA foreign_keys=ON")
-            connection.execute("PRAGMA journal_mode=WAL")
-            connection.execute("PRAGMA journal_size_limit=4194304")
-            connection.execute("PRAGMA wal_autocheckpoint=128")
-            connection.executescript("""
-                CREATE TABLE IF NOT EXISTS trace_meta(version INTEGER NOT NULL);
-                INSERT INTO trace_meta SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM trace_meta);
-                CREATE TABLE IF NOT EXISTS traces(
-                    trace_id TEXT PRIMARY KEY, start_ns INTEGER NOT NULL,
-                    updated_ns INTEGER NOT NULL, state TEXT NOT NULL,
-                    has_errors INTEGER NOT NULL, has_models INTEGER NOT NULL,
-                    has_plugins INTEGER NOT NULL, search TEXT NOT NULL,
-                    data TEXT NOT NULL, size_bytes INTEGER NOT NULL,
-                    root_span_id TEXT NOT NULL);
-                CREATE INDEX IF NOT EXISTS traces_time ON traces(start_ns DESC, trace_id DESC);
-                CREATE INDEX IF NOT EXISTS traces_errors ON traces(has_errors, start_ns DESC);
-                CREATE INDEX IF NOT EXISTS traces_models ON traces(has_models, start_ns DESC);
-                CREATE INDEX IF NOT EXISTS traces_plugins ON traces(has_plugins, start_ns DESC);
-                CREATE TABLE IF NOT EXISTS spans(
-                    span_id TEXT PRIMARY KEY, trace_id TEXT NOT NULL REFERENCES traces(trace_id) ON DELETE CASCADE,
-                    parent_span_id TEXT, data TEXT NOT NULL, size_bytes INTEGER NOT NULL);
-                CREATE INDEX IF NOT EXISTS spans_trace ON spans(trace_id);
-                CREATE TABLE IF NOT EXISTS events(
-                    event_id TEXT PRIMARY KEY, trace_id TEXT NOT NULL REFERENCES traces(trace_id) ON DELETE CASCADE,
-                    span_id TEXT NOT NULL, time_ns INTEGER NOT NULL,
-                    data TEXT NOT NULL, size_bytes INTEGER NOT NULL);
-                CREATE INDEX IF NOT EXISTS events_trace ON events(trace_id, time_ns);
-            """)
-            if connection.execute("SELECT version FROM trace_meta").fetchone()[0] != 1:
-                raise ValueError("Unsupported trace database schema version.")
-            # A process restart cannot resume spans from a previous process.
+            self._prepare_connection(connection)
             self._interrupt_inactive(connection)
             connection.commit()
             self._prune(connection)
@@ -537,7 +538,7 @@ class TraceStore:
         with closing(sqlite3.connect(self.path, timeout=1)) as connection:
             connection.execute("BEGIN")
             total = connection.execute(
-                "SELECT COUNT(*) FROM traces" + where,  # noqa: S608 - conditions are fixed fragments
+                "SELECT COUNT(*) FROM traces" + where,  # nosec B608  # noqa: S608 - conditions are fixed fragments
                 values,
             ).fetchone()[0]
             page = min(page, max(1, (total + limit - 1) // limit))
@@ -551,7 +552,7 @@ class TraceStore:
                 values.extend((int(stamp), int(stamp), trace_id))
             where = " WHERE " + " AND ".join(conditions) if conditions else ""
             rows = connection.execute(
-                "SELECT data, start_ns, trace_id FROM traces"  # noqa: S608 - conditions are fixed fragments
+                "SELECT data, start_ns, trace_id FROM traces"  # nosec B608  # noqa: S608 - conditions are fixed fragments
                 + where
                 + " ORDER BY start_ns DESC, trace_id DESC LIMIT ? OFFSET ?",
                 [*values, limit + 1, (page - 1) * limit],
@@ -567,7 +568,7 @@ class TraceStore:
             if legacy:
                 placeholders = ",".join("?" for _ in legacy)
                 for trace_id, data in connection.execute(
-                    f"SELECT trace_id, data FROM spans WHERE trace_id IN ({placeholders})",  # noqa: S608 - only placeholders are interpolated
+                    f"SELECT trace_id, data FROM spans WHERE trace_id IN ({placeholders})",  # nosec B608  # noqa: S608 - only placeholders are interpolated
                     list(legacy),
                 ):
                     if (

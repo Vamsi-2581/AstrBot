@@ -5191,29 +5191,29 @@ paths:
       parameters:
         - name: limit
           in: query
-          schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
         - name: cursor
           description: Legacy keyset cursor; use page for numbered pagination.
           in: query
-          schema: {type: string, maxLength: 64}
+          schema: { type: string, maxLength: 64 }
         - name: page
           in: query
-          schema: {type: integer, minimum: 1, default: 1}
+          schema: { type: integer, minimum: 1, default: 1 }
         - name: query
           in: query
-          schema: {type: string, maxLength: 256, default: ""}
+          schema: { type: string, maxLength: 256, default: '' }
         - name: errors
           in: query
-          schema: {type: boolean, default: false}
+          schema: { type: boolean, default: false }
         - name: models
           in: query
-          schema: {type: boolean, default: false}
+          schema: { type: boolean, default: false }
         - name: plugins
           in: query
-          schema: {type: boolean, default: false}
+          schema: { type: boolean, default: false }
       responses:
-        "200":
-          $ref: "#/components/responses/Ok"
+        '200':
+          $ref: '#/components/responses/Ok'
 
   /api/v1/trace/{trace_id}:
     get:
@@ -5225,11 +5225,11 @@ paths:
         - name: trace_id
           in: path
           required: true
-          schema: {type: string, pattern: "^[0-9a-f]{32}$"}
+          schema: { type: string, pattern: '^[0-9a-f]{32}$' }
       responses:
-        "200":
-          $ref: "#/components/responses/Ok"
-        "404":
+        '200':
+          $ref: '#/components/responses/Ok'
+        '404':
           description: Trace not found or already evicted.
 
   /api/v1/trace/settings:

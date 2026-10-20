@@ -67,13 +67,23 @@ let historyRefreshTimer = null;
 const clockNow = ref(Date.now() / 1000);
 const durationTimer = ref(null);
 const connected = ref(false);
-const recordingLabel = computed(() =>
-  !props.recordingEnabled
-    ? tm('controls.start')
-    : connected.value
-      ? tm('controls.pauseButton')
-      : tm('connecting'),
-);
+const recordingLabel = computed(() => {
+  if (!props.recordingEnabled) return tm('controls.start');
+  return connected.value ? tm('controls.pauseButton') : tm('connecting');
+});
+function traceStatus(summary, finished) {
+  if (summary.has_errors) return 'error';
+  return finished ? 'success' : 'running';
+}
+
+function handlerCategory(fields) {
+  if (fields.handler_type === 'OnCallingFuncToolEvent') return 'llm_tool';
+  if (fields.handler_type && fields.handler_type !== 'AdapterMessageEvent') {
+    return 'hook';
+  }
+  return 'listener';
+}
+
 const eventSource = ref(null);
 const retryTimer = ref(null);
 const retryAttempts = ref(0);
@@ -310,13 +320,7 @@ const timelineGroups = computed(() => {
     const fields = record.fields || {};
     const category =
       record.kind === 'plugin_handler'
-        ? fields.handler_category ||
-          (fields.handler_type === 'OnCallingFuncToolEvent'
-            ? 'llm_tool'
-            : fields.handler_type &&
-                fields.handler_type !== 'AdapterMessageEvent'
-              ? 'hook'
-              : 'listener')
+        ? fields.handler_category || handlerCategory(fields)
         : null;
     const previous = groups[groups.length - 1];
     // Only adjacent records are grouped, preserving the execution order.
@@ -561,7 +565,7 @@ function normalizeTracePayload(payload) {
     time: Number(summary.start_time_unix_nano) / 1e9,
     last_time: Number(summary.end_time_unix_nano) / 1e9 || time,
     completed: finished,
-    status: summary.has_errors ? 'error' : finished ? 'success' : 'running',
+    status: traceStatus(summary, finished),
     has_models: summary.has_models,
     has_plugins: summary.has_plugins,
     has_commands:
@@ -641,7 +645,7 @@ function normalizeTracePayload(payload) {
     const started = Number(model.start_time_unix_nano) / 1e9;
     records.push({
       span_id: summary.trace_id,
-      record_id: model.span_id + ':start',
+      record_id: `${model.span_id}:start`,
       operation_span_id: model.span_id,
       parent_span_id: model.parent_span_id,
       action,
@@ -654,7 +658,7 @@ function normalizeTracePayload(payload) {
       const ended = Number(model.end_time_unix_nano) / 1e9;
       records.push({
         span_id: summary.trace_id,
-        record_id: model.span_id + ':end',
+        record_id: `${model.span_id}:end`,
         operation_span_id: model.span_id,
         parent_span_id: model.parent_span_id,
         action: endAction,
@@ -747,11 +751,12 @@ function processNewTraces(newTraces) {
     }
     // Only the inspected trace retains span bodies. Other live packets update
     // bounded list summaries; history is paged independently from SQLite.
-    const records = normalized
-      ? selectedSpanId.value === trace.span_id || packet.spans
-        ? normalized.records
-        : []
-      : [trace];
+    let records = [trace];
+    if (normalized) {
+      const keepRecords =
+        selectedSpanId.value === trace.span_id || packet.spans;
+      records = keepRecords ? normalized.records : [];
+    }
     for (const record of records) {
       const recordKey =
         record.record_id ||
@@ -836,7 +841,8 @@ async function fetchTraceHistory(reset = true, reloadMetadata = false) {
     storageWarning.value = Boolean(
       data.storage?.error || data.storage?.dropped,
     );
-    if (reset && selectedSpanId.value) loadTraceDetail(selectedSpanId.value);
+    if (reset && selectedSpanId.value)
+      void loadTraceDetail(selectedSpanId.value);
   } catch (error) {
     if (request === historyRequest)
       historyError.value = tm('history.loadFailed');
@@ -890,7 +896,7 @@ function connectSSE() {
   source.onopen = () => {
     connected.value = true;
     retryAttempts.value = 0;
-    fetchTraceHistory();
+    void fetchTraceHistory();
   };
   source.onmessage = (event) => {
     if (event.lastEventId) lastEventId.value = event.lastEventId;
@@ -908,7 +914,7 @@ function connectSSE() {
         ) {
           historyRefreshTimer = setTimeout(() => {
             historyRefreshTimer = null;
-            fetchTraceHistory();
+            void fetchTraceHistory();
           }, 1000);
         }
       }
@@ -936,8 +942,8 @@ function selectEvent(spanId) {
     previous.records = [];
   selectedSpanId.value = spanId;
   if (spanId && eventIndex.get(spanId)?.model_version === 3)
-    loadTraceDetail(spanId);
-  nextTick(() => {
+    void loadTraceDetail(spanId);
+  void nextTick(() => {
     const row = document.querySelector(
       `[data-trace-id="${spanId || previousSpanId}"]`,
     );
@@ -999,16 +1005,19 @@ function recordLabel(record, grouped = false) {
   }
   if (record.action === 'handler_start' || record.action === 'handler_end') {
     const fields = record.fields || {};
-    const category =
-      fields.handler_category ||
-      (fields.handler_type === 'OnCallingFuncToolEvent'
-        ? 'llm_tool'
-        : fields.handler_type && fields.handler_type !== 'AdapterMessageEvent'
-          ? 'hook'
-          : null);
-    return category
-      ? `${label} (${tm(`handlerCategories.${category}`)})`
-      : label;
+    let category = fields.handler_category;
+    if (!category && fields.handler_type === 'OnCallingFuncToolEvent') {
+      category = 'llm_tool';
+    } else if (
+      !category &&
+      fields.handler_type &&
+      fields.handler_type !== 'AdapterMessageEvent'
+    ) {
+      category = 'hook';
+    }
+    if (!category) return label;
+    const categoryLabel = tm(`handlerCategories.${category}`);
+    return `${label} (${categoryLabel})`;
   }
   return label;
 }
@@ -1281,7 +1290,7 @@ onBeforeUnmount(() => {
                   historyPage = itemsPerPage !== pageSize ? 1 : page;
                   pageSize = itemsPerPage;
                   selectEvent(null);
-                  fetchTraceHistory();
+                  void fetchTraceHistory();
                 }
               "
               :mobile="false"
@@ -1400,9 +1409,9 @@ onBeforeUnmount(() => {
                   location="top"
                   content-class="trace-tooltip"
                 >
-                  <template #activator="{ props }">
+                  <template #activator="{ props: activatorProps }">
                     <span
-                      v-bind="props"
+                      v-bind="activatorProps"
                       class="trace-cell-text"
                       :class="{
                         'trace-hover-name':
@@ -1454,9 +1463,9 @@ onBeforeUnmount(() => {
                       location="top"
                       content-class="trace-tooltip"
                     >
-                      <template #activator="{ props }">
+                      <template #activator="{ props: activatorProps }">
                         <span
-                          v-bind="props"
+                          v-bind="activatorProps"
                           :class="{
                             'trace-hover-name':
                               umoNames[selectedEvent.umo] &&
@@ -1545,8 +1554,8 @@ onBeforeUnmount(() => {
                 location="top"
                 content-class="trace-tooltip"
               >
-                <template #activator="{ props }">
-                  <div v-bind="props" class="trace-stat" tabindex="0">
+                <template #activator="{ props: activatorProps }">
+                  <div v-bind="activatorProps" class="trace-stat" tabindex="0">
                     <Hash :size="15" /><span>{{ tm('tokens.title') }}</span
                     ><strong>{{
                       selectedTokenUsage
@@ -1686,9 +1695,9 @@ onBeforeUnmount(() => {
                             location="top"
                             content-class="trace-tooltip"
                           >
-                            <template #activator="{ props }">
+                            <template #activator="{ props: activatorProps }">
                               <v-chip
-                                v-bind="props"
+                                v-bind="activatorProps"
                                 class="timeline-metadata-chip"
                                 size="x-small"
                                 variant="tonal"
@@ -1818,9 +1827,9 @@ onBeforeUnmount(() => {
                         location="top"
                         content-class="trace-tooltip"
                       >
-                        <template #activator="{ props }">
+                        <template #activator="{ props: activatorProps }">
                           <v-chip
-                            v-bind="props"
+                            v-bind="activatorProps"
                             class="trace-hover-name timeline-metadata-chip"
                             size="x-small"
                             variant="tonal"
@@ -1844,9 +1853,9 @@ onBeforeUnmount(() => {
                           (open) => open && loadHandlerDescription(record)
                         "
                       >
-                        <template #activator="{ props }">
+                        <template #activator="{ props: activatorProps }">
                           <span
-                            v-bind="props"
+                            v-bind="activatorProps"
                             class="trace-hover-name"
                             tabindex="0"
                             >{{ record.fields.handler }}</span

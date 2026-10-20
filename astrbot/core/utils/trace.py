@@ -5,14 +5,20 @@ import secrets
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, cast
 
 from opentelemetry import context as otel_context
 from opentelemetry import trace as otel_trace
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import Span, SpanLimits, TracerProvider
+from opentelemetry.sdk.trace import Span as SDKSpan
+from opentelemetry.sdk.trace import SpanLimits, TracerProvider
 from opentelemetry.sdk.trace.sampling import ALWAYS_ON
-from opentelemetry.trace import Status, StatusCode, format_span_id, format_trace_id
+from opentelemetry.trace import (
+    Status,
+    StatusCode,
+    format_span_id,
+    format_trace_id,
+)
 
 from astrbot import __version__, logger
 from astrbot.core.log import LogQueueHandler
@@ -54,6 +60,11 @@ def configure_trace(config: Any) -> None:
     _config = config
 
 
+def _parent_span_id(span: SDKSpan) -> str:
+    """Return the parent span id, or an empty id for a root span."""
+    return format_span_id(span.parent.span_id) if span.parent else ""
+
+
 def _trace_config() -> dict:
     """Return the grouped trace settings for the active runtime."""
     return (_config or {}).get("trace") or {}
@@ -86,11 +97,14 @@ class TraceSpan:
         self.message_outline = bounded_text(message_outline or "", 4096)
         self.started_at = time.time()
         self._start_ns = time.time_ns()
-        self._root = _tracer.start_span(
-            self.name,
-            context=otel_context.Context(),
-            start_time=self._start_ns,
-            attributes={"astrbot.kind": "message"},
+        self._root = cast(
+            SDKSpan,
+            _tracer.start_span(
+                self.name,
+                context=otel_context.Context(),
+                start_time=self._start_ns,
+                attributes={"astrbot.kind": "message"},
+            ),
         )
         root_context = self._root.get_span_context()
         self.trace_id = format_trace_id(root_context.trace_id)
@@ -101,7 +115,7 @@ class TraceSpan:
         self._bytes = 0
         self._events = 0
         self._span_count = 1
-        self._pending: dict[str, tuple[Span, Any, str]] = {}
+        self._pending: dict[str, tuple[SDKSpan, Any, str]] = {}
         self._plugins: set[str] = set()
         self._summary = {
             "trace_id": self.trace_id,
@@ -146,7 +160,7 @@ class TraceSpan:
     def _emit(
         self,
         *,
-        span: Span | None = None,
+        span: SDKSpan | None = None,
         event: dict | None = None,
         closing: bool = False,
     ) -> None:
@@ -165,12 +179,12 @@ class TraceSpan:
         }
         self._summary["updated_time_unix_nano"] = payload["time_unix_nano"]
         if span is not None:
-            status = {"code": span.status.status_code.value}
+            status: dict[str, Any] = {"code": span.status.status_code.value}
             if span.status.description:
                 status["message"] = span.status.description
             payload["span"] = {
-                "trace_id": format_trace_id(span.context.trace_id),
-                "span_id": format_span_id(span.context.span_id),
+                "trace_id": format_trace_id(span.get_span_context().trace_id),
+                "span_id": format_span_id(span.get_span_context().span_id),
                 "parent_span_id": format_span_id(span.parent.span_id)
                 if span.parent
                 else None,
@@ -264,7 +278,8 @@ class TraceSpan:
         current = otel_trace.get_current_span()
         if (
             not current.is_recording()
-            or current.get_span_context().trace_id != self._root.context.trace_id
+            or current.get_span_context().trace_id
+            != self._root.get_span_context().trace_id
         ):
             current = self._root
         parent = format_span_id(current.get_span_context().span_id)
@@ -286,23 +301,26 @@ class TraceSpan:
                 "agent_start": "agent",
                 "agent_tool_call": "tool",
             }[action]
-            span = _tracer.start_span(
-                bounded_text(
-                    str(
-                        fields.get("handler_full_name")
-                        or fields.get("tool_name")
-                        or call_kind
+            span = cast(
+                SDKSpan,
+                _tracer.start_span(
+                    bounded_text(
+                        str(
+                            fields.get("handler_full_name")
+                            or fields.get("tool_name")
+                            or call_kind
+                        ),
+                        256,
                     ),
-                    256,
+                    context=otel_trace.set_span_in_context(current),
+                    start_time=now,
+                    attributes={
+                        **attrs,
+                        "astrbot.kind": call_kind,
+                    },
                 ),
-                context=otel_trace.set_span_in_context(current),
-                start_time=now,
-                attributes={
-                    **attrs,
-                    "astrbot.kind": call_kind,
-                },
             )
-            span_id = format_span_id(span.context.span_id)
+            span_id = format_span_id(span.get_span_context().span_id)
             token = otel_context.attach(otel_trace.set_span_in_context(span))
             self._pending[span_id] = (span, token, starts[action])
             self._span_count += 1
@@ -342,12 +360,12 @@ class TraceSpan:
                     end_action == action
                     and (
                         action != "handler_end"
-                        or span.attributes.get("astrbot.handler_full_name")
+                        or (span.attributes or {}).get("astrbot.handler_full_name")
                         == fields.get("handler_full_name")
                     )
                 ):
                     break
-                target = format_span_id(span.parent.span_id)
+                target = _parent_span_id(span)
             if action != "pipeline_end" and target not in self._pending:
                 return
             # Close abandoned descendants before their ancestor. Their copied
@@ -358,7 +376,7 @@ class TraceSpan:
                 if is_target:
                     span.set_attributes(
                         bounded_attributes(
-                            {**span.attributes, **attrs},
+                            {**(span.attributes or {}), **attrs},
                             max_bytes=MAX_TRACE_BYTES,
                         )
                     )
@@ -380,7 +398,7 @@ class TraceSpan:
                     self._summary["has_errors"] = True
                 span.end(end_time=now)
                 otel_context.detach(token)
-                parent = format_span_id(span.parent.span_id)
+                parent = _parent_span_id(span)
                 self._emit(span=span, closing=True)
                 if is_target:
                     break

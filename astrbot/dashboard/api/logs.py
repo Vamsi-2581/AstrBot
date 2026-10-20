@@ -138,6 +138,7 @@ async def get_trace_detail(
     service: LogService = Depends(get_service),
 ):
     """Return one trace's canonical spans and events."""
+    detail = None
     try:
         detail = await service.get_trace_detail(trace_id)
     except LogServiceError as exc:
