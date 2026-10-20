@@ -201,9 +201,9 @@ def _extract_requirement_names_from_package_tokens(tokens: list[str]) -> frozens
             continue
 
         if (
-            (token.startswith("-i") and token != "-i")
-            or (token.startswith("-f") and token != "-f")
-            or token == "--no-index"
+            (token.startswith("-i") and token != "-i")  # noqa: S105  # constant/name, not a credential
+            or (token.startswith("-f") and token != "-f")  # noqa: S105  # constant/name, not a credential
+            or token == "--no-index"  # noqa: S105  # constant/name, not a credential
         ):
             continue
 

@@ -438,7 +438,8 @@ class KookClient:
             try:
                 # 随机化心跳间隔 (±5秒)
                 interval = max(
-                    1, self.config.heartbeat_interval + random.randint(-5, 5)
+                    1,
+                    self.config.heartbeat_interval + random.randint(-5, 5),  # noqa: S311  # non-cryptographic jitter/identifier selection
                 )
                 await asyncio.sleep(interval)
 

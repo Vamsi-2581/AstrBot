@@ -6,8 +6,8 @@ from astrbot.core.utils.auth_password import (
     is_pbkdf2_dashboard_password,
 )
 
-PASSWORD_STORAGE_UPGRADED_KEY = "password_storage_upgraded"
-PASSWORD_CHANGE_REQUIRED_KEY = "password_change_required"
+PASSWORD_STORAGE_UPGRADED_KEY = "password_storage_upgraded"  # noqa: S105  # constant/name, not a credential
+PASSWORD_CHANGE_REQUIRED_KEY = "password_change_required"  # noqa: S105  # constant/name, not a credential
 
 
 async def _set_dashboard_flag(

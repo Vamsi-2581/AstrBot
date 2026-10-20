@@ -8,7 +8,7 @@ from astrbot.runtime_instance_lock import RuntimeInstanceLockHeld
 
 from ..utils.basic import check_astrbot_root, get_astrbot_root
 
-DASHBOARD_RESET_PASSWORD_ENV = "ASTRBOT_RESET_DASHBOARD_PASSWORD"
+DASHBOARD_RESET_PASSWORD_ENV = "ASTRBOT_RESET_DASHBOARD_PASSWORD"  # noqa: S105  # constant/name, not a credential
 
 
 async def _run_application() -> None:

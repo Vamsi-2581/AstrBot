@@ -1,5 +1,5 @@
 # The command's executable and arguments are fixed; shell remains disabled.
-import subprocess  # nosec B404
+import subprocess  # noqa: S404  # nosec B404
 import sys
 
 import click

@@ -11,7 +11,7 @@ from typing import Any
 import aiohttp
 
 # PyCryptodome is required by the upstream AES protocol implementation here.
-from Crypto.Cipher import AES  # nosec B413
+from Crypto.Cipher import AES  # noqa: S413  # nosec B413
 
 from astrbot import logger
 

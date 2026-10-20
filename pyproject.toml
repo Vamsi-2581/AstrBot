@@ -139,6 +139,11 @@ line-length = 88
 target-version = "py315"
 
 [tool.ruff.lint]
+# Preview mode is required for the import-level S4xx security rules. Keep
+# preview rule selection explicit so unrelated unstable rules cannot appear
+# silently.
+preview = true
+explicit-preview-rules = true
 select = [
   "F",     # Pyflakes
   "W",     # pycodestyle warnings
@@ -148,7 +153,23 @@ select = [
   "Q",     # flake8-quotes
   "I",     # import-order
   "UP",    # pyupgrade
-  # "SIM", # flake8-simplify 
+  # "SIM", # flake8-simplify
+  "S", # flake8-bandit security rules
+  # Stable security rules are covered by "S"; preview security rules require
+  # their exact codes with explicit-preview-rules enabled.
+  "S401", # telnetlib import
+  "S402", # ftplib import
+  "S403", # pickle/cPickle/dill/shelve import
+  "S404", # subprocess import
+  "S405", # xml.etree import
+  "S406", # xml.sax import
+  "S407", # xml.dom.expatbuilder import
+  "S408", # xml.dom.minidom import
+  "S409", # xml.dom.pulldom import
+  "S411", # xmlrpc import
+  "S412", # httpoxy import
+  "S413", # pycrypto import
+  "S415", # pyghmi import
 ]
 ignore = [
   "F403",
@@ -156,6 +177,11 @@ ignore = [
   "E501",
   "ASYNC230", # TODO: handle ASYNC230 in AstrBot
   "ASYNC240", # TODO: handle ASYNC240 in AstrBot
+  # These flake8-bandit rules are not security categories: S101 is a
+  # restriction rule, while S110/S112 are suspicious-code checks.
+  "S101",
+  "S110",
+  "S112",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -163,6 +189,16 @@ ignore = [
 "tests/unit/platform/napcat_adapter_support.py" = ["F401"]
 "tests/unit/dashboard/dashboard_lifecycle_support.py" = ["F401"]
 "tests/unit/dashboard/fastapi_v1_support.py" = ["F401"]
+# Security linting targets the shipped runtime. Tests and developer tooling use
+# fixed temp paths, fixtures, and subprocess helpers by design.
+"tests/**" = ["S"]
+"scripts/**" = ["S"]
+"docs/**" = ["S"]
+".agents/**" = ["S"]
+# FTS and migration SQL interpolate module-level identifiers, never user input.
+"astrbot/core/db/vec_db/document_storage.py" = ["S608"]
+"astrbot/core/db/migrations/bootstrap.py" = ["S608"]
+"astrbot/core/db/migrations/runner.py" = ["S608"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 15

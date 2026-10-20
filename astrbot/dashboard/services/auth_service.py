@@ -64,10 +64,10 @@ from astrbot.dashboard.services.oidc_service import OidcClient, OidcError
 
 DASHBOARD_JWT_COOKIE_NAME = "astrbot_dashboard_jwt"
 DASHBOARD_JWT_COOKIE_MAX_AGE = 7 * 24 * 60 * 60
-DASHBOARD_SESSION_TOKEN_TYPE = "dashboard_session"
+DASHBOARD_SESSION_TOKEN_TYPE = "dashboard_session"  # noqa: S105  # constant/name, not a credential
 DASHBOARD_SESSION_AUDIENCE = "astrbot-dashboard"
 DASHBOARD_SESSION_ISSUER_PURPOSE = b"dashboard-session-issuer-v1"
-SKIP_DEFAULT_PASSWORD_AUTH_ENV = "ASTRBOT_DASHBOARD_SKIP_DEFAULT_PASSWORD_AUTH"
+SKIP_DEFAULT_PASSWORD_AUTH_ENV = "ASTRBOT_DASHBOARD_SKIP_DEFAULT_PASSWORD_AUTH"  # noqa: S105  # constant/name, not a credential
 LOCAL_DASHBOARD_HOSTS = {"127.0.0.1", "localhost", "::1"}
 DEFAULT_PASSWORD_LOGIN_FAILURE_MESSAGE = (
     "Login failed. If this is your first time using AstrBot, the old default "
@@ -890,7 +890,7 @@ class AuthService:
 
         if not login_verified:
             await asyncio.sleep(3)
-            if req_password == "astrbot":
+            if req_password == "astrbot":  # noqa: S105  # only selects the failure message
                 return self.error(DEFAULT_PASSWORD_LOGIN_FAILURE_MESSAGE)
             return self.error("用户名或密码错误", status_code=401)
 

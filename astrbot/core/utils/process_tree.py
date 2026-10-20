@@ -25,7 +25,7 @@ one way to stop it, whichever platform it is on.
 import asyncio
 import contextlib
 import ctypes.wintypes
-import subprocess
+import subprocess  # noqa: S404  # subprocess is an intentional runtime dependency
 import sys
 import threading
 import time
@@ -348,7 +348,7 @@ class ProcessTree:
             return
         try:
             subprocess.run(  # noqa: S603
-                ["taskkill", "/F", "/T", "/PID", str(pid)],
+                ["taskkill", "/F", "/T", "/PID", str(pid)],  # noqa: S607  # fixed system utility invocation
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 timeout=5,

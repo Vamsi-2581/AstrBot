@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import signal as signal_module
-import subprocess
+import subprocess  # noqa: S404  # subprocess is an intentional runtime dependency
 import sys
 import tempfile
 from abc import abstractmethod
@@ -140,7 +140,7 @@ class UnixProcessSandbox(ProcessSandbox):
             tempfile.TemporaryFile() as stderr_file,
         ):
             try:
-                result = subprocess.run(
+                result = subprocess.run(  # noqa: S603  # argv is built internally; sandbox/blocklist is the boundary
                     self.build_command(argv, spec, env=env),
                     cwd=spec.workspace.resolve(),
                     env={"PATH": os.defpath},

@@ -20,8 +20,8 @@ from astrbot.core.utils.auth_password import (
 from .default import DEFAULT_CONFIG, DEFAULT_VALUE_MAP
 
 ASTRBOT_CONFIG_PATH = os.path.join(get_astrbot_data_path(), "cmd_config.json")
-DASHBOARD_INITIAL_PASSWORD_ENV = "ASTRBOT_DASHBOARD_INITIAL_PASSWORD"
-DASHBOARD_RESET_PASSWORD_ENV = "ASTRBOT_RESET_DASHBOARD_PASSWORD"
+DASHBOARD_INITIAL_PASSWORD_ENV = "ASTRBOT_DASHBOARD_INITIAL_PASSWORD"  # noqa: S105  # constant/name, not a credential
+DASHBOARD_RESET_PASSWORD_ENV = "ASTRBOT_RESET_DASHBOARD_PASSWORD"  # noqa: S105  # constant/name, not a credential
 logger = logging.getLogger("astrbot")
 
 

@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-import subprocess
+import subprocess  # noqa: S404  # subprocess is an intentional runtime dependency
 import wave
 from io import BytesIO
 

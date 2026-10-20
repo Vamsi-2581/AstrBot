@@ -154,7 +154,7 @@ class ProviderGoogleGenAI(Provider):
         if e.code == 429 or "API key not valid" in e.message:
             keys.remove(self.chosen_api_key)
             if len(keys) > 0:
-                self.set_key(random.choice(keys))
+                self.set_key(random.choice(keys))  # noqa: S311  # non-cryptographic jitter/identifier selection
                 logger.warning(
                     "Retrying with a different API key due to detected key issue: %s.",
                     e.message,

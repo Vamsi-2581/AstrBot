@@ -58,7 +58,7 @@ PROTECTED_2FA_CONFIG_PATHS = (
     ("dashboard", "totp", "recovery_code_hash"),
 )
 MAX_FILE_BYTES = 500 * 1024 * 1024
-REDACTED_SECRET_PLACEHOLDER = "__ASTRBOT_REDACTED__"
+REDACTED_SECRET_PLACEHOLDER = "__ASTRBOT_REDACTED__"  # noqa: S105  # constant/name, not a credential
 SENSITIVE_CONFIG_KEYS = frozenset(
     {
         "access_token",

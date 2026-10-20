@@ -12,7 +12,7 @@ _PBKDF2_ALGORITHM = "pbkdf2_sha256"
 _PBKDF2_FORMAT = f"{_PBKDF2_ALGORITHM}$"
 _DASHBOARD_PASSWORD_MIN_LENGTH = 8
 _GENERATED_DASHBOARD_PASSWORD_LENGTH = 24
-DEFAULT_DASHBOARD_PASSWORD = "astrbot"
+DEFAULT_DASHBOARD_PASSWORD = "astrbot"  # noqa: S105  # legacy value for upgrade detection
 
 
 def generate_dashboard_password() -> str:

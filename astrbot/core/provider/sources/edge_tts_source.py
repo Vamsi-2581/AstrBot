@@ -1,6 +1,6 @@
 import asyncio
 import importlib
-import subprocess
+import subprocess  # noqa: S404  # subprocess is an intentional runtime dependency
 import uuid
 from pathlib import Path
 

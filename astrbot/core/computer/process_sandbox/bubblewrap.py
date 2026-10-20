@@ -69,11 +69,11 @@ class BubblewrapProcessSandbox(UnixProcessSandbox):
             command.extend(
                 (
                     "--dir",
-                    "/tmp",  # nosec B108
+                    "/tmp",  # noqa: S108  # nosec B108
                     "--size",
                     str(_TMP_BYTES),
                     "--tmpfs",
-                    "/tmp",  # nosec B108
+                    "/tmp",  # noqa: S108  # nosec B108
                 )
             )
 
@@ -126,8 +126,8 @@ class BubblewrapProcessSandbox(UnixProcessSandbox):
             readonly_paths = {path for path in readonly_paths if path.exists()}
 
             required_directories = {
-                Path("/tmp"),  # nosec B108
-                Path("/tmp/home"),  # nosec B108
+                Path("/tmp"),  # noqa: S108  # nosec B108
+                Path("/tmp/home"),  # noqa: S108  # nosec B108
             }
             for path in (*readonly_paths, *writable_paths):
                 required_directories.update(
@@ -139,7 +139,7 @@ class BubblewrapProcessSandbox(UnixProcessSandbox):
                 required_directories,
                 key=lambda path: len(path.parts),
             ):
-                if directory != Path("/tmp"):  # nosec B108
+                if directory != Path("/tmp"):  # noqa: S108  # nosec B108
                     command.extend(("--dir", str(directory)))
             command.extend(("--proc", "/proc", "--dev", "/dev"))
 
@@ -174,10 +174,10 @@ class BubblewrapProcessSandbox(UnixProcessSandbox):
                 f"{Path(sys.executable).parent}:/usr/local/bin:/usr/bin:/bin",
                 "--setenv",
                 "HOME",
-                str(workspace) if spec.filesystem_scope == "host" else "/tmp/home",  # nosec B108
+                str(workspace) if spec.filesystem_scope == "host" else "/tmp/home",  # noqa: S108  # nosec B108
                 "--setenv",
                 "TMPDIR",
-                "/tmp",  # nosec B108
+                "/tmp",  # noqa: S108  # nosec B108
                 "--setenv",
                 "LANG",
                 "C.UTF-8",

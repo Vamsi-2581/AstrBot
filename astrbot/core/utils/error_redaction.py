@@ -1,7 +1,7 @@
 import re
 
 _SECRET_KEYS = (
-    r"(?:api_?key|access_?token|auth_?token|refresh_?token|session_?id|secret|password)"
+    r"(?:api_?key|access_?token|auth_?token|refresh_?token|session_?id|secret|password)"  # noqa: S105  # constant/name, not a credential
 )
 
 _JSON_FIELD_PATTERN = re.compile(

@@ -9,7 +9,7 @@ TContext = TypeVar("TContext", default=Any)
 
 
 @dataclass
-class ContextWrapper(Generic[TContext]):
+class ContextWrapper(Generic[TContext]):  # noqa: UP046  # public TypeVar is re-exported
     """A context for running an agent, which can be used to pass additional data or state."""
 
     context: TContext

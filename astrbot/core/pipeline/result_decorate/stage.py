@@ -291,7 +291,7 @@ class ResultDecorateStage(Stage):
             bool(self.ctx.astrbot_config["provider_tts_settings"]["enable"])
             and result.is_llm_result()
             and await self.session_services.should_process_tts_request(event)
-            and random.random() <= self.tts_trigger_probability
+            and random.random() <= self.tts_trigger_probability  # noqa: S311  # non-cryptographic jitter/identifier selection
         )
         if not should_tts:
             return False
