@@ -145,6 +145,6 @@ describe('TemplateListEditor smoke', () => {
     const emitted = wrapper.emitted('update:modelValue');
     expect(emitted).toBeTruthy();
     const next = emitted!.at(-1)?.[0] as Array<Record<string, unknown>>;
-    expect(next[0]).toMatchObject({ settings: {} });
+    expect(next[0]?.settings).toEqual({});
   });
 });
