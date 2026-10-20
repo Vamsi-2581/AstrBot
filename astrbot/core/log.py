@@ -462,7 +462,7 @@ class LogBroker:
                 except asyncio.QueueFull:
                     # A subscriber that cannot keep up drops this entry; log
                     # streaming is best-effort and must never block publishing.
-                    pass
+                    continue
                 continue
             # Reserve space before scheduling so queued callbacks stay bounded.
             with self._subscriber_lock:
@@ -484,7 +484,7 @@ class LogBroker:
                 except asyncio.QueueFull:
                     # The consumer's bounded queue is full; dropping one
                     # best-effort log entry is preferable to unbounded growth.
-                    pass
+                    return
 
             try:
                 owner.call_soon_threadsafe(enqueue)
