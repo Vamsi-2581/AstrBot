@@ -80,6 +80,7 @@ def validate_event(event: Any, *, line_number: int | None = None) -> None:
         "reason_codes",
         "affected_paths",
         "integration_commits",
+        "follow_up_commits",
         "tests",
         "supersedes",
     ):
@@ -92,8 +93,9 @@ def validate_event(event: Any, *, line_number: int | None = None) -> None:
         for value in event.get(key, []):
             if not value.strip():
                 raise LedgerError(f"{key} cannot contain empty values{where}")
-    for value in event.get("integration_commits", []):
-        normalize_sha(value)
+    for key in ("integration_commits", "follow_up_commits"):
+        for value in event.get(key, []):
+            normalize_sha(value)
     if "review_verdict" in event:
         if event["review_verdict"] not in REVIEW_VERDICTS:
             raise LedgerError(f"invalid review_verdict{where}")
@@ -213,6 +215,7 @@ def common_record_args(
     parser.add_argument(
         "--integration-commit", action="append", default=optional_default
     )
+    parser.add_argument("--follow-up-commit", action="append", default=optional_default)
     parser.add_argument("--test", action="append", default=optional_default)
     parser.add_argument("--supersedes", action="append", default=optional_default)
     parser.add_argument("--fork-adaptation", default=text_default)
@@ -260,6 +263,9 @@ def make_upsert(
         "affected_paths": normalize_list(args.affected_paths),
         "integration_commits": [
             normalize_sha(x) for x in normalize_list(args.integration_commit)
+        ],
+        "follow_up_commits": [
+            normalize_sha(x) for x in normalize_list(args.follow_up_commit)
         ],
         "tests": normalize_list(args.test),
         "supersedes": [normalize_sha(x) for x in normalize_list(args.supersedes)],
@@ -403,6 +409,7 @@ def command_add_or_update(args: argparse.Namespace, operation: str) -> None:
             ("reason_code", "reason_codes"),
             ("affected_paths", "affected_paths"),
             ("integration_commit", "integration_commits"),
+            ("follow_up_commit", "follow_up_commits"),
             ("test", "tests"),
             ("supersedes", "supersedes"),
             ("fork_adaptation", "fork_adaptation"),
@@ -527,6 +534,7 @@ def command_import_git(args: argparse.Namespace) -> None:
             reason_code=item["reason_codes"],
             affected_paths=[],
             integration_commit=[item["git_commit"]],
+            follow_up_commit=[],
             test=item["tests"],
             supersedes=[],
             fork_adaptation=item["fork_deviations"],

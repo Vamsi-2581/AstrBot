@@ -122,8 +122,9 @@ topological order:
    `revisit` verdict. Record the review before moving to the next commit.
 
 Use reason codes such as `security`, `fork-architecture`, `no-legacy`,
-`python-314`, `toolchain`, `source-build`, `openapi`, `generated-model`,
-`docs-scope`, and `release-policy` so future searches remain cheap.
+`toolchain`, `source-build`, `openapi`, `generated-model`, `docs-scope`,
+`release-policy`, and `upstream-compatible` so future searches remain cheap.
+Use `upstream-compatible` for a `cherry-pick` that needs no fork adaptation.
 
 ## Integration commit strategy
 
@@ -213,6 +214,12 @@ its author must be the upstream author for `cherry-pick`, `adapt`, and
 `replay` unless the user explicitly directs otherwise. The fork maintainer is
 normally the committer.
 
+Keep `integration_commits` for primary implementation commits with provenance.
+Record shared lint, lockfile, generated-asset, or review-fix commits that
+support more than one upstream decision in `follow_up_commits` instead. A
+follow-up commit may be attributed to several decisions; it must exist and be
+reachable, but it is not counted as a duplicate integration commit.
+
 ## Per-commit independent review
 
 Every commit in the audited interval, including `skip` and `revisit`, gets a
@@ -291,6 +298,19 @@ Record the verdict in the checkpoint and, once final, in the ledger review
 fields. Use a Codex agent spec such as `codex/<model>:<effort>` for the
 reviewer.
 
+### Legacy ledger review policy
+
+The independent-review gate applies to decisions first recorded on or after
+`2026-10-19T17:38:28Z` (the commit that introduced the gate). Decisions first
+recorded before that cutoff are explicitly grandfathered: they are reported as
+`legacy-review-exempt` with `info` severity instead of a missing-review error.
+The exemption follows the first ledger event for an upstream commit, so later
+metadata-only revisions remain grandfathered without pretending they were
+reviewed. A revision that changes the disposition, or a delete followed by a
+re-add, is a new decision and requires the full review fields when recorded
+after the cutoff. Do not backfill `reviewer` or `review_notes` for a review
+that did not happen.
+
 ## Checkpoint and report
 
 The checkpoint is ephemeral working state; `upstream-decisions.jsonl` remains
@@ -362,20 +382,24 @@ python .agents/skills/sync-upstream/scripts/audit_upstream_decisions.py \
 ```
 
 The default report prints errors and summarizes warnings; `--verbose` lists
-warnings too, and `--json` emits every finding. Exit status is `1` when there
-is an error, `2` when the ledger cannot be read. A missing review on a legacy
-decision is a warning by default; `--require-review` makes it an error for the
-audited range. `--strict-provenance` requires every integration commit to name
-its upstream SHA in a trailer or Git's `cherry picked from` line. Use
-`--no-git` when auditing a ledger without the relevant object database.
+warnings and legacy review exceptions too, and `--json` emits every finding.
+Exit status is `1` when there is an error, `2` when the ledger cannot be read.
+A missing review on a legacy decision is an explicit `legacy-review-exempt`
+info finding; `--require-review` makes a missing review an error only after the
+legacy cutoff. `--strict-provenance` requires every primary integration commit
+to name its upstream SHA in a trailer, Git's `cherry picked from` line, or the
+historical `Adapted from upstream <sha>` line. Integration and follow-up
+commits must also be reachable from `--ref` (default `HEAD`). Use `--no-git`
+when auditing a ledger without the relevant object database.
 
 Audit errors mean the decision record is internally inconsistent: a code
 change with no integration commit, a `skip` with an integration commit, an
 `adapt` with no adaptation note, a review verdict that contradicts the
-disposition, a missing Git object, or provenance that names a different
-upstream commit. Warnings identify gaps that may be legitimate for older
-records, such as a missing test command, a missing source PR, a missing skip
-rationale, or a legacy decision with no independent review.
+disposition, a missing or unreachable Git object, or provenance that names a
+different upstream commit. Warnings identify gaps that may be legitimate for
+older records, such as a missing test command, a missing source PR, or a
+missing skip rationale. Legacy decisions without an independent review are
+separate `info` findings and do not fail the audit.
 
 ## Conflict and duplicate handling
 
