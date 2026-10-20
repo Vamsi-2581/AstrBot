@@ -847,7 +847,7 @@ class AuthService:
                 or account.username != authenticated_username
             ):
                 return self.error("未授权")
-            duplicate = await self._find_dashboard_account(username)
+            duplicate = await self._find_account_by_username(username)
             if duplicate is not None and duplicate.account_id != account.account_id:
                 return self.error("Dashboard username already exists")
 
@@ -1253,6 +1253,15 @@ class AuthService:
             result = await session.execute(
                 select(DashboardAccount).where(
                     col(DashboardAccount.account_id) == account_id
+                )
+            )
+            return result.scalar_one_or_none()
+
+    async def _find_account_by_username(self, username: str) -> DashboardAccount | None:
+        async with self.db.get_db() as session:
+            result = await session.execute(
+                select(DashboardAccount).where(
+                    col(DashboardAccount.username) == username
                 )
             )
             return result.scalar_one_or_none()
