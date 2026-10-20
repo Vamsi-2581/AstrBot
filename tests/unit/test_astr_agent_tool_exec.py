@@ -1129,3 +1129,90 @@ async def test_collect_handoff_image_urls_filters_extensionless_file_outside_tem
     )
 
     assert image_urls == []
+
+
+@pytest.mark.asyncio
+async def test_do_handoff_background_redacts_failure_text(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    captured: dict = {}
+
+    async def _fake_execute_handoff(
+        cls, tool, run_context, image_urls_prepared=False, **tool_args
+    ):
+        raise RuntimeError(
+            "handoff failed https://user:pass@internal.example.test/path?token=secret"
+        )
+        yield
+
+    async def _fake_wake(cls, run_context, **kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(
+        FunctionToolExecutor,
+        "_execute_handoff",
+        classmethod(_fake_execute_handoff),
+    )
+    monkeypatch.setattr(
+        FunctionToolExecutor,
+        "_wake_main_agent_for_background_result",
+        classmethod(_fake_wake),
+    )
+
+    await FunctionToolExecutor._do_handoff_background(
+        tool=_DummyTool(),
+        run_context=_build_run_context(),
+        task_id="task-id",
+        input="hello",
+    )
+
+    result_text = captured["result_text"]
+    assert "internal.example.test" not in result_text
+    assert "user:pass" not in result_text
+    assert "token=secret" not in result_text
+
+
+@pytest.mark.asyncio
+async def test_execute_background_redacts_failure_text(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    captured: dict = {}
+
+    async def _fake_execute_local(
+        cls, tool, run_context, tool_call_timeout=3600, **tool_args
+    ):
+        raise RuntimeError(
+            "background failed https://user:pass@internal.example.test/path?token=secret"
+        )
+        yield
+
+    async def _fake_wake(cls, run_context, **kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(
+        FunctionToolExecutor,
+        "_execute_local",
+        classmethod(_fake_execute_local),
+    )
+    monkeypatch.setattr(
+        FunctionToolExecutor,
+        "_wake_main_agent_for_background_result",
+        classmethod(_fake_wake),
+    )
+
+    tool = FunctionTool(
+        name="background-tool",
+        description="run in the background",
+        parameters={"type": "object", "properties": {}},
+        is_background_task=True,
+    )
+    await FunctionToolExecutor._execute_background(
+        tool=tool,
+        run_context=_build_run_context(),
+        task_id="task-id",
+    )
+
+    result_text = captured["result_text"]
+    assert "internal.example.test" not in result_text
+    assert "user:pass" not in result_text
+    assert "token=secret" not in result_text

@@ -429,7 +429,18 @@ def describe_media_ref(media_ref: object | None) -> str:
     if parsed.scheme in {"http", "https"}:
         filename = Path(unquote(parsed.path or "")).name
         suffix = f" file={filename!r}" if filename else ""
-        return f"{parsed.scheme} URL host={parsed.netloc!r}{suffix} len={ref_len}"
+        hostname = parsed.hostname or ""
+        try:
+            port = parsed.port
+        except ValueError:
+            port = None
+        if ":" in hostname:
+            host = f"[{hostname}]"
+            if port is not None:
+                host = f"{host}:{port}"
+        else:
+            host = hostname if port is None else f"{hostname}:{port}"
+        return f"{parsed.scheme} URL host={host!r}{suffix} len={ref_len}"
 
     if is_file_uri(media_ref):
         filename = Path(file_uri_to_path(media_ref)).name

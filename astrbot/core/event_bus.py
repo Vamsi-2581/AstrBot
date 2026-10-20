@@ -11,6 +11,7 @@ class:
 """
 
 import asyncio
+import re
 import time
 from collections.abc import Callable
 from contextlib import nullcontext
@@ -24,6 +25,18 @@ from astrbot.core.platform.message_type import MessageType
 from astrbot.core.utils.error_redaction import redact_sensitive_text
 
 from .platform import AstrMessageEvent
+
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+_IDENTITY_LOG_LIMIT = 64
+
+
+def _sanitize_log_identity(value: object | None, *, fallback: str = "") -> str:
+    text = str(value) if value is not None else ""
+    text = _CONTROL_CHARS.sub("", redact_sensitive_text(text)).strip()
+    if not text:
+        return fallback
+    return text[:_IDENTITY_LOG_LIMIT]
+
 
 UNIQUE_SESSION_ID_BUILDERS: dict[str, Callable[[AstrMessageEvent], str | None]] = {
     "aiocqhttp": lambda e: f"{e.get_sender_id()}_{e.get_group_id()}",
@@ -188,8 +201,9 @@ class EventBus:
             if queue_wait >= self._QUEUE_WAIT_LOG_THRESHOLD_S:
                 queue_wait_suffix = f" (queued {queue_wait:.2f}s)"
 
-        sender_name = event.get_sender_name()
-        sender_id = str(event.get_sender_id())
+        raw_sender_id = str(event.get_sender_id())
+        sender_id = _sanitize_log_identity(raw_sender_id, fallback="unknown")
+        sender_name = _sanitize_log_identity(event.get_sender_name())
         platform_id = event.get_platform_id()
         platform_name = event.get_platform_name()
         outline = redact_sensitive_text(str(event.get_message_outline()))[:160]

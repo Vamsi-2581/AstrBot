@@ -444,6 +444,30 @@ class TestPrintEvent:
         assert "user123" in call_args
         assert "Hello" in call_args
 
+    def test_print_event_sanitizes_sender_identity(self, event_bus):
+        """Platform-controlled sender fields must not inject log lines or secrets."""
+        mock_event = MagicMock()
+        mock_event.get_platform_id.return_value = "test-platform"
+        mock_event.get_platform_name.return_value = "Test Platform"
+        mock_event.get_sender_name.return_value = (
+            "Evil\r\nInjected api_key=top-secret " + "x" * 200
+        )
+        mock_event.get_sender_id.return_value = "user\nid"
+        mock_event.get_message_outline.return_value = "Hello"
+
+        with patch("astrbot.core.event_bus.logger") as mock_logger:
+            event_bus._print_event(mock_event, "TestConfig")
+
+        call_args = mock_logger.info.call_args[0][0]
+        assert "\r" not in call_args
+        assert "\n" not in call_args
+        assert "top-secret" not in call_args
+        summary = mock_logger.info.call_args.kwargs["extra"]["summary"]
+        assert "\r" not in summary
+        assert "\n" not in summary
+        assert "top-secret" not in summary
+        assert len(summary) < 400
+
     def test_print_event_without_sender_name(self, event_bus):
         """Test printing event without sender name."""
         mock_event = MagicMock()

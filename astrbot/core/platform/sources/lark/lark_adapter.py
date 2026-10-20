@@ -563,7 +563,7 @@ class LarkPlatformAdapter(Platform):
             logger.warning(
                 "[Lark] 获取引用消息异常 id=%s error=%s，降级为轻量 Reply。",
                 parent_message_id,
-                e,
+                safe_error("", e),
             )
             return _lightweight_reply(), ""
 
@@ -797,14 +797,27 @@ class LarkPlatformAdapter(Platform):
         try:
             content_json_b = json.loads(message.content)
         except json.JSONDecodeError:
-            logger.error(f"[Lark] 解析消息内容失败: {message.content}")
+            logger.error(
+                "[Lark] 解析消息内容失败 id=%s type=%s",
+                message.message_id,
+                message.message_type,
+            )
             return
 
         if not isinstance(content_json_b, dict):
-            logger.error(f"[Lark] 消息内容不是 JSON Object: {message.content}")
+            logger.error(
+                "[Lark] 消息内容不是 JSON Object id=%s type=%s",
+                message.message_id,
+                message.message_type,
+            )
             return
 
-        logger.debug(f"[Lark] 解析消息内容: {content_json_b}")
+        logger.debug(
+            "[Lark] 解析消息内容 id=%s type=%s fields=%s",
+            message.message_id,
+            message.message_type,
+            sorted(content_json_b),
+        )
         parsed_components = await self._parse_message_components(
             message_id=message.message_id,
             message_type=message.message_type or "unknown",

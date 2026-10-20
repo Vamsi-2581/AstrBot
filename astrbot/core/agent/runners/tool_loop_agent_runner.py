@@ -3,7 +3,6 @@ import copy
 import inspect
 import json
 import time
-import traceback
 import typing as T
 import uuid
 from contextlib import suppress
@@ -2034,10 +2033,10 @@ class ToolLoopAgentRunner(BaseAgentRunner[TContext]):
             except Exception as e:
                 if isinstance(e, AgentStopRequested):
                     raise
-                logger.warning(traceback.format_exc())
+                logger.warning("Tool execution failed: %s", safe_error("", e))
                 _append_tool_call_result(
                     func_tool_id,
-                    f"error: {e!s}"
+                    f"error: {safe_error('', e)}"
                     + self._build_repeated_tool_call_guidance(
                         func_tool_name, tool_call_streak
                     ),

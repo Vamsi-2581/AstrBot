@@ -2186,3 +2186,46 @@ async def test_follow_up_after_stop_not_merged_into_tool_result(
 if __name__ == "__main__":
     # 运行测试
     pytest.main([__file__, "-v"])
+
+
+class RaisingToolExecutor:
+    @classmethod
+    def execute(cls, tool, run_context, **tool_args):
+        async def generator():
+            raise RuntimeError(
+                "tool failed at https://user:pass@internal.example.test/path?token=secret"
+            )
+            yield
+
+        return generator()
+
+
+@pytest.mark.asyncio
+async def test_tool_failure_result_is_redacted(
+    runner, mock_provider, provider_request, mock_hooks
+):
+    mock_provider.should_call_tools = True
+    mock_provider.max_calls_before_normal_response = 1
+
+    await runner.reset(
+        provider=mock_provider,
+        request=provider_request,
+        run_context=ContextWrapper(context=None),
+        tool_executor=RaisingToolExecutor,
+        agent_hooks=mock_hooks,
+        streaming=False,
+    )
+
+    async for _ in runner.step_until_done(3):
+        pass
+
+    tool_messages = [
+        message
+        for message in runner.run_context.messages
+        if getattr(message, "role", None) == "tool"
+    ]
+    assert len(tool_messages) == 1
+    content = str(tool_messages[0].content)
+    assert "internal.example.test" not in content
+    assert "user:pass" not in content
+    assert "token=secret" not in content
