@@ -270,11 +270,14 @@ class AppearanceService:
                     wallpaper_id,
                     exc,
                 )
-                # The asset cannot be described, so any stored metadata for it
-                # is unusable too; dropping it keeps the next listing from
-                # raising on fields the migration could not rebuild.
-                if wallpapers.pop(wallpaper_id, None) is not None:
-                    changed = True
+                # Keep usable metadata when the rebuild failed transiently, but
+                # drop an entry the listing would raise on because the
+                # migration could not supply fields it is missing.
+                try:
+                    self._wallpaper_item(metadata)
+                except TypeError, ValueError, KeyError:
+                    if wallpapers.pop(wallpaper_id, None) is not None:
+                        changed = True
                 continue
             wallpapers[wallpaper_id] = item
             changed = True
