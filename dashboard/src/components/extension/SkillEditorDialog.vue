@@ -79,7 +79,7 @@ const editorOptions = computed(() => ({
     <v-card class="skill-editor-dialog">
       <v-card-title class="skill-editor-dialog__header">
         <div>
-          <div class="text-h3 font-weight-bold">
+          <div class="text-headline-small font-weight-bold">
             {{ skillName }}
           </div>
         </div>

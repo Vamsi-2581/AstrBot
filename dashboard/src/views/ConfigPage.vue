@@ -91,6 +91,7 @@
         <FloatingActionStack
           v-if="(selectedConfigID || isSystemConfig) && fetched"
           :label="tm('actions.save')"
+          inline-on-mobile
         >
           <v-tooltip :text="tm('actions.save')" location="left">
             <template #activator="{ props: tooltipProps }">
@@ -194,7 +195,9 @@
     >
       <v-card class="app-dialog config-manage-dialog__card">
         <v-card-title class="d-flex align-center justify-space-between">
-          <span class="text-h4">{{ tm('configManagement.title') }}</span>
+          <span class="text-title-large">{{
+            tm('configManagement.title')
+          }}</span>
           <v-btn
             icon="mdi-close"
             variant="text"
@@ -321,7 +324,7 @@
       <v-card class="test-chat-card" elevation="4">
         <div class="test-chat-header">
           <div>
-            <span class="text-h6">测试配置</span>
+            <span class="text-title-small">测试配置</span>
             <div
               v-if="selectedConfigInfo.name"
               class="text-caption text-medium-emphasis"

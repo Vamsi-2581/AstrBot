@@ -27,7 +27,7 @@ const { tm } = useModuleI18n('features/conversation');
     :aria-label="tm('dialogs.edit.title')"
   >
     <v-card>
-      <v-card-title class="text-h3 pa-4 pb-0 pl-6">
+      <v-card-title class="text-headline-small pa-4 pb-0 pl-6">
         {{ tm('dialogs.edit.title') }}
       </v-card-title>
       <v-card-text class="pa-6 pb-2">

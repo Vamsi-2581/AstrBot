@@ -58,6 +58,36 @@ class OpenModel(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+class AppearanceSettingsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    landscape_wallpaper_id: str = Field(default="", max_length=32)
+    portrait_wallpaper_id: str = Field(default="", max_length=32)
+    fit: Literal["cover", "contain"] = "cover"
+    position: Literal[
+        "center center",
+        "center top",
+        "center bottom",
+        "left center",
+        "right center",
+    ] = "center center"
+    blur: int = Field(default=0, ge=0, le=40)
+    brightness: float = Field(default=1.0, ge=0.5, le=1.5)
+    dim: float = Field(default=0.5, ge=0.0, le=0.9)
+    surface_opacity: float = Field(default=1.0, ge=0.0, le=1.0)
+    surface_blur: int = Field(default=0, ge=0, le=40)
+    saturation: float = Field(default=1.0, ge=0.0, le=2.0)
+    grayscale: float = Field(default=0.0, ge=0.0, le=1.0)
+    random_on_load: bool = False
+    rotation_enabled: bool = False
+    rotation_interval_minutes: int = Field(default=30, ge=1, le=1440)
+    auto_theme: bool = False
+    text_enhancement: Literal["off", "soft_shadow", "stroke"] = "off"
+    text_enhancement_strength: float = Field(default=1.0, ge=0.0, le=2.0)
+    mobile_sidebar_blur: int = Field(default=0, ge=0, le=40)
+
+
 class DataFileContentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

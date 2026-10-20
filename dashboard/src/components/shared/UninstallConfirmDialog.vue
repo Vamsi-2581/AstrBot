@@ -7,7 +7,7 @@
     @keydown.esc="handleCancel"
   >
     <v-card>
-      <v-card-title class="text-h5">
+      <v-card-title class="text-title-medium">
         {{ tm('dialogs.uninstall.title') }}
       </v-card-title>
 

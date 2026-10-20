@@ -13,6 +13,8 @@
   "scope": "Scope",
   "source": "Source",
   "status": "Status",
+  "showAllAudit": "Show all {count} records",
+  "showRecentAudit": "Show only the latest {count} records",
   "expired": "Expired",
   "active": "Active",
   "disabled": "Disabled",
@@ -52,5 +54,7 @@
   "totpCode": "TOTP code (optional)",
   "stepUpRequired": "A one-time credential could not be issued for this action.",
   "loadFailed": "Unable to load authorization data.",
+  "tableScrollHint": "Swipe the table sideways to reach role, status, and action columns; subject IDs wrap inside their cell.",
+  "recentAuditHint": "Showing the latest {count} audit records on mobile.",
   "actionFailed": "Authorization action failed."
 }

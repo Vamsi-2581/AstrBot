@@ -1,7 +1,7 @@
 <template>
   <v-dialog v-model="visible" :max-width="maxWidth" :aria-label="title">
     <v-card :class="{ 'app-dialog': appDialog }">
-      <v-card-title class="text-h6">{{ title }}</v-card-title>
+      <v-card-title class="text-title-small">{{ title }}</v-card-title>
       <v-card-text>
         <slot />
       </v-card-text>

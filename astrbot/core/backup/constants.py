@@ -27,6 +27,7 @@ from astrbot.core.knowledge_base.models import (
 )
 from astrbot.core.utils.astrbot_path import (
     get_astrbot_config_path,
+    get_astrbot_dashboard_path,
     get_astrbot_plugin_data_path,
     get_astrbot_plugin_path,
     get_astrbot_skills_path,
@@ -83,6 +84,7 @@ def get_backup_directories() -> dict[str, str]:
         "webchat": get_astrbot_webchat_path(),  # WebChat 数据
         "temp": get_astrbot_temp_path(),  # 临时文件
         "skills": get_astrbot_skills_path(),  # Skills
+        "dashboard": get_astrbot_dashboard_path(),  # Dashboard appearance assets
     }
 
 

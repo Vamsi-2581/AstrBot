@@ -65,7 +65,7 @@
         density="compact"
         class="me-4 fullscreen-btn"
         :aria-label="
-          isFullscreen ? 'Exit console fullscreen' : 'Enter console fullscreen'
+          isFullscreen ? tm('fullscreen.exit') : tm('fullscreen.enter')
         "
         @click="toggleFullscreen"
       ></v-btn>
@@ -821,7 +821,7 @@ onBeforeUnmount(() => {
 
 .console-filter-label {
   color: rgba(var(--v-theme-on-surface), 0.6);
-  font-size: 0.72rem;
+  font-size: var(--astrbot-meta-size);
   font-weight: 600;
   margin-bottom: 4px;
 }

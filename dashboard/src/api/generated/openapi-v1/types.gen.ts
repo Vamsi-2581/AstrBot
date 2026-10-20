@@ -533,6 +533,7 @@ export type ChatChunkUploadRequest = {
 
 export type AppearanceWallpaperUploadRequest = {
   file: Blob | File;
+  orientation: 'landscape' | 'portrait';
 };
 
 export type AppearanceWallpaper = {
@@ -540,6 +541,13 @@ export type AppearanceWallpaper = {
   content_type: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
   width: number;
   height: number;
+  orientation: 'landscape' | 'portrait' | 'both';
+  original_name: string;
+  created_at: string;
+  size_bytes: number;
+  animated: boolean;
+  theme_primary: string;
+  theme_secondary: string;
   image_url: string;
   thumbnail_url: string;
 };
@@ -556,6 +564,39 @@ export type AppearanceWallpaperListResponse = {
   data: {
     items: Array<AppearanceWallpaper>;
   };
+};
+
+export type AppearanceSettings = {
+  enabled: boolean;
+  landscape_wallpaper_id: string;
+  portrait_wallpaper_id: string;
+  fit: 'cover' | 'contain';
+  position:
+    | 'center center'
+    | 'center top'
+    | 'center bottom'
+    | 'left center'
+    | 'right center';
+  blur: number;
+  brightness: number;
+  dim: number;
+  surface_opacity: number;
+  surface_blur: number;
+  saturation: number;
+  grayscale: number;
+  random_on_load: boolean;
+  rotation_enabled: boolean;
+  rotation_interval_minutes: number;
+  auto_theme: boolean;
+  text_enhancement: 'off' | 'soft_shadow' | 'stroke';
+  text_enhancement_strength: number;
+  mobile_sidebar_blur: number;
+};
+
+export type AppearanceSettingsResponse = {
+  status: 'ok';
+  message?: string;
+  data: AppearanceSettings;
 };
 
 export type PluginUpdateRequest = {
@@ -1230,6 +1271,8 @@ export type DashboardAccountUpdateRequestWritable = {
 };
 
 export type DataFilePath = string;
+
+export type AppearanceOrientation = 'landscape' | 'portrait';
 
 export type AppearanceWallpaperId = string;
 
@@ -3574,10 +3617,56 @@ export type StatusFileUploadResponses = {
 export type StatusFileUploadResponse =
   StatusFileUploadResponses[keyof StatusFileUploadResponses];
 
-export type ListAppearanceWallpapersData = {
+export type GetAppearanceSettingsData = {
   body?: never;
   path?: never;
   query?: never;
+  url: '/api/v1/appearance/settings';
+};
+
+export type GetAppearanceSettingsResponses = {
+  /**
+   * Dashboard appearance settings
+   */
+  200: AppearanceSettingsResponse;
+};
+
+export type GetAppearanceSettingsResponse =
+  GetAppearanceSettingsResponses[keyof GetAppearanceSettingsResponses];
+
+export type UpdateAppearanceSettingsData = {
+  body: AppearanceSettings;
+  path?: never;
+  query?: never;
+  url: '/api/v1/appearance/settings';
+};
+
+export type UpdateAppearanceSettingsErrors = {
+  /**
+   * Standard AstrBot error response
+   */
+  422: ErrorEnvelope;
+};
+
+export type UpdateAppearanceSettingsError =
+  UpdateAppearanceSettingsErrors[keyof UpdateAppearanceSettingsErrors];
+
+export type UpdateAppearanceSettingsResponses = {
+  /**
+   * Updated Dashboard appearance settings
+   */
+  200: AppearanceSettingsResponse;
+};
+
+export type UpdateAppearanceSettingsResponse =
+  UpdateAppearanceSettingsResponses[keyof UpdateAppearanceSettingsResponses];
+
+export type ListAppearanceWallpapersData = {
+  body?: never;
+  path?: never;
+  query?: {
+    orientation?: 'landscape' | 'portrait';
+  };
   url: '/api/v1/appearance/wallpapers';
 };
 

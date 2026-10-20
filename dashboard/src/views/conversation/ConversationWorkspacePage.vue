@@ -261,13 +261,33 @@ watch([selectedBotIds, selectedTypes, sortValue, groupBySession], () => {
 
 onMounted(async () => {
   await Promise.all([fetchFilterOptions(), fetchConversations()]);
+  document.addEventListener('keydown', handleWorkspaceKeydown);
 });
 
 onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleWorkspaceKeydown);
   cancelScheduledFetch();
   listAbortController.value?.abort();
   previewRequestId.value += 1;
 });
+
+function handleWorkspaceKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape') return;
+  if (mobileFiltersOpen.value) {
+    mobileFiltersOpen.value = false;
+    event.preventDefault();
+    return;
+  }
+  if (
+    activeConversation.value &&
+    !rawDataDialog.value &&
+    !editDialog.value &&
+    !stepUpDialogOpen.value
+  ) {
+    closePreview();
+    event.preventDefault();
+  }
+}
 
 function conversationKey(item: Conversation) {
   return `${item.user_id}\u0000${item.cid}`;
@@ -1417,10 +1437,10 @@ function changePage(nextPage: number) {
 .panel-heading {
   align-items: center;
   display: flex;
-  font-size: 0.92rem;
+  font-size: 15px;
   font-weight: 650;
   justify-content: space-between;
-  min-height: 28px;
+  min-height: 32px;
 }
 
 .panel-heading--list {
@@ -1447,7 +1467,7 @@ function changePage(nextPage: number) {
 .filter-label {
   color: rgba(var(--v-theme-on-surface), 0.76);
   display: block;
-  font-size: 0.75rem;
+  font-size: var(--astrbot-meta-size);
   font-weight: 600;
   margin-bottom: 8px;
 }
@@ -1456,7 +1476,7 @@ function changePage(nextPage: number) {
   background: var(--workspace-surface);
   border-radius: 10px;
   box-shadow: none;
-  font-size: 0.8rem;
+  font-size: 14px;
 }
 
 .filter-panel :deep(.v-field__overlay) {
@@ -1471,13 +1491,13 @@ function changePage(nextPage: number) {
   color: rgba(var(--v-theme-on-surface), 0.54);
   cursor: pointer;
   display: inline-flex;
-  height: 28px;
+  height: var(--astrbot-control-size);
   justify-content: center;
   padding: 0;
   transition:
     background-color 0.16s ease,
     color 0.16s ease;
-  width: 28px;
+  width: var(--astrbot-control-size);
 }
 
 .filter-input-clear:hover {
@@ -1549,7 +1569,7 @@ function changePage(nextPage: number) {
 }
 
 .robot-id {
-  font-size: 0.78rem;
+  font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1557,7 +1577,7 @@ function changePage(nextPage: number) {
 
 .filter-empty {
   color: var(--workspace-muted);
-  font-size: 0.75rem;
+  font-size: 14px;
   line-height: 1.5;
   padding: 4px 0;
 }
@@ -1576,9 +1596,9 @@ function changePage(nextPage: number) {
   color: rgba(var(--v-theme-on-surface), 0.7);
   cursor: pointer;
   display: flex;
-  font-size: 0.76rem;
+  font-size: var(--astrbot-meta-size);
   gap: 5px;
-  height: 34px;
+  height: var(--astrbot-control-size);
   justify-content: center;
 }
 
@@ -1609,7 +1629,7 @@ function changePage(nextPage: number) {
 
 .toolbar-meta {
   color: var(--workspace-muted);
-  font-size: 0.72rem;
+  font-size: var(--astrbot-meta-size);
   margin-top: 3px;
 }
 
@@ -1623,7 +1643,7 @@ function changePage(nextPage: number) {
   align-items: center;
   color: var(--workspace-muted);
   display: flex;
-  font-size: 0.72rem;
+  font-size: var(--astrbot-meta-size);
   gap: 7px;
   margin-right: 4px;
   white-space: nowrap;
@@ -1641,7 +1661,7 @@ function changePage(nextPage: number) {
   align-items: center;
   color: var(--workspace-muted);
   display: flex;
-  font-size: 0.72rem;
+  font-size: var(--astrbot-meta-size);
   min-height: 36px;
   padding: 0 14px;
 }
@@ -1695,7 +1715,7 @@ function changePage(nextPage: number) {
 }
 
 .session-group-name {
-  font-size: 0.82rem;
+  font-size: 14px;
   font-weight: 650;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1776,7 +1796,7 @@ function changePage(nextPage: number) {
 }
 
 .row-title {
-  font-size: 0.82rem;
+  font-size: 14px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1790,20 +1810,28 @@ function changePage(nextPage: number) {
   display: inline-flex;
   flex: 0 0 auto;
   justify-content: center;
+  min-height: var(--astrbot-control-size);
+  min-width: var(--astrbot-control-size);
   opacity: 0;
-  padding: 3px;
 }
 
 .conversation-row:hover .row-edit,
-.row-edit:focus-visible {
+.row-edit:focus-visible,
+.row-edit:focus-within {
   opacity: 1;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .row-edit {
+    opacity: 1;
+  }
 }
 
 .row-meta {
   align-items: center;
   color: var(--workspace-muted);
   display: flex;
-  font-size: 0.69rem;
+  font-size: var(--astrbot-meta-size);
   gap: 5px;
   overflow: hidden;
   white-space: nowrap;
@@ -1823,7 +1851,7 @@ function changePage(nextPage: number) {
 .row-time {
   align-self: start;
   color: var(--workspace-muted);
-  font-size: 0.66rem;
+  font-size: var(--astrbot-meta-size);
   padding-top: 3px;
   white-space: nowrap;
 }
@@ -1850,7 +1878,7 @@ function changePage(nextPage: number) {
   border-top: 1px solid var(--workspace-subtle);
   color: var(--workspace-muted);
   display: flex;
-  font-size: 0.7rem;
+  font-size: var(--astrbot-meta-size);
   gap: 8px;
   justify-content: center;
   min-height: 46px;
@@ -1872,12 +1900,12 @@ function changePage(nextPage: number) {
 
 .preview-eyebrow {
   color: var(--workspace-muted);
-  font-size: 0.67rem;
+  font-size: var(--astrbot-meta-size);
   margin-bottom: 4px;
 }
 
 .preview-title {
-  font-size: 0.92rem;
+  font-size: 15px;
   font-weight: 650;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1913,7 +1941,7 @@ function changePage(nextPage: number) {
 }
 
 .preview-name {
-  font-size: 0.78rem;
+  font-size: 14px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1922,7 +1950,7 @@ function changePage(nextPage: number) {
 
 .preview-meta {
   color: var(--workspace-muted);
-  font-size: 0.67rem;
+  font-size: var(--astrbot-meta-size);
   margin-top: 3px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2076,6 +2104,15 @@ function changePage(nextPage: number) {
   .row-meta > span:first-child,
   .row-meta > span:nth-child(2) {
     display: none;
+  }
+
+  .workspace-actions :deep(.v-btn) {
+    min-height: var(--astrbot-control-size);
+  }
+
+  .conversation-row,
+  .session-group-row {
+    min-height: 56px;
   }
 }
 </style>

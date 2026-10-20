@@ -3,6 +3,7 @@ import 'vuetify/styles';
 import '@/assets/mdi-subset/materialdesignicons-subset.css';
 import * as components from 'vuetify/components';
 import * as directives from 'vuetify/directives';
+import { en, zhHans } from 'vuetify/locale';
 import { astrBotThemes, themeNames } from '@/design/theme';
 
 const testComponentRegistry =
@@ -12,6 +13,12 @@ export default createVuetify({
   // Vitest does not run vite-plugin-vuetify's SFC transform. Register the
   // components there while production keeps tree-shaken auto-imports.
   ...testComponentRegistry,
+
+  locale: {
+    locale: 'zh-Hans',
+    fallback: 'en',
+    messages: { en, 'zh-Hans': zhHans },
+  },
 
   theme: {
     defaultTheme: themeNames.light,

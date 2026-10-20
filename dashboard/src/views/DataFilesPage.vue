@@ -1,9 +1,9 @@
 <template>
   <div class="data-files-page">
-    <div class="data-files-header">
-      <div>
-        <h1 class="text-h2 mb-1">{{ t('core.navigation.dataFiles') }}</h1>
-        <p class="text-body-2 text-medium-emphasis mb-0">
+    <div class="data-files-header page-header">
+      <div class="page-header__copy">
+        <h1 class="page-header__title">{{ t('core.navigation.dataFiles') }}</h1>
+        <p class="page-header__subtitle">
           {{ tm('description') }}
         </p>
       </div>
@@ -207,7 +207,7 @@
               controls
               class="binary-preview-audio"
             />
-            <div class="text-h6">
+            <div class="text-title-small">
               {{
                 selectedEntry.category === 'database'
                   ? tm('database')
@@ -885,10 +885,6 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 .data-files-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
   margin-bottom: 18px;
 }
 .data-files-card {

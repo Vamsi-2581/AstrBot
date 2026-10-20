@@ -5,7 +5,7 @@
     :aria-label="tm('conversation.editDisplayName')"
   >
     <v-card>
-      <v-card-title class="text-h6">
+      <v-card-title class="text-title-small">
         {{ tm('conversation.editDisplayName') }}
       </v-card-title>
       <v-card-text>

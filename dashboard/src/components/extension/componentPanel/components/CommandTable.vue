@@ -285,7 +285,7 @@ const getRowProps = ({ item }: { item: CommandItem }) => {
       <template #no-data>
         <div class="text-center pa-8">
           <v-icon size="64" color="info" class="mb-4">mdi-console-line</v-icon>
-          <div class="text-h5 mb-2">{{ tm('empty.noCommands') }}</div>
+          <div class="text-title-medium mb-2">{{ tm('empty.noCommands') }}</div>
           <div class="text-body-1 mb-4">{{ tm('empty.noCommandsDesc') }}</div>
         </div>
       </template>

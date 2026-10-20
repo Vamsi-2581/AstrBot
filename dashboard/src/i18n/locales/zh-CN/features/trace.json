@@ -13,7 +13,8 @@
     "eventId": "事件 ID",
     "umo": "UMO",
     "sender": "发送者",
-    "outline": "内容"
+    "outline": "内容",
+    "scrollHint": "可横向滑动查看完整列；窄屏下自动切换为卡片布局。"
   },
   "expand": "展开",
   "collapse": "收起",

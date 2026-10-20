@@ -1,5 +1,6 @@
 /* Required component internals that cannot be expressed through Vuetify defaults. */
-.v-btn--icon.v-btn--density-default {
+.v-btn--icon.v-btn--density-default,
+.v-btn--icon.v-btn--density-compact {
   min-width: 40px;
   width: 40px;
   height: 40px;

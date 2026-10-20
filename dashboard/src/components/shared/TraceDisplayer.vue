@@ -376,7 +376,13 @@ onBeforeUnmount(() => {
 <template>
   <div class="trace-wrapper">
     <div ref="scrollEl" class="trace-table" :style="{ height: tableHeight }">
-      <div class="trace-row trace-header">
+      <div class="trace-scroll-hint" role="note">
+        <v-icon size="14" aria-hidden="true"
+          >mdi-gesture-swipe-horizontal</v-icon
+        >
+        <span>{{ tm('table.scrollHint') }}</span>
+      </div>
+      <div v-if="events.length > 0" class="trace-row trace-header">
         <div class="trace-cell time">{{ tm('table.time') }}</div>
         <div class="trace-cell span">{{ tm('table.eventId') }}</div>
         <div class="trace-cell umo">{{ tm('table.umo') }}</div>
@@ -391,19 +397,28 @@ onBeforeUnmount(() => {
         :class="{ highlight: highlightMap[event.span_id] }"
       >
         <div class="trace-row trace-event">
-          <div class="trace-cell time">{{ formatTime(event.first_time) }}</div>
+          <div class="trace-cell time">
+            <span class="trace-cell-label">{{ tm('table.time') }}</span>
+            {{ formatTime(event.first_time) }}
+          </div>
           <div class="trace-cell span" :title="event.span_id">
+            <span class="trace-cell-label">{{ tm('table.eventId') }}</span>
             <div class="event-title">
               {{ shortSpan(event.span_id) }}
             </div>
           </div>
-          <div class="trace-cell umo">{{ event.umo }}</div>
+          <div class="trace-cell umo">
+            <span class="trace-cell-label">{{ tm('table.umo') }}</span>
+            {{ event.umo }}
+          </div>
           <div class="trace-cell sender">
+            <span class="trace-cell-label">{{ tm('table.sender') }}</span>
             <div class="event-sub trace-sender">
               {{ event.sender_name || '-' }}
             </div>
           </div>
           <div class="trace-cell outline">
+            <span class="trace-cell-label">{{ tm('table.outline') }}</span>
             <div class="event-sub outline">
               {{ event.message_outline || '-' }}
             </div>
@@ -468,15 +483,25 @@ onBeforeUnmount(() => {
   border-radius: 0;
   padding: 0;
   height: 100%;
-  overflow-y: auto;
+  overflow: auto;
+  overscroll-behavior: contain;
   color: rgba(var(--v-theme-on-surface), 0.88);
   font-family: var(--astrbot-font-mono);
 }
 
 .trace-row {
   display: grid;
-  grid-template-columns: 200px 100px 300px 90px 180px 140px 200px 1fr;
   gap: 12px;
+  grid-template-columns: 200px 100px 300px 90px 180px 140px;
+  min-width: 1040px;
+}
+
+.trace-cell-label {
+  display: none;
+}
+
+.trace-scroll-hint {
+  display: none;
 }
 
 .trace-group {
@@ -502,9 +527,9 @@ onBeforeUnmount(() => {
 }
 
 .trace-cell {
-  overflow: hidden;
-  text-overflow: ellipsis;
   font-size: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .event-title {
@@ -516,6 +541,7 @@ onBeforeUnmount(() => {
   font-size: 12px;
   color: rgba(var(--v-theme-on-surface), 0.72);
   margin-top: 2px;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 
@@ -546,11 +572,90 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1200px) {
   .trace-row {
-    grid-template-columns: 140px 160px 300px 70px 140px 180px 1fr;
+    grid-template-columns: 140px 160px 300px 70px 140px 180px;
+    min-width: 1020px;
   }
 
   .trace-cell.fields {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 800px) {
+  .trace-scroll-hint {
+    align-items: center;
+    color: rgba(var(--v-theme-on-surface), 0.62);
+    display: flex;
+    font-size: 12px;
+    gap: 6px;
+    line-height: 1.5;
+    padding: 8px 4px;
+  }
+
+  .trace-table {
+    overflow-y: auto;
+  }
+
+  .trace-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .trace-header {
+    display: none;
+  }
+
+  .trace-group {
+    padding: 10px 2px;
+  }
+
+  .trace-row.trace-event {
+    display: grid;
+    gap: 8px 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .trace-cell {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .trace-cell-label {
+    color: rgba(var(--v-theme-on-surface), 0.56);
+    display: block;
+    font-family: var(--astrbot-font-ui);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    margin-bottom: 2px;
+  }
+
+  .trace-cell.outline,
+  .trace-cell.fields {
+    grid-column: 1 / -1;
+  }
+
+  .trace-cell.fields {
+    align-items: flex-start;
+  }
+
+  .trace-cell.fields .v-btn {
+    min-height: 40px;
+  }
+
+  .trace-sender {
+    overflow: visible;
+    white-space: normal;
+  }
+
+  .trace-record {
+    grid-template-columns: 1fr;
+  }
+
+  .trace-record-fields {
+    font-size: 11px;
   }
 }
 
@@ -567,13 +672,13 @@ onBeforeUnmount(() => {
 
 .trace-record-time {
   color: rgba(var(--v-theme-on-surface), 0.62);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .trace-record-action {
   color: rgba(var(--v-theme-on-surface), 0.88);
   font-weight: 600;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .trace-record-fields {
@@ -581,7 +686,7 @@ onBeforeUnmount(() => {
   white-space: pre-wrap;
   word-break: break-word;
   color: rgba(var(--v-theme-on-surface), 0.72);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .event-more {

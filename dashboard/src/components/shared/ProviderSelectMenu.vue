@@ -423,7 +423,7 @@
     :aria-label="providerEditDialogTitle"
   >
     <v-card>
-      <v-card-title class="text-h3 pa-4 pb-0 pl-6">
+      <v-card-title class="text-headline-small pa-4 pb-0 pl-6">
         {{ providerEditDialogTitle }}
       </v-card-title>
       <v-card-text class="py-4">

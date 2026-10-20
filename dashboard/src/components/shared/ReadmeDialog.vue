@@ -447,7 +447,7 @@ const showActionArea = computed(() => {
   >
     <v-card class="readme-dialog-card">
       <v-card-title class="d-flex justify-space-between align-center">
-        <span class="text-h2 pa-2">{{ modeConfig.title }}</span>
+        <span class="text-headline-medium pa-2">{{ modeConfig.title }}</span>
         <v-btn
           icon
           variant="text"

@@ -236,7 +236,7 @@ const updateDialogPluginLogo = computed(() => {
           router.push({ name: 'Extensions', hash: `#${selectedDetailTab}` })
         "
       />
-      <h2 class="text-h3 mb-0 ml-2">
+      <h2 class="text-headline-small mb-0 ml-2">
         {{
           selectedDetailTab === 'market'
             ? tm('tabs.market')
@@ -263,7 +263,7 @@ const updateDialogPluginLogo = computed(() => {
           <div v-if="activeTab === 'components'">
             <div class="mb-4 pt-4 pb-4">
               <div class="inline-control-row">
-                <h2 class="text-h2 mb-0 d-flex align-center">
+                <h2 class="text-headline-medium mb-0 d-flex align-center">
                   {{ tm('tabs.handlersOperation') }}
                   <ConfigDocsLink docs="use/function-calling.html" />
                 </h2>
@@ -281,7 +281,7 @@ const updateDialogPluginLogo = computed(() => {
             <div class="extension-detail-width">
               <div class="mb-4 pt-4 pb-4">
                 <div class="extension-page__section-heading">
-                  <h2 class="text-h2 mb-0 d-flex align-center">
+                  <h2 class="text-headline-medium mb-0 d-flex align-center">
                     {{ tm('tabs.installedMcpServers') }}
                     <ConfigDocsLink docs="use/mcp.html" />
                   </h2>
@@ -303,7 +303,7 @@ const updateDialogPluginLogo = computed(() => {
             <div class="extension-detail-width">
               <div class="mb-4 pt-4 pb-4">
                 <div class="extension-page__section-heading">
-                  <h2 class="text-h2 mb-0 d-flex align-center">
+                  <h2 class="text-headline-medium mb-0 d-flex align-center">
                     {{ tm('tabs.skills') }}
                     <ConfigDocsLink docs="use/skills.html" />
                   </h2>
@@ -351,7 +351,7 @@ const updateDialogPluginLogo = computed(() => {
     :aria-label="tm('dialogs.config.title')"
   >
     <v-card class="app-dialog extension-config-dialog__card">
-      <v-card-title class="text-h2 pa-4 pl-6 pb-0">{{
+      <v-card-title class="text-headline-medium pa-4 pl-6 pb-0">{{
         tm('dialogs.config.title')
       }}</v-card-title>
       <v-card-text class="extension-config-dialog__content">
@@ -413,7 +413,9 @@ const updateDialogPluginLogo = computed(() => {
     :aria-label="loadingDialog.title"
   >
     <v-card class="app-dialog">
-      <v-card-title class="text-h5">{{ loadingDialog.title }}</v-card-title>
+      <v-card-title class="text-title-medium">{{
+        loadingDialog.title
+      }}</v-card-title>
       <v-card-text class="extension-loading-dialog__content">
         <v-progress-linear
           v-if="loadingDialog.statusCode === 0"
@@ -434,7 +436,7 @@ const updateDialogPluginLogo = computed(() => {
               "
               size="128"
             ></v-icon>
-            <div class="text-h4 font-weight-bold">
+            <div class="text-title-large font-weight-bold">
               {{ loadingDialog.result }}
             </div>
           </div>
@@ -578,7 +580,7 @@ const updateDialogPluginLogo = computed(() => {
     :aria-label="tm('dialogs.danger_warning.title')"
   >
     <v-card>
-      <v-card-title class="text-h5 d-flex align-center">
+      <v-card-title class="text-title-medium d-flex align-center">
         <v-icon color="warning" class="mr-2">mdi-alert-circle</v-icon>
         {{ tm('dialogs.danger_warning.title') }}
       </v-card-title>
@@ -605,7 +607,7 @@ const updateDialogPluginLogo = computed(() => {
     :aria-label="tm('dialogs.versionSupport.title')"
   >
     <v-card>
-      <v-card-title class="text-h5 d-flex align-center">
+      <v-card-title class="text-title-medium d-flex align-center">
         <v-icon color="warning" class="mr-2">mdi-alert</v-icon>
         {{ tm('dialogs.versionSupport.title') }}
       </v-card-title>
@@ -634,7 +636,7 @@ const updateDialogPluginLogo = computed(() => {
     :aria-label="tm('dialogs.install.title')"
   >
     <v-card class="app-dialog">
-      <v-card-title class="text-h3 pa-4 pb-0 pl-6">
+      <v-card-title class="text-headline-small pa-4 pb-0 pl-6">
         {{ tm('dialogs.install.title') }}
       </v-card-title>
 
@@ -912,7 +914,7 @@ const updateDialogPluginLogo = computed(() => {
     :aria-label="tm('market.sourceManagement')"
   >
     <v-card class="app-dialog source-manager-dialog__card">
-      <v-card-title class="text-h3 pa-4 pl-6">{{
+      <v-card-title class="text-headline-small pa-4 pl-6">{{
         tm('market.sourceManagement')
       }}</v-card-title>
       <v-card-text class="source-manager-dialog__content">
@@ -1022,7 +1024,7 @@ const updateDialogPluginLogo = computed(() => {
     "
   >
     <v-card>
-      <v-card-title class="text-h5">{{
+      <v-card-title class="text-title-medium">{{
         editingSource ? tm('market.editSource') : tm('market.addSource')
       }}</v-card-title>
       <v-card-text>
@@ -1070,7 +1072,7 @@ const updateDialogPluginLogo = computed(() => {
     :aria-label="tm('dialogs.uninstall.title')"
   >
     <v-card>
-      <v-card-title class="text-h5 d-flex align-center">
+      <v-card-title class="text-title-medium d-flex align-center">
         <v-icon color="warning" class="mr-2">mdi-alert-circle</v-icon>
         {{ tm('dialogs.uninstall.title') }}
       </v-card-title>
@@ -1100,7 +1102,7 @@ const updateDialogPluginLogo = computed(() => {
     :aria-label="tm('dialogs.update.title')"
   >
     <v-card class="app-dialog">
-      <v-card-title class="text-h3 pa-4 pb-0 pl-6">
+      <v-card-title class="text-headline-small pa-4 pb-0 pl-6">
         {{ tm('dialogs.update.title') }}
       </v-card-title>
       <v-card-text>
@@ -1182,7 +1184,7 @@ const updateDialogPluginLogo = computed(() => {
     :aria-label="tm('dialogs.forceUpdate.title')"
   >
     <v-card class="app-dialog">
-      <v-card-title class="text-h6 d-flex align-center">
+      <v-card-title class="text-title-small d-flex align-center">
         <v-icon color="info" class="mr-2">mdi-information-outline</v-icon>
         {{ tm('dialogs.forceUpdate.title') }}
       </v-card-title>

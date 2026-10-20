@@ -7,7 +7,7 @@
     @update:model-value="emit('update:modelValue', $event)"
   >
     <v-card class="app-dialog">
-      <v-card-title class="text-h6 bg-warning d-flex align-center">
+      <v-card-title class="text-title-small bg-warning d-flex align-center">
         <v-icon start class="me-2">mdi-alert-circle-outline</v-icon>
         {{ tm('dialog.idConflict.title') }}
       </v-card-title>

@@ -166,6 +166,8 @@ import type {
   ExportConversationsResponses,
   GetActiveT2iTemplateData,
   GetActiveT2iTemplateResponses,
+  GetAppearanceSettingsData,
+  GetAppearanceSettingsResponses,
   GetAppearanceWallpaperData,
   GetAppearanceWallpaperErrors,
   GetAppearanceWallpaperResponses,
@@ -584,6 +586,9 @@ import type {
   UninstallFailedPluginResponses,
   UninstallPluginData,
   UninstallPluginResponses,
+  UpdateAppearanceSettingsData,
+  UpdateAppearanceSettingsErrors,
+  UpdateAppearanceSettingsResponses,
   UpdateAuthAccountData,
   UpdateAuthAccountResponses,
   UpdateAuthorizationAccountData,
@@ -3136,6 +3141,48 @@ export const statusFileUpload = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/files/upload/status',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get Dashboard appearance settings
+ */
+export const getAppearanceSettings = <ThrowOnError extends boolean = false>(
+  options?: Options<GetAppearanceSettingsData, ThrowOnError>,
+): RequestResult<GetAppearanceSettingsResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    GetAppearanceSettingsResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/appearance/settings',
+    ...options,
+  });
+
+/**
+ * Update Dashboard appearance settings
+ */
+export const updateAppearanceSettings = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateAppearanceSettingsData, ThrowOnError>,
+): RequestResult<
+  UpdateAppearanceSettingsResponses,
+  UpdateAppearanceSettingsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdateAppearanceSettingsResponses,
+    UpdateAppearanceSettingsErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/appearance/settings',
     ...options,
     headers: {
       'Content-Type': 'application/json',

@@ -79,6 +79,7 @@ const onFirstNoticeDialogUpdate = (visible: boolean) => {
 };
 
 onMounted(() => {
+  void appearance.hydrate();
   setTimeout(async () => {
     try {
       const response = await statsApi.version();
@@ -97,13 +98,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <v-locale-provider>
+  <v-locale-provider :locale="locale === 'zh-CN' ? 'zh-Hans' : 'en'">
     <v-app
       class="dashboard-app"
       :class="[
         customizer.mini_sidebar ? 'mini-sidebar' : '',
         customizer.inputBg ? 'inputWithbg' : '',
         appearance.active ? 'dashboard-appearance-active' : '',
+        appearance.textEnhancementClass,
       ]"
       :style="appearance.rootStyle"
     >

@@ -18,14 +18,14 @@ Open **Settings → Maintenance** in the Dashboard, then **Backup & Restore** / 
 
 - main-database tables (export of `data/astrbot.db`, not a copy of an open file)
 - knowledge-base metadata, vector documents, and media files
-- `cmd_config.json`, `config/`, plugins and plugin data, Skills, WebChat, attachments
+- `cmd_config.json`, `config/`, plugins and plugin data, Skills, WebChat, Dashboard appearance assets, attachments
 - `t2i_templates/` and `temp/`
 
 Create the backup in the WebUI and copy the ZIP outside the checkout. Import through the same dialog. Extraction rejects path traversal outside the intended directories.
 
 Import is a destructive **replace**, not a transactional rollback. The ZIP `major.minor` must match the running AstrBot version; a `4.26` backup cannot import into `4.27`. A patch mismatch such as `4.27.4` into `4.27.5` is allowed after confirmation.
 
-Before replacing directories (`plugins/`, `plugin_data/`, `config/`, `skills/`, `webchat/`, `t2i_templates/`, `temp/`), the importer moves each existing tree to a `{directory}.bak` sibling and overwrites any previous `.bak`. It copies `cmd_config.json` to `cmd_config.json.bak`. Main-database tables and knowledge-base stores are cleared in place with no snapshot. If import fails after that clear, restore from an external copy; do not treat `{directory}.bak` as a main-database rollback. The UI asks for a restart after a successful import.
+Before replacing directories (`plugins/`, `plugin_data/`, `config/`, `skills/`, `webchat/`, `dashboard/`, `t2i_templates/`, `temp/`), the importer moves each existing tree to a `{directory}.bak` sibling and overwrites any previous `.bak`. It copies `cmd_config.json` to `cmd_config.json.bak`. Main-database tables and knowledge-base stores are cleared in place with no snapshot. If import fails after that clear, restore from an external copy; do not treat `{directory}.bak` as a main-database rollback. The UI asks for a restart after a successful import.
 
 ## Stop-the-world directory copy
 

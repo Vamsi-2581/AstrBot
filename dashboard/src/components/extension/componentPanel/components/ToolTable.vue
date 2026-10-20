@@ -230,7 +230,9 @@ const enabledConfigTags = (tool: ToolItem): BuiltinToolConfigTag[] => {
           <v-icon size="64" color="info" class="mb-4"
             >mdi-function-variant</v-icon
           >
-          <div class="text-h5 mb-2">{{ tmTool('functionTools.empty') }}</div>
+          <div class="text-title-medium mb-2">
+            {{ tmTool('functionTools.empty') }}
+          </div>
         </div>
       </template>
 

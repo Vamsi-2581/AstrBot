@@ -166,7 +166,7 @@
     >
       <v-card class="app-dialog kb-dialog-card">
         <v-card-title class="d-flex align-center">
-          <span class="text-h5">{{
+          <span class="text-title-medium">{{
             editingKB ? t('edit.title') : t('create.title')
           }}</span>
           <v-spacer />
@@ -348,7 +348,7 @@
       :aria-label="t('delete.title')"
     >
       <v-card class="app-dialog kb-delete-dialog-card">
-        <v-card-title class="pa-4 text-h6">{{
+        <v-card-title class="pa-4 text-title-small">{{
           t('delete.title')
         }}</v-card-title>
         <v-divider />

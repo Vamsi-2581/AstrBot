@@ -18,14 +18,14 @@
 
 - 主数据库表（`data/astrbot.db` 的导出，而不是复制正在打开的文件）
 - 知识库元数据、向量文档与多媒体文件
-- `cmd_config.json`、`config/`、插件与插件数据、Skills、WebChat、附件
+- `cmd_config.json`、`config/`、插件与插件数据、Skills、WebChat、Dashboard 外观素材、附件
 - `t2i_templates/` 与 `temp/`
 
 在 WebUI 中创建备份，把 ZIP 拷到仓库外。导入走同一对话框。解压时会拒绝逃出目标目录的路径穿越。
 
 导入是破坏性 **替换**，不是事务回滚。ZIP 的 `major.minor` 必须与正在运行的 AstrBot 版本一致；`4.26` 的备份不能导入 `4.27`。补丁号不同（例如 `4.27.4` 导入 `4.27.5`）可以在确认后导入。
 
-替换目录（`plugins/`、`plugin_data/`、`config/`、`skills/`、`webchat/`、`t2i_templates/`、`temp/`）前，导入器会把现有目录挪到 `{directory}.bak`，并覆盖上一次的 `.bak`。`cmd_config.json` 会复制为 `cmd_config.json.bak`。主库表和知识库存储是原地清空，没有快照。清空之后如果导入失败，从仓库外的副本恢复，不要把 `{directory}.bak` 当成主库回滚。导入成功后界面会要求重启。
+替换目录（`plugins/`、`plugin_data/`、`config/`、`skills/`、`webchat/`、`dashboard/`、`t2i_templates/`、`temp/`）前，导入器会把现有目录挪到 `{directory}.bak`，并覆盖上一次的 `.bak`。`cmd_config.json` 会复制为 `cmd_config.json.bak`。主库表和知识库存储是原地清空，没有快照。清空之后如果导入失败，从仓库外的副本恢复，不要把 `{directory}.bak` 当成主库回滚。导入成功后界面会要求重启。
 
 ## 停写后整目录拷贝
 

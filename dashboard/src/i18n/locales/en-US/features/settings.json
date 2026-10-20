@@ -89,7 +89,7 @@
   },
   "appearance": {
     "title": "Wallpaper & Surfaces",
-    "subtitle": "Wallpaper assets are kept on the server; your selection and display settings stay in this browser.",
+    "subtitle": "Wallpaper assets and appearance settings are stored on the server, with separate landscape/portrait libraries, theme sync, and cross-tab updates.",
     "enable": "Enable Dashboard wallpaper",
     "preview": "Live preview",
     "sampleAction": "Sample action",
@@ -102,8 +102,8 @@
     "blur": "Background blur",
     "brightness": "Background brightness",
     "dim": "Background dimming",
-    "surfaceOpacity": "Page surface opacity",
-    "confirmDelete": "Delete this wallpaper? Browsers that selected it will fall back to no wallpaper.",
+    "surfaceOpacity": "Surface opacity",
+    "confirmDelete": "Delete this wallpaper? The server file and library reference are removed, and other tabs fall back automatically.",
     "fit": {
       "label": "Image fit",
       "cover": "Cover",
@@ -134,8 +134,36 @@
       "uploadFailed": "Failed to upload wallpaper",
       "deleteSuccess": "Wallpaper deleted",
       "deleteFailed": "Failed to delete wallpaper",
-      "resetSuccess": "Appearance settings reset"
-    }
+      "resetSuccess": "Appearance settings reset",
+      "missing": "The selected wallpaper is no longer available. Choose another wallpaper."
+    },
+    "uploading": "Uploading",
+    "cancel": "Cancel upload",
+    "fileTooLarge": "Wallpaper must not exceed 32 MiB",
+    "invalidType": "Only JPEG, PNG, WebP, and GIF are supported",
+    "bothBadge": "Shared",
+    "surfaceBlur": "Surface glass blur",
+    "saturation": "Background saturation",
+    "grayscale": "Background grayscale",
+    "randomOnLoad": "Random wallpaper on open",
+    "rotationEnabled": "Rotate wallpaper on a schedule",
+    "rotationInterval": "Rotation interval (minutes)",
+    "autoTheme": "Follow wallpaper theme colors",
+    "textEnhancement": "Text readability enhancement",
+    "textEnhancementStrength": "Text enhancement strength",
+    "mobileSidebarBlur": "Mobile sidebar glass blur",
+    "textEnhancementModes": {
+      "off": "Off",
+      "soft_shadow": "Soft shadow",
+      "stroke": "Strong stroke"
+    },
+    "previewHint": "The preview applies the same filters, dimming, and surface tokens used by the live Dashboard.",
+    "themeColors": "Wallpaper theme colors",
+    "rotationHint": "Rotation runs only while the page is visible; one tab coordinates the schedule.",
+    "randomHint": "Pick a random wallpaper from the current orientation when the Dashboard opens or refreshes.",
+    "autoThemeHint": "Primary and secondary colors follow the current wallpaper. Disabling restores the previous theme colors.",
+    "surfaceHint": "At 0 the page and card surfaces are transparent; floating menus keep a readable minimum background.",
+    "untitled": "Untitled"
   },
   "system": {
     "title": "System",

@@ -9,7 +9,7 @@
 
       <div v-else class="pb-3">
         <div class="mcp-list-header">
-          <h3 class="mcp-list-title text-h3">
+          <h3 class="mcp-list-title text-headline-small">
             {{ tm('mcpServers.status.installed') }}
           </h3>
           <div class="mcp-search-wrap">
@@ -450,7 +450,7 @@
             <v-timeline align="start" side="end">
               <v-timeline-item icon="mdi-numeric-1" icon-color="on-primary">
                 <div>
-                  <div class="text-h4">发现 MCP 服务器</div>
+                  <div class="text-title-large">发现 MCP 服务器</div>
                   <p class="mt-2">
                     访问
                     <a href="https://www.modelscope.cn/mcp" target="_blank"
@@ -463,7 +463,7 @@
 
               <v-timeline-item icon="mdi-numeric-2" icon-color="on-primary">
                 <div>
-                  <div class="text-h4">获取访问令牌</div>
+                  <div class="text-title-large">获取访问令牌</div>
                   <p class="mt-2">
                     从<a
                       href="https://modelscope.cn/my/myaccesstoken"
@@ -476,7 +476,7 @@
 
               <v-timeline-item icon="mdi-numeric-3" icon-color="on-primary">
                 <div>
-                  <div class="text-h4">输入您的访问令牌</div>
+                  <div class="text-title-large">输入您的访问令牌</div>
                   <p class="mt-2">输入您的访问令牌以同步 MCP 服务器。</p>
                   <v-text-field
                     v-model="mcpProviderToken"
