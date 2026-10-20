@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).parents[2]
 
 LLM_CONTRACT_NAMES = frozenset(
@@ -625,14 +627,13 @@ def _module_scope_imports(path: Path) -> set[str]:
     Imports nested in a function or class body run later and do not count.
     Imports under module-level ``if`` or ``try`` blocks do execute, so they are
     followed. A ``TYPE_CHECKING`` branch never executes at runtime and is
-    skipped. Relative imports are resolved so the boundary cannot be bypassed
-    with ``from ..btw import ...``.
+    skipped. Relative imports are resolved and imported names are treated as
+    submodules, so the boundary cannot be bypassed with ``from . import btw``
+    or ``from ..agent import btw``.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"))
     relative = path.relative_to(ROOT).with_suffix("")
     package_parts = list(relative.parts[:-1])
-    if path.name == "__init__.py":
-        package_parts = list(relative.parts)
 
     modules: set[str] = set()
 
@@ -641,18 +642,22 @@ def _module_scope_imports(path: Path) -> set[str]:
             modules.update(alias.name for alias in node.names)
             return
         if node.level == 0:
+            base_parts = node.module.split(".") if node.module else []
+        else:
+            parent_count = node.level - 1
+            if parent_count > len(package_parts):
+                return
+            base_parts = package_parts[: len(package_parts) - parent_count]
             if node.module:
-                modules.add(node.module)
+                base_parts.extend(node.module.split("."))
+        if not base_parts:
             return
-
-        parent_count = node.level - 1
-        if parent_count > len(package_parts):
-            return
-        base_parts = package_parts[: len(package_parts) - parent_count]
-        if node.module:
-            base_parts.extend(node.module.split("."))
-        if base_parts:
-            modules.add(".".join(base_parts))
+        modules.add(".".join(base_parts))
+        modules.update(
+            ".".join([*base_parts, alias.name])
+            for alias in node.names
+            if alias.name != "*"
+        )
 
     def walk(statements: list[ast.stmt]) -> None:
         for node in statements:
@@ -676,6 +681,24 @@ def _module_scope_imports(path: Path) -> set[str]:
 
     walk(tree.body)
     return modules
+
+
+def test_module_scope_imports_resolves_package_and_alias_imports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Relative and alias-only imports must resolve to the target module."""
+    package = tmp_path / "pkg"
+    package.mkdir()
+    (package / "__init__.py").write_text("from . import btw\n", encoding="utf-8")
+    default = tmp_path / "default.py"
+    default.write_text(
+        "from astrbot.core.agent import btw\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sys.modules[__name__], "ROOT", tmp_path)
+
+    assert "pkg.btw" in _module_scope_imports(package / "__init__.py")
+    assert "astrbot.core.agent.btw" in _module_scope_imports(default)
 
 
 def test_default_agent_runtime_does_not_import_btw_at_module_scope() -> None:
