@@ -105,6 +105,34 @@ class SessionManagementService:
             raise SessionManagementServiceError("参数 umos 必须是非空字符串数组")
         return umos
 
+    async def resolve_mutation_umos(self, payload: dict[str, Any]) -> list[str]:
+        """Return the union of every session a mutation request can target."""
+
+        targets: list[str] = []
+        seen: set[str] = set()
+
+        def add(values: list[str]) -> None:
+            for umo in values:
+                if umo not in seen:
+                    targets.append(umo)
+                    seen.add(umo)
+
+        direct = payload.get("umo")
+        if direct:
+            add(self._validate_umo_list([direct]))
+        umos = payload.get("umos")
+        if umos:
+            add(self._validate_umo_list(umos))
+        scope = payload.get("scope")
+        if scope:
+            add(
+                await self.get_umos_by_scope(
+                    scope,
+                    payload.get("group_id", ""),
+                )
+            )
+        return targets
+
     @staticmethod
     def _normalize_target_type(value: object) -> str:
         if value in (None, "", _TARGET_SESSION):

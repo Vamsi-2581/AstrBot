@@ -1523,3 +1523,58 @@ async def test_removed_plugin_web_routes_return_404_without_redirect(
     response = await DashboardTestClient(app).get(path, follow_redirects=False)
     assert response.status_code == 404
     assert "location" not in response.headers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("path", "payload"),
+    [
+        (
+            "/api/v1/authorization/step-up",
+            {
+                "action": "identity.manage",
+                "resource_type": "api-key",
+                "resource_id": "collection",
+                "password": "wrong-password",
+            },
+        ),
+        (
+            "/api/v1/authorization/role-bindings/batch-revoke/step-up",
+            {"binding_ids": ["missing-binding"], "password": "wrong-password"},
+        ),
+        (
+            "/api/v1/authorization/webchat-step-up",
+            {"session_id": str(uuid.uuid4()), "password": "wrong-password"},
+        ),
+    ],
+)
+async def test_step_up_paths_share_the_auth_rate_limiter(
+    app: FastAPI,
+    core_lifecycle_td: AstrBotCoreLifecycle,
+    authenticated_header: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    payload: dict,
+):
+    monkeypatch.setenv("ASTRBOT_TEST_MODE", "false")
+    app.state.dashboard_server._rate_limiter_registry.clear()
+    cfg = core_lifecycle_td.astrbot_config["dashboard"]
+    rl_original = cfg.get("auth_rate_limit", {})
+    tp_original = cfg.get("trust_proxy_headers", False)
+    cfg["auth_rate_limit"] = {
+        "enable": True,
+        "average_interval": 3600.0,
+        "max_burst": 1,
+    }
+    cfg["trust_proxy_headers"] = True
+
+    try:
+        client = DashboardTestClient(app)
+        headers = {**authenticated_header, "X-Forwarded-For": "198.51.100.20"}
+        first = await client.post(path, json=payload, headers=headers)
+        assert first.status_code != 429
+        second = await client.post(path, json=payload, headers=headers)
+        assert second.status_code == 429
+    finally:
+        cfg["auth_rate_limit"] = rl_original
+        cfg["trust_proxy_headers"] = tp_original

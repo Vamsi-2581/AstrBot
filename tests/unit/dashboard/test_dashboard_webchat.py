@@ -269,3 +269,20 @@ async def test_webchat_step_up_http_chat_pipeline_context_matches_authorization(
             context,
         )
         assert decision.allowed, (action, decision.reason)
+
+
+@pytest.mark.asyncio
+async def test_webchat_step_up_failure_does_not_create_platform_session(
+    app: FastAPI,
+    core_lifecycle_td: AstrBotCoreLifecycle,
+    authenticated_header: dict,
+):
+    session_id = str(uuid.uuid4())
+    test_client = DashboardTestClient(app)
+    response = await test_client.post(
+        "/api/v1/authorization/webchat-step-up",
+        json={"session_id": session_id, "password": "wrong-password"},
+        headers=authenticated_header,
+    )
+    assert response.status_code == 401
+    assert await core_lifecycle_td.db.get_platform_session_by_id(session_id) is None

@@ -147,6 +147,20 @@ async def _open_api_chat_response(
         )
 
     api_key_principal = {"key_id": auth.api_key_id, "scopes": auth.scopes}
+    declared_username, username_err = open_api_service.resolve_open_username(
+        post_data.get("username")
+    )
+    if username_err:
+        return _open_api_error(username_err)
+    if not declared_username:
+        return _open_api_error("Invalid username")
+    if not auth.api_key_id or not await open_api_service.authorize_declared_chat_user(
+        key_id=auth.api_key_id,
+        action="session.manage",
+        username=declared_username,
+    ):
+        raise ApiError("Authorization denied", status_code=403)
+
     try:
         (
             effective_username,
@@ -158,13 +172,6 @@ async def _open_api_chat_response(
         )
     except OpenApiServiceError as exc:
         return _open_api_error(str(exc))
-
-    if not auth.api_key_id or not await open_api_service.authorize_declared_chat_user(
-        key_id=auth.api_key_id,
-        action="session.manage",
-        username=effective_username,
-    ):
-        raise ApiError("Authorization denied", status_code=403)
 
     config_err = await open_api_service.update_session_config_route(
         username=effective_username,

@@ -2579,3 +2579,36 @@ async def test_start_blocks_legacy_scoped_key_without_capabilities(tmp_path):
         for item in report.blocking
     )
     await db.close()
+
+
+@pytest.mark.asyncio
+async def test_data_manage_accepts_session_resources_for_instance_operators(
+    authorization,
+):
+    subject = Subject.dashboard_account("dashboard-account", "operator")
+    await authorization.grant_binding(
+        actor=Subject.system("test"),
+        subject_id=subject.id,
+        role=Role.INSTANCE_OPERATOR,
+        scope_type="instance",
+        scope_id="default",
+        config_id="default",
+        enforce_actor=False,
+    )
+    resource = Resource.session("default", "napcat:GroupMessage:room-a")
+    context = AuthContext(
+        subject=subject,
+        source="dashboard",
+        config_id="default",
+        authenticated=True,
+        metadata={"dashboard_session_id": "dashboard-session"},
+    )
+
+    decision = await authorization.authorize(
+        subject,
+        "data.manage",
+        resource,
+        context,
+    )
+
+    assert decision.allowed

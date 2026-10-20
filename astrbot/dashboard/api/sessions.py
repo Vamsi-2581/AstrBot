@@ -35,18 +35,9 @@ async def _payload_umos(
     service: SessionManagementService,
     payload: dict,
 ) -> list[str]:
-    """Resolve direct or scope-selected UMO targets before a mutation."""
+    """Resolve every UMO target a mutation can reach before authorizing it."""
 
-    direct_umo = payload.get("umo")
-    if direct_umo:
-        return service._validate_umo_list([direct_umo])
-    umos = payload.get("umos")
-    if umos:
-        return service._validate_umo_list(umos)
-    scope = payload.get("scope")
-    if scope:
-        return await service.get_umos_by_scope(scope, payload.get("group_id", ""))
-    return []
+    return await service.resolve_mutation_umos(payload)
 
 
 async def _authorize_session_umos(
@@ -303,6 +294,13 @@ async def update_session_group(
 ):
     try:
         body = payload.model_dump(exclude_none=True)
+        declared_ids = {
+            value
+            for key in ("id", "group_id")
+            if (value := body.pop(key, None)) is not None
+        }
+        if any(value != group_id for value in declared_ids):
+            raise ApiError("分组 ID 与路径不一致", status_code=400)
         await _authorize_session_umos(
             request,
             auth,

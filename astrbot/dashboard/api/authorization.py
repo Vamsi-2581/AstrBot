@@ -90,15 +90,12 @@ def _step_up_context(context: AuthContext, token: str | None) -> AuthContext:
     )
 
 
-async def _webchat_step_up_target(
+async def _load_platform_session(
     request: Request,
-    principal,
     session_id: str,
-) -> tuple[Subject, AuthContext, Resource]:
-    """Reconstruct the trusted WebChat session/config target server-side."""
+) -> tuple[object | None, Any]:
+    """Load a platform session without creating or adopting one."""
 
-    if principal.account_subject is None:
-        raise ApiError("Dashboard account is unavailable", status_code=401)
     chat_service = getattr(request.app.state.services, "chat", None)
     chat_db = getattr(chat_service, "db", None) or getattr(
         request.app.state, "db", None
@@ -112,48 +109,76 @@ async def _webchat_step_up_target(
             if inspect.isawaitable(loaded)
             else loaded
         )
-    create_session = getattr(chat_db, "create_platform_session", None)
-    if session is None and callable(create_session):
-        # The chat UI can have a route for a freshly allocated conversation
-        # before the first message persists its platform session.  Establish
-        # the same Dashboard-owned session that ChatService would create for
-        # the first send, but never adopt an existing session from another
-        # account.  UUID validation keeps this recovery path scoped to normal
-        # WebChat session identifiers rather than arbitrary database keys.
-        try:
-            if str(uuid.UUID(session_id)) != session_id:
-                raise ValueError("non-canonical session id")
-        except ValueError, AttributeError, TypeError:
-            session = None
-        else:
-            try:
-                created = create_session(
-                    creator=principal.username,
-                    platform_id="webchat",
-                    session_id=session_id,
-                )
-                session = (
-                    await cast(Awaitable[Any], created)
-                    if inspect.isawaitable(created)
-                    else created
-                )
-            except Exception:
-                # A concurrent first message may have won the insert race.
-                # Re-read and apply the ownership check below; do not turn a
-                # collision into an account-adoption opportunity.
-                if callable(get_session):
-                    reloaded = get_session(session_id)
-                    session = (
-                        await cast(Awaitable[Any], reloaded)
-                        if inspect.isawaitable(reloaded)
-                        else reloaded
-                    )
+    return chat_db, session
+
+
+def _is_canonical_session_id(session_id: str) -> bool:
+    try:
+        return str(uuid.UUID(session_id)) == session_id
+    except ValueError, AttributeError, TypeError:
+        return False
+
+
+def _ensure_webchat_session_owner(session: object | None, principal) -> None:
     if (
         session is None
         or getattr(session, "platform_id", None) != "webchat"
         or getattr(session, "creator", None) != principal.username
     ):
         raise ApiError("Authorization denied", status_code=403)
+
+
+async def _create_webchat_session_after_verification(
+    request: Request,
+    principal,
+    session_id: str,
+) -> None:
+    """Persist a missing WebChat session only after factor verification."""
+
+    chat_db, session = await _load_platform_session(request, session_id)
+    if session is not None:
+        _ensure_webchat_session_owner(session, principal)
+        return
+    create_session = getattr(chat_db, "create_platform_session", None)
+    if not callable(create_session):
+        raise ApiError("Authorization denied", status_code=403)
+    try:
+        created = create_session(
+            creator=principal.username,
+            platform_id="webchat",
+            session_id=session_id,
+        )
+        if inspect.isawaitable(created):
+            await cast(Awaitable[Any], created)
+        return
+    except Exception:
+        # A concurrent first message may have won the insert race. Re-read and
+        # apply the same ownership check; never adopt another account's row.
+        _chat_db, reloaded = await _load_platform_session(request, session_id)
+        _ensure_webchat_session_owner(reloaded, principal)
+
+
+async def _webchat_step_up_target(
+    request: Request,
+    principal,
+    session_id: str,
+) -> tuple[Subject, AuthContext, Resource, bool]:
+    """Reconstruct the trusted WebChat session/config target server-side."""
+
+    if principal.account_subject is None:
+        raise ApiError("Dashboard account is unavailable", status_code=401)
+    _chat_db, session = await _load_platform_session(request, session_id)
+    needs_creation = False
+    if session is None:
+        # The chat UI can have a route for a freshly allocated conversation
+        # before the first message persists its platform session. UUID
+        # validation keeps this recovery path scoped to normal WebChat
+        # session identifiers rather than arbitrary database keys.
+        if not _is_canonical_session_id(session_id):
+            raise ApiError("Authorization denied", status_code=403)
+        needs_creation = True
+    else:
+        _ensure_webchat_session_owner(session, principal)
     umo = f"webchat:FriendMessage:webchat!{principal.username}!{session_id}"
     router = getattr(
         getattr(request.app.state, "runtime", None), "umop_config_router", None
@@ -181,7 +206,7 @@ async def _webchat_step_up_target(
         caller_declared_username=principal.username,
         metadata={"dashboard_session_id": principal.sid},
     )
-    return subject, context, resource
+    return subject, context, resource, needs_creation
 
 
 async def _authorize_identity_read(
@@ -499,7 +524,7 @@ async def issue_webchat_step_up(
     Password/TOTP never cross the WebSocket or enter a chat message.
     """
 
-    subject, context, resource = await _webchat_step_up_target(
+    subject, context, resource, needs_creation = await _webchat_step_up_target(
         request, principal, payload.session_id
     )
     authorization = _service(request)
@@ -525,6 +550,12 @@ async def issue_webchat_step_up(
             context=context,
         )
         raise ApiError("Reauthentication required", status_code=401)
+    if needs_creation:
+        await _create_webchat_session_after_verification(
+            request,
+            principal,
+            payload.session_id,
+        )
 
     tokens: dict[str, str] = {}
     for action in actions:

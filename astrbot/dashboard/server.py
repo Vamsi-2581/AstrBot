@@ -126,6 +126,9 @@ _RATE_LIMITED_ENDPOINTS: frozenset = frozenset(
         "/api/config/astrbot/update",
         "/api/v1/auth/totp/setup",
         "/api/v1/auth/login",
+        "/api/v1/authorization/step-up",
+        "/api/v1/authorization/role-bindings/batch-revoke/step-up",
+        "/api/v1/authorization/webchat-step-up",
     }
 )
 _SECRET_RAW_PATH_RE = re.compile(

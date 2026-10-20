@@ -234,6 +234,7 @@ def _resource_types_for(action: str) -> frozenset[str]:
                 "memory",
                 "file",
                 "knowledge-base",
+                "session",
                 "dashboard-api",
             }
         )
@@ -373,6 +374,11 @@ def dashboard_api_capability_specs(
         specs.append(("platform.manage", instance.type, instance.id))
         collection = Resource.named("config-profile", "collection", config_id="default")
         specs.append(("platform.manage", collection.type, collection.id))
+        route_collection = Resource.named(
+            "config-route", "collection", config_id="default"
+        )
+        specs.append(("platform.read", route_collection.type, route_collection.id))
+        specs.append(("platform.manage", route_collection.type, route_collection.id))
     if "bot" in selected:
         collection = Resource.named("bot", "collection")
         specs.append(("platform.read", collection.type, collection.id))
