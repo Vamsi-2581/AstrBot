@@ -949,9 +949,10 @@ const systemConfigGroups = computed<SystemConfigGroup[]>(() => {
       'log.file_enable',
       'log.file_path',
       'log.file_max_mb',
-      'trace.log_enable',
-      'trace.log_path',
-      'trace.log_max_mb',
+      'trace.enable',
+      'trace.db_path',
+      'trace.db_max_mb',
+      'trace.retention_days',
     ]),
     createGroup('tempStorage', ['temp_dir_max_size']),
     createGroup('t2iRendering', [

@@ -1748,17 +1748,21 @@
         }
       },
       "trace": {
-        "log_enable": {
-          "description": "Enable Trace File Logging",
-          "hint": "Write trace events to a separate file (does not change console output)."
+        "enable": {
+          "description": "Enable Trace Recording",
+          "hint": "Trace each user command and AI call."
         },
-        "log_path": {
-          "description": "Trace Log File Path",
-          "hint": "Relative paths are resolved under the data directory, e.g. logs/astrbot.trace.log; absolute paths are supported."
+        "db_path": {
+          "description": "Trace Database Path",
+          "hint": "Relative paths start from the data directory, for example logs/traces.db. Absolute paths are also supported."
         },
-        "log_max_mb": {
-          "description": "Trace Log Max Size (MB)",
-          "hint": "Rotate when exceeding this size; default 20MB."
+        "db_max_mb": {
+          "description": "Trace Database Capacity Budget (MB)",
+          "hint": "Default: 80 MB. Values below 32 MB use 32 MB. Old data is automatically cleared when this size is exceeded."
+        },
+        "retention_days": {
+          "description": "Trace Retention Days",
+          "hint": "Default: 7 days. Old data is cleared when either the retention period or capacity is reached."
         }
       },
       "observability": {

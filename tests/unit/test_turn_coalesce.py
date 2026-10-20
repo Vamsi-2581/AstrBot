@@ -68,33 +68,6 @@ async def test_recall_clears_empty_window():
 
 
 @pytest.mark.asyncio
-async def test_waiter_bypasses_coalesce():
-    stage = TurnCoalesceStage()
-    dispatched = []
-
-    async def dispatch(event):
-        dispatched.append(event)
-        return True
-
-    await stage.initialize(
-        SimpleNamespace(
-            astrbot_config={
-                "inbound_coalesce": {"enable": True, "private": True, "wait_seconds": 2}
-            },
-            execution_context=SimpleNamespace(
-                session_waiter_registry=SimpleNamespace(dispatch=dispatch),
-                turn_window_manager=TurnWindowManager(lambda event: True),
-            ),
-        )
-    )
-    event = _event("hello")
-    event.set_extra("should_run_llm", True)
-    await stage.process(event)
-    assert dispatched == [event]
-    assert event.is_stopped() is True
-
-
-@pytest.mark.asyncio
 async def test_flush_enqueues_once():
     queued: list[AstrMessageEvent] = []
     manager = TurnWindowManager(lambda event: queued.append(event) or True)

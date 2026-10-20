@@ -1,4 +1,4 @@
-/* Auto-generated MDI subset – 283 icons */
+/* Auto-generated MDI subset – 287 icons */
 /* Do not edit manually. Run: pnpm run subset-icons */
 
 @font-face {
@@ -500,6 +500,10 @@
   content: "\F0236";
 }
 
+.mdi-flash::before {
+  content: "\F0241";
+}
+
 .mdi-folder::before {
   content: "\F024B";
 }
@@ -556,10 +560,6 @@
   content: "\F0871";
 }
 
-.mdi-gesture-swipe-horizontal::before {
-  content: "\F0ABF";
-}
-
 .mdi-github::before {
   content: "\F02A4";
 }
@@ -574,6 +574,10 @@
 
 .mdi-heart::before {
   content: "\F02D1";
+}
+
+.mdi-heart-outline::before {
+  content: "\F02D5";
 }
 
 .mdi-help-circle-outline::before {
@@ -864,6 +868,10 @@
   content: "\F0995";
 }
 
+.mdi-pulse::before {
+  content: "\F0430";
+}
+
 .mdi-puzzle::before {
   content: "\F0431";
 }
@@ -932,6 +940,10 @@
   content: "\F1281";
 }
 
+.mdi-send::before {
+  content: "\F048A";
+}
+
 .mdi-send-outline::before {
   content: "\F1165";
 }
@@ -986,6 +998,10 @@
 
 .mdi-shuffle-variant::before {
   content: "\F049F";
+}
+
+.mdi-sitemap::before {
+  content: "\F04AA";
 }
 
 .mdi-skip-next-circle-outline::before {

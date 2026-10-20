@@ -5,6 +5,7 @@ from astrbot.core.agent.run_state import mark_work_run_failed
 from astrbot.core.config.agent_runner import normalize_agent_runner_for_load
 from astrbot.core.platform.astr_message_event import AstrMessageEvent
 from astrbot.core.star.session_llm_manager import SessionServiceManager
+from astrbot.core.utils.error_redaction import safe_error
 
 from ...context import PipelineContext
 from ...stage import Stage
@@ -47,5 +48,34 @@ class AgentRequestSubStage(Stage):
             mark_work_run_failed(event)
             return
 
-        async for resp in self.agent_sub_stage.process(event):
-            yield resp
+        agent_config = self.config.get("agent_runner", {})
+        runner_type = agent_config.get("runner_type", "local")
+        trace = getattr(event, "trace", None)
+        if trace is not None:
+            trace.record(
+                "agent_start",
+                kind="agent",
+                status="running",
+                runner_type=runner_type,
+            )
+        try:
+            async for resp in self.agent_sub_stage.process(event):
+                yield resp
+        except BaseException as exc:
+            if trace is not None:
+                trace.record(
+                    "agent_end",
+                    kind="agent",
+                    status="error",
+                    error=safe_error("", exc),
+                    runner_type=runner_type,
+                )
+            raise
+        else:
+            if trace is not None:
+                trace.record(
+                    "agent_end",
+                    kind="agent",
+                    status="success",
+                    runner_type=runner_type,
+                )

@@ -8,6 +8,12 @@ Use the `messages` capability on the `PluginContext` passed to the plugin. It
 registers a wait for the current message's session without exposing internal
 runtime registries:
 
+Follow-up input is routed by the core pipeline, not by a built-in plugin handler.
+A matching active wait admits the message without another mention or wake prefix.
+After admission, session-status, rate-limit, content-safety, and preprocessing
+checks, `ProcessStage` dispatches it before ordinary plugin handlers or the
+Agent; consumed input does not continue to those handlers.
+
 ```python
 import astrbot.api.message_components as Comp
 from astrbot.api import logger

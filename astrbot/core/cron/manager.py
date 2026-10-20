@@ -18,12 +18,15 @@ from astrbot.core.conversation_mgr import load_sanitized_history
 from astrbot.core.cron.events import CronMessageEvent
 from astrbot.core.db.po import CronJob
 from astrbot.core.db.protocols import CronStore
+from astrbot.core.log import log_context
+from astrbot.core.platform.astr_message_event import event_context
 from astrbot.core.platform.message_session import MessageSession
 from astrbot.core.platform.message_type import MessageType
 from astrbot.core.utils.error_redaction import safe_error
 from astrbot.core.utils.history_saver import persist_agent_history
 from astrbot.core.utils.string_utils import interpolate_placeholders
 from astrbot.core.utils.task_utils import cancel_tracked_tasks, create_tracked_task
+from astrbot.core.utils.trace import trace_execution
 
 if TYPE_CHECKING:
     from astrbot.core.execution_context import CoreExecutionContext
@@ -450,72 +453,77 @@ class CronJobManager:
             message_type=session.message_type,
         )
 
-        umo = cron_event.unified_msg_origin
-        cfg = self.ctx.get_config(umo=umo)
-        enabled_plugins_name = cfg.get("plugin_set", ["*"])
-        cron_event.plugins_name = (
-            None if enabled_plugins_name == ["*"] else enabled_plugins_name
-        )
-
-        config, max_agent_step = local_agent_runtime_from_profile(
-            cfg,
-            streaming_response=False,
-        )
-        req = ProviderRequest()
-        conv = await _get_session_conv(event=cron_event, plugin_context=self.ctx)
-        req.conversation = conv
-        req.contexts = load_sanitized_history(conv.history)
-        cron_job_str = json.dumps(extras.get("cron_job", {}), ensure_ascii=False)
-        req.system_prompt += PROACTIVE_AGENT_CRON_WOKE_SYSTEM_PROMPT
-        # Keep per-run metadata after history so it does not invalidate its cache.
-        req.prompt = interpolate_placeholders(
-            PROACTIVE_AGENT_CRON_WOKE_USER_PROMPT,
-            {"cron_job": cron_job_str},
-        )
-        if delivery_session_str:
-            if not req.func_tool:
-                req.func_tool = ToolSet()
-            req.func_tool.add_tool(
-                self.ctx.get_llm_tool_manager().get_builtin_tool(SendMessageToUserTool)
+        with (
+            log_context(cron_event.get_platform_id(), cron_event.get_platform_name()),
+            event_context(cron_event),
+            trace_execution(cron_event.trace),
+        ):
+            umo = cron_event.unified_msg_origin
+            cfg = self.ctx.get_config(umo=umo)
+            enabled_plugins_name = cfg.get("plugin_set", ["*"])
+            cron_event.plugins_name = (
+                None if enabled_plugins_name == ["*"] else enabled_plugins_name
             )
 
-        result = await build_main_agent(
-            event=cron_event, plugin_context=self.ctx, config=config, req=req
-        )
-        if not result:
-            raise RuntimeError("Failed to build main agent for cron job.")
-
-        runner = result.agent_runner
-        async for _ in runner.step_until_done(max_agent_step):
-            # agent will send message to user via using tools
-            pass
-        llm_resp = runner.get_final_llm_resp()
-        if getattr(runner, "state", AgentState.DONE) == AgentState.ERROR:
-            detail = (
-                f": {llm_resp.completion_text}"
-                if llm_resp and llm_resp.completion_text
-                else ""
+            config, max_agent_step = local_agent_runtime_from_profile(
+                cfg,
+                streaming_response=False,
             )
-            raise RuntimeError(f"Cron agent run ended in ERROR state{detail}")
-        cron_meta = extras.get("cron_job", {}) if extras else {}
-        summary_note = (
-            f"[CronJob] {cron_meta.get('name') or cron_meta.get('id', 'unknown')}: {cron_meta.get('description', '')} "
-            f" triggered at {cron_meta.get('run_started_at', 'unknown time')}, "
-        )
-        if llm_resp and llm_resp.role == "assistant":
-            summary_note += (
-                f"I finished this job, here is the result: {llm_resp.completion_text}"
+            req = ProviderRequest()
+            conv = await _get_session_conv(event=cron_event, plugin_context=self.ctx)
+            req.conversation = conv
+            req.contexts = load_sanitized_history(conv.history)
+            cron_job_str = json.dumps(extras.get("cron_job", {}), ensure_ascii=False)
+            req.system_prompt += PROACTIVE_AGENT_CRON_WOKE_SYSTEM_PROMPT
+            # Keep per-run metadata after history so it does not invalidate its cache.
+            req.prompt = interpolate_placeholders(
+                PROACTIVE_AGENT_CRON_WOKE_USER_PROMPT,
+                {"cron_job": cron_job_str},
             )
+            if delivery_session_str:
+                if not req.func_tool:
+                    req.func_tool = ToolSet()
+                req.func_tool.add_tool(
+                    self.ctx.get_llm_tool_manager().get_builtin_tool(
+                        SendMessageToUserTool
+                    )
+                )
 
-        await persist_agent_history(
-            self.ctx.conversation_manager,
-            event=cron_event,
-            req=req,
-            summary_note=summary_note,
-        )
-        if not llm_resp:
-            logger.warning("Cron job agent got no response")
-            return
+            result = await build_main_agent(
+                event=cron_event, plugin_context=self.ctx, config=config, req=req
+            )
+            if not result:
+                raise RuntimeError("Failed to build main agent for cron job.")
+
+            runner = result.agent_runner
+            async for _ in runner.step_until_done(max_agent_step):
+                # agent will send message to user via using tools
+                pass
+            llm_resp = runner.get_final_llm_resp()
+            if getattr(runner, "state", AgentState.DONE) == AgentState.ERROR:
+                detail = (
+                    f": {llm_resp.completion_text}"
+                    if llm_resp and llm_resp.completion_text
+                    else ""
+                )
+                raise RuntimeError(f"Cron agent run ended in ERROR state{detail}")
+            cron_meta = extras.get("cron_job", {}) if extras else {}
+            summary_note = (
+                f"[CronJob] {cron_meta.get('name') or cron_meta.get('id', 'unknown')}: {cron_meta.get('description', '')} "
+                f" triggered at {cron_meta.get('run_started_at', 'unknown time')}, "
+            )
+            if llm_resp and llm_resp.role == "assistant":
+                summary_note += f"I finished this job, here is the result: {llm_resp.completion_text}"
+
+            await persist_agent_history(
+                self.ctx.conversation_manager,
+                event=cron_event,
+                req=req,
+                summary_note=summary_note,
+            )
+            if not llm_resp:
+                logger.warning("Cron job agent got no response")
+                return
 
 
 __all__ = ["CronJobManager"]

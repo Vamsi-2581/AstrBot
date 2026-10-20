@@ -39,7 +39,9 @@ class WorkEvent:
         self.extras = {}
         self.result = None
         self.cleaned = 0
-        self.trace = []
+        self.stage_trace = []
+        self.trace = MagicMock()
+        self._execution_active = False
         self._stopped = False
 
     def get_extra(self, key, default=None):
@@ -113,9 +115,9 @@ class DecorateStage(ResultDecorateStage):
     async def process(self, event):
         if event.result is None:
             return
-        event.trace.append("decorate-before")
+        event.stage_trace.append("decorate-before")
         yield
-        event.trace.append("decorate-after")
+        event.stage_trace.append("decorate-after")
 
 
 class SendStage(Stage):
@@ -125,7 +127,7 @@ class SendStage(Stage):
     async def process(self, event):
         if event.result is None:
             return
-        event.trace.append("send")
+        event.stage_trace.append("send")
         await event.send(event.result)
         event.result = None
 
@@ -139,7 +141,7 @@ class StopAfterAcknowledgementStage(Stage):
     async def process(self, event):
         if event.result is not None:
             return
-        event.trace.append("stop")
+        event.stage_trace.append("stop")
         event.stop_event()
 
 
@@ -198,7 +200,7 @@ async def test_background_webchat_keeps_each_request_until_its_final_result(tmp_
         assert {message["message_id"] for message in messages} == {"first"}
         assert queues.back_queues["second"].empty()
         assert first.cleaned == 1 and second.cleaned == 0
-        assert first.trace == ["decorate-before", "send", "decorate-after"] * 2
+        assert first.stage_trace == ["decorate-before", "send", "decorate-after"] * 2
         await scheduler.finalize_detached_event(first)
         assert first.cleaned == 1
     finally:
@@ -327,7 +329,9 @@ class ReceiptWorkEvent:
         self.extras = {}
         self.result = None
         self.cleaned = 0
-        self.trace = []
+        self.stage_trace = []
+        self.trace = MagicMock()
+        self._execution_active = False
         self.plugins_name = []
         self.send_streaming = AsyncMock()
         self.stop_typing = AsyncMock()

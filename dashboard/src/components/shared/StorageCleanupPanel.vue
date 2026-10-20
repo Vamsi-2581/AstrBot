@@ -75,9 +75,12 @@ interface StorageEntry {
   exists: boolean;
 }
 
+type CleanupTarget = 'logs' | 'cache' | 'traces' | 'all';
+
 interface StorageStatus {
   logs: StorageEntry;
   cache: StorageEntry;
+  traces: StorageEntry;
   total_bytes: number;
 }
 
@@ -90,6 +93,12 @@ const storageStatus = ref<StorageStatus>({
     exists: false,
   },
   cache: {
+    size_bytes: 0,
+    file_count: 0,
+    path: '',
+    exists: false,
+  },
+  traces: {
     size_bytes: 0,
     file_count: 0,
     path: '',
@@ -123,7 +132,9 @@ const formatBytes = (bytes: number | string) => {
   return `${size.toFixed(decimals)} ${units[unitIndex]}`;
 };
 
-const storageCards = computed(() => [
+const storageCards = computed<
+  { key: CleanupTarget; buttonText: string; icon: string; sizeBytes: number }[]
+>(() => [
   {
     key: 'cache',
     buttonText: tm('system.cleanup.targets.cache.button'),
@@ -135,6 +146,12 @@ const storageCards = computed(() => [
     buttonText: tm('system.cleanup.targets.logs.button'),
     icon: 'mdi-file-document-outline',
     sizeBytes: storageStatus.value.logs?.size_bytes || 0,
+  },
+  {
+    key: 'traces',
+    buttonText: tm('system.cleanup.targets.traces.button'),
+    icon: 'mdi-timeline-text-outline',
+    sizeBytes: storageStatus.value.traces?.size_bytes || 0,
   },
 ]);
 
@@ -160,7 +177,7 @@ const loadStorageStatus = async () => {
   }
 };
 
-const cleanupStorage = async (target: string) => {
+const cleanupStorage = async (target: CleanupTarget) => {
   const confirmed = await askForConfirmation(
     tm('system.cleanup.confirm', {
       target: tm(`system.cleanup.targetNames.${target}`),
@@ -183,12 +200,31 @@ const cleanupStorage = async (target: string) => {
     const cleanupData: Record<string, unknown> = res.data.data || {};
     storageStatus.value =
       (cleanupData.status as StorageStatus) || storageStatus.value;
-    showToast(
-      tm('system.cleanup.messages.cleanupSuccess', {
-        size: formatBytes(Number(cleanupData.removed_bytes) || 0),
-        count: Number(cleanupData.processed_files) || 0,
-      }),
-    );
+    const removedTraces = Number(cleanupData.removed_traces) || 0;
+    const removedBytes = formatBytes(Number(cleanupData.removed_bytes) || 0);
+    if (target === 'traces') {
+      showToast(
+        tm('system.cleanup.messages.cleanupTracesSuccess', {
+          count: removedTraces,
+          size: removedBytes,
+        }),
+      );
+    } else if (target === 'all' && removedTraces > 0) {
+      showToast(
+        tm('system.cleanup.messages.cleanupWithTracesSuccess', {
+          count: Number(cleanupData.processed_files) || 0,
+          traces: removedTraces,
+          size: removedBytes,
+        }),
+      );
+    } else {
+      showToast(
+        tm('system.cleanup.messages.cleanupSuccess', {
+          size: removedBytes,
+          count: Number(cleanupData.processed_files) || 0,
+        }),
+      );
+    }
   } catch (error) {
     const err = error as { response?: { data?: { message?: string } } };
     showToast(

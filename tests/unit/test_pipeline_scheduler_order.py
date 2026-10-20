@@ -12,7 +12,9 @@ from astrbot.core.utils.active_event_registry import ActiveEventRegistry
 class PipelineEvent:
     def __init__(self) -> None:
         self.stopped = False
-        self.trace: list[str] = []
+        self.stage_trace: list[str] = []
+        self.trace = MagicMock()
+        self._execution_active = False
         self.requires_empty_completion = False
         self.unified_msg_origin = "webchat:FriendMessage:pipeline"
         self.cleaned = False
@@ -55,9 +57,9 @@ class OnionStage(Stage):
         return None
 
     async def process(self, event: PipelineEvent):
-        event.trace.append("pre")
+        event.stage_trace.append("pre")
         yield
-        event.trace.append("post")
+        event.stage_trace.append("post")
 
 
 class TraceStage(Stage):
@@ -69,7 +71,7 @@ class TraceStage(Stage):
         return None
 
     async def process(self, event: PipelineEvent) -> None:
-        event.trace.append(self.label)
+        event.stage_trace.append(self.label)
         if self.stop:
             event.stop_event()
 
@@ -79,7 +81,7 @@ class CancelStage(Stage):
         return None
 
     async def process(self, event: PipelineEvent) -> None:
-        event.trace.append("cancel")
+        event.stage_trace.append("cancel")
         raise asyncio.CancelledError
 
 
@@ -115,9 +117,9 @@ async def test_pipeline_stops_propagation_but_finishes_onion_post():
 
     await scheduler._process_stages(event)
 
-    assert "pre" in event.trace
-    assert "middle" in event.trace
-    assert "late" not in event.trace
+    assert "pre" in event.stage_trace
+    assert "middle" in event.stage_trace
+    assert "late" not in event.stage_trace
     assert event.is_stopped() is True
 
 

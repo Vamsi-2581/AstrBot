@@ -83,11 +83,6 @@ async def test_factory_does_not_start_preferences_before_other_resources(
         "configure_logger",
         MagicMock(),
     )
-    monkeypatch.setattr(
-        runtime_services.LogManager,
-        "configure_trace_logger",
-        MagicMock(),
-    )
     monkeypatch.setattr(runtime_services, "ToolImageCache", BrokenToolImageCache)
     monkeypatch.setattr(runtime_services, "SharedPreferences", preferences_factory)
     monkeypatch.setattr(
@@ -141,11 +136,6 @@ async def test_factory_disposes_sqlite_engine_when_tool_image_cache_fails(
     monkeypatch.setattr(runtime_services, "LEGACY_DB_PATH", str(tmp_path / "legacy.db"))
     monkeypatch.setattr(runtime_services.LogManager, "GetLogger", MagicMock())
     monkeypatch.setattr(runtime_services.LogManager, "configure_logger", MagicMock())
-    monkeypatch.setattr(
-        runtime_services.LogManager,
-        "configure_trace_logger",
-        MagicMock(),
-    )
     monkeypatch.setattr(runtime_services, "ToolImageCache", BrokenToolImageCache)
     monkeypatch.setattr(runtime_services, "SharedPreferences", preferences_factory)
     monkeypatch.setattr(
@@ -185,11 +175,6 @@ async def test_factory_disposes_sqlite_engine_on_cancelled_error(monkeypatch, tm
     monkeypatch.setattr(runtime_services, "LEGACY_DB_PATH", str(tmp_path / "legacy.db"))
     monkeypatch.setattr(runtime_services.LogManager, "GetLogger", MagicMock())
     monkeypatch.setattr(runtime_services.LogManager, "configure_logger", MagicMock())
-    monkeypatch.setattr(
-        runtime_services.LogManager,
-        "configure_trace_logger",
-        MagicMock(),
-    )
     monkeypatch.setattr(runtime_services, "ToolImageCache", CancelledToolImageCache)
     monkeypatch.setattr(runtime_services, "SharedPreferences", MagicMock())
     monkeypatch.setattr(

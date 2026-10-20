@@ -61,7 +61,6 @@ async def create_runtime_services() -> RuntimeServices:
         # configure_logger adjusts settings; GetLogger installs the output bridge.
         runtime_logger = LogManager.GetLogger("astrbot")
         LogManager.configure_logger(runtime_logger, config)
-        LogManager.configure_trace_logger(config)
         db = SQLiteDatabase(DB_PATH, LEGACY_DB_PATH)
         authorization = AuthorizationService(db)
         webchat_queue_manager = WebChatQueueManager()

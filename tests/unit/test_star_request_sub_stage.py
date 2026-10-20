@@ -2,7 +2,7 @@ import importlib
 import sys
 import types
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -49,6 +49,7 @@ class FakeEvent:
         if at_or_wake:
             self._extras["should_run_command"] = True
         self._stopped = False
+        self.trace = MagicMock()
         self.result_history: list[MessageEventResult] = []
         self.clear_result_calls = 0
 
@@ -74,6 +75,9 @@ def _handler_meta(name: str, module_path: str = "plugin.module"):
         handler_module_path=module_path,
         handler_name=name,
         handler=object(),
+        event_type=EventType.AdapterMessageEvent,
+        event_filters=[],
+        extras_configs={},
     )
 
 

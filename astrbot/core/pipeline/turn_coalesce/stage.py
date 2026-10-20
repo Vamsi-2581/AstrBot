@@ -39,11 +39,6 @@ class TurnCoalesceStage(Stage):
                 manager.recall(str(message_id))
             return
 
-        registry = getattr(self.ctx.execution_context, "session_waiter_registry", None)
-        if registry is not None and await registry.dispatch(event):
-            event.stop_event()
-            return
-
         if hasattr(manager, "set_max_typing_wait"):
             manager.set_max_typing_wait(self.max_typing_wait)
 

@@ -6,6 +6,11 @@
 请使用插件初始化时获得的 `PluginContext` 上的 `messages` 能力。它会为当前消息
 所属的会话注册等待，而不会暴露内部运行时注册器：
 
+后续输入由核心消息管道分发，不再依赖内置插件处理器。匹配到有效等待会话的消息
+无需再次 @ 机器人或添加唤醒前缀；经过准入、会话开关、限流、内容安全检查和
+预处理后，`ProcessStage` 会在普通插件处理器或 Agent 之前将其交给等待回调，
+被接管的消息不会继续触发这些处理器。
+
 ```python
 import astrbot.api.message_components as Comp
 from astrbot.api import logger

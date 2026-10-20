@@ -268,8 +268,21 @@ class WakingCheckStage(Stage):
                 wake_reasons = set(wake_reasons)
             wake_reasons.add(WakeReason.PLUGIN_HANDLER.value)
             event.set_extra("wake_reasons", wake_reasons)
+        # Admit follow-up input without invoking callbacks before access checks.
+        if not event.is_wake:
+            self._admit_active_waiter(event)
+
         if event.is_wake:
             self._umo_auto_name_recorder.schedule(event)
+
+    def _admit_active_waiter(self, event: AstrMessageEvent) -> bool:
+        """Wake an event that matches an active interactive wait."""
+        execution_context = getattr(self.ctx, "execution_context", None)
+        registry = getattr(execution_context, "session_waiter_registry", None)
+        if registry is None or not registry.has_active_waiter(event):
+            return False
+        event.is_wake = True
+        return True
 
     def _is_bot_self_message(self, event: AstrMessageEvent) -> bool:
         return self.ignore_bot_self_message and (

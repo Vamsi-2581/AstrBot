@@ -1166,7 +1166,7 @@ export type GhproxyTestRequest = {
 };
 
 export type StorageCleanupRequest = {
-  target?: string;
+  target?: 'logs' | 'cache' | 'traces' | 'all';
 };
 
 export type TraceSettingsRequest = {
@@ -7485,6 +7485,59 @@ export type GetLogHistoryResponses = {
 
 export type GetLogHistoryResponse =
   GetLogHistoryResponses[keyof GetLogHistoryResponses];
+
+export type ListTracesData = {
+  body?: never;
+  path?: never;
+  query?: {
+    limit?: number;
+    /**
+     * Legacy keyset cursor; use page for numbered pagination.
+     */
+    cursor?: string;
+    page?: number;
+    query?: string;
+    errors?: boolean;
+    models?: boolean;
+    plugins?: boolean;
+  };
+  url: '/api/v1/trace/history';
+};
+
+export type ListTracesResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type ListTracesResponse = ListTracesResponses[keyof ListTracesResponses];
+
+export type GetTraceDetailData = {
+  body?: never;
+  path: {
+    trace_id: string;
+  };
+  query?: never;
+  url: '/api/v1/trace/{trace_id}';
+};
+
+export type GetTraceDetailErrors = {
+  /**
+   * Trace not found or already evicted.
+   */
+  404: unknown;
+};
+
+export type GetTraceDetailResponses = {
+  /**
+   * Standard AstrBot success response
+   */
+  200: SuccessEnvelope;
+};
+
+export type GetTraceDetailResponse =
+  GetTraceDetailResponses[keyof GetTraceDetailResponses];
 
 export type GetTraceSettingsData = {
   body?: never;
