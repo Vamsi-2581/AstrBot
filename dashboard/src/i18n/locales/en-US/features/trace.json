@@ -4,7 +4,7 @@
     "enabled": "Auto-scroll: On",
     "disabled": "Auto-scroll: Off"
   },
-  "hint": "Inspect the in-memory execution chain for each message: plugin handlers, Agent steps, tools, and responses.",
+  "hint": "Inspect message execution chains persisted in bounded SQLite history: plugin handlers, Agent steps, tools, and responses.",
   "toggleLabel": "Record traces",
   "recording": "Recording",
   "paused": "Paused",

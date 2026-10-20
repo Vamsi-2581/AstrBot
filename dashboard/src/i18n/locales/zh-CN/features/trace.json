@@ -4,7 +4,7 @@
     "enabled": "自动滚动：开",
     "disabled": "自动滚动：关"
   },
-  "hint": "记录一次消息唤醒后的完整执行链：插件 Handler、Agent、工具调用与响应。数据仅保留在内存中。",
+  "hint": "查看保存在有上限的 SQLite 追踪历史中的消息执行链：插件 Handler、Agent、工具调用与响应。",
   "toggleLabel": "记录追踪",
   "recording": "记录中",
   "paused": "已暂停",
