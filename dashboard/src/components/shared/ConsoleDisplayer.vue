@@ -747,6 +747,17 @@ onBeforeUnmount(() => {
   padding: 20px;
 }
 
+.console-displayer-wrapper:fullscreen :deep(.console-pip-dialog) {
+  border-color: rgb(255 255 255 / 16%);
+  background-color: #1e1e1e;
+  color: #fff;
+}
+
+.console-displayer-wrapper:fullscreen :deep(.console-pip-dialog .v-field) {
+  --v-theme-surface: 36, 36, 36;
+  --v-theme-on-surface: 255, 255, 255;
+}
+
 .console-displayer-wrapper:fullscreen :deep(.v-switch__track) {
   --v-theme-surface-variant: 163, 163, 163;
 }
