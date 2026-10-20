@@ -245,6 +245,31 @@ async def test_corrupt_asset_is_skipped_without_failing_state_load(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_corrupt_asset_drops_unusable_persisted_metadata(tmp_path):
+    service = AppearanceService(tmp_path)
+    service.wallpaper_dir.mkdir(parents=True, exist_ok=True)
+    service.thumbnail_dir.mkdir(parents=True, exist_ok=True)
+    wallpaper_id = "a" * 32
+    (service.wallpaper_dir / f"{wallpaper_id}.png").write_bytes(b"not an image")
+    service.state_path.write_text(
+        json.dumps(
+            {
+                "revision": 1,
+                "settings": {"enabled": True},
+                "wallpapers": {wallpaper_id: {"id": wallpaper_id}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    restarted = AppearanceService(tmp_path)
+    assert await restarted.list_wallpapers() == []
+    assert (await restarted.get_settings())["enabled"] is True
+    state = json.loads(restarted.state_path.read_text(encoding="utf-8"))
+    assert wallpaper_id not in state["wallpapers"]
+
+
+@pytest.mark.asyncio
 async def test_invalid_persisted_metadata_is_rebuilt(tmp_path):
     service = AppearanceService(tmp_path)
     uploaded = await service.save_wallpaper(_upload(), "landscape")
