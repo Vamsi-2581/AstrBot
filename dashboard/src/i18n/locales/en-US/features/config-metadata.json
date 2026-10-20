@@ -229,7 +229,8 @@
           "hint": "Leave empty to disable; useful for non-multimodal models"
         },
         "image_caption_prompt": {
-          "description": "Image Caption Prompt"
+          "description": "Image Caption Prompt",
+          "hint": "When the chat model does not support image input, call the image caption model to obtain an image description. Leave empty to disable."
         }
       },
       "provider_stt_settings": {
@@ -248,10 +249,12 @@
           "hint": "Use a text-to-speech model to turn text into voice replies."
         },
         "provider_id": {
-          "description": "Default Text-to-Speech Model"
+          "description": "Default Text-to-Speech Model",
+          "hint": "You can also use the /provider command to select a model for the session."
         },
         "trigger_probability": {
-          "description": "TTS Trigger Probability"
+          "description": "TTS Trigger Probability",
+          "hint": "Use a random probability to trigger a voice reply."
         }
       }
     },
@@ -671,7 +674,8 @@
       "description": "Other Settings",
       "provider_settings": {
         "display_reasoning_text": {
-          "description": "Display Reasoning Content"
+          "description": "Display Reasoning Content",
+          "hint": "Show the model's chain of thought in the final reply."
         },
         "identifier": {
           "description": "User Identification",
@@ -686,7 +690,8 @@
           "hint": "When enabled, a temporary current-time reminder is appended after this turn's last user message and is not saved to conversation history."
         },
         "show_tool_use_status": {
-          "description": "Show Tool Call Information"
+          "description": "Show Tool Call Information",
+          "hint": "When a tool is called, also send a message containing the tool name."
         },
         "show_tool_call_result": {
           "description": "Output Tool Call Results",
@@ -719,7 +724,8 @@
           }
         },
         "streaming_response": {
-          "description": "Streaming Output"
+          "description": "Streaming Output",
+          "hint": "Stream the response typewriter-style on supported chat platforms."
         },
         "unsupported_streaming_strategy": {
           "description": "Platforms Without Streaming Support",
@@ -1267,19 +1273,24 @@
           "hint": "Experimental and off by default. Different group senders may generate in parallel, but a whole turn still sends one-at-a-time per group. Ignored when session isolation is on. Disables group streaming; segmented or forwarded replies may interleave."
         },
         "reply_prefix": {
-          "description": "Reply Text Prefix"
+          "description": "Reply Text Prefix",
+          "hint": "The text prefix added to replies."
         },
         "reply_with_mention": {
-          "description": "Mention Sender in Reply"
+          "description": "Mention Sender in Reply",
+          "hint": "Mention the sender when replying."
         },
         "reply_with_quote": {
-          "description": "Quote Sender's Message in Reply"
+          "description": "Quote Sender's Message in Reply",
+          "hint": "Quote the sender's corresponding message when replying."
         },
         "forward_threshold": {
-          "description": "Forward Message Word Count Threshold"
+          "description": "Forward Message Word Count Threshold",
+          "hint": "On supported platforms, send overly long replies as merged forwarded messages."
         },
         "empty_mention_waiting": {
-          "description": "Wait after a prefix-only message"
+          "description": "Wait after a prefix-only message",
+          "hint": "After a message that only contains a command prefix, stay awake for one minute to wait for the next message."
         },
         "onebot_forward": {
           "expand_on_ingress": {
@@ -1290,6 +1301,10 @@
             "description": "Ingress expansion fetch limit",
             "hint": "Maximum number of recursive get_forward_msg calls per message during ingress expansion."
           }
+        },
+        "friend_message_needs_wake_prefix": {
+          "description": "Private Messages Require Wake Word",
+          "hint": "Private messages must also include a wake prefix to activate the bot."
         }
       },
       "command_prefixes": {
@@ -1391,7 +1406,8 @@
       "description": "Text-to-Image",
       "t2i": {
         "enable": {
-          "description": "Text-to-Image Output"
+          "description": "Text-to-Image Output",
+          "hint": "Convert model replies to images before sending to avoid flooding the chat."
         },
         "word_threshold": {
           "description": "Text-to-Image Word Count Threshold"
@@ -1465,7 +1481,8 @@
       "platform_settings": {
         "segmented_reply": {
           "enable": {
-            "description": "Enable Segmented Reply"
+            "description": "Enable Segmented Reply",
+            "hint": "Send the reply in segments."
           },
           "only_llm_result": {
             "description": "Segment Only LLM Results"
@@ -1510,16 +1527,20 @@
       "description": "Group Chat Context Awareness",
       "provider_ltm_settings": {
         "group_icl_enable": {
-          "description": "Enable Group Chat Context Awareness"
+          "description": "Enable Group Chat Context Awareness",
+          "hint": "Record group messages that do not wake the bot and pass them to the model when the bot is activated."
         },
         "group_message_max_cnt": {
-          "description": "Maximum Message Count"
+          "description": "Maximum Message Count",
+          "hint": "The maximum number of messages passed to the model."
         },
         "group_message_history_enable": {
-          "description": "Persist Group Message History"
+          "description": "Persist Group Message History",
+          "hint": "Persist all group messages and let the model query them with a tool."
         },
         "group_message_history_max_cnt": {
-          "description": "Maximum Persisted Group Messages"
+          "description": "Maximum Persisted Group Messages",
+          "hint": "Maximum number of persisted messages; older messages are discarded."
         },
         "image_caption": {
           "description": "Auto-understand Images",
