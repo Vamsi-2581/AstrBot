@@ -9,13 +9,23 @@ import { astrBotThemes, themeNames } from '@/design/theme';
 const testComponentRegistry =
   import.meta.env.MODE === 'test' ? { components, directives } : {};
 
+function initialVuetifyLocale(): string {
+  try {
+    return localStorage.getItem('astrbot-locale') === 'en-US'
+      ? 'en'
+      : 'zh-Hans';
+  } catch {
+    return 'zh-Hans';
+  }
+}
+
 export default createVuetify({
   // Vitest does not run vite-plugin-vuetify's SFC transform. Register the
   // components there while production keeps tree-shaken auto-imports.
   ...testComponentRegistry,
 
   locale: {
-    locale: 'zh-Hans',
+    locale: initialVuetifyLocale(),
     fallback: 'en',
     messages: { en, 'zh-Hans': zhHans },
   },

@@ -400,8 +400,9 @@ onBeforeUnmount(() => {
 }
 
 .dashboard-appearance-active {
-  --dashboard-wallpaper-surface: rgb(
-    var(--v-theme-surface) / var(--dashboard-surface-opacity, 1)
+  --dashboard-wallpaper-surface: rgba(
+    var(--v-theme-surface),
+    var(--dashboard-surface-opacity, 1)
   );
   background: transparent;
   isolation: isolate;
@@ -449,16 +450,18 @@ onBeforeUnmount(() => {
 .dashboard-appearance-active .v-overlay__content > .v-card,
 .dashboard-appearance-active .v-dialog .v-card,
 .dashboard-appearance-active .v-overlay__content > .v-list {
-  background-color: rgb(
-    var(--v-theme-surface) / var(--dashboard-dialog-opacity, 0.92)
+  background-color: rgba(
+    var(--v-theme-surface),
+    var(--dashboard-dialog-opacity, 0.92)
   );
 }
 
 .dashboard-appearance-active .v-menu .v-overlay__content,
 .dashboard-appearance-active .v-menu .v-list,
 .dashboard-appearance-active .v-overlay__content > .v-list {
-  background-color: rgb(
-    var(--v-theme-surface) / var(--dashboard-floating-opacity, 0.78)
+  background-color: rgba(
+    var(--v-theme-surface),
+    var(--dashboard-floating-opacity, 0.78)
   );
   backdrop-filter: var(--dashboard-surface-backdrop, none);
   -webkit-backdrop-filter: var(--dashboard-surface-backdrop, none);

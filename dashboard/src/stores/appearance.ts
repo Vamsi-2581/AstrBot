@@ -39,6 +39,7 @@ const defaultSettings = (): AppearanceSettings => ({
 });
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let saveInFlight: Promise<void> | null = null;
 let uploadController: AbortController | null = null;
 let channel: BroadcastChannel | null = null;
 let applyingRemote = false;
@@ -164,6 +165,14 @@ function isDefaultSettings(settings: AppearanceSettings): boolean {
   );
 }
 
+function clearLegacySettings(): void {
+  try {
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  } catch {
+    // Legacy cleanup is best-effort; the settings were already read.
+  }
+}
+
 function errorMessage(error: unknown): string {
   const typed = error as {
     response?: { data?: { detail?: string; message?: string } };
@@ -283,15 +292,19 @@ export const useAppearanceStore = defineStore('appearance', {
         this.wallpapers = wallpapersResponse.data.data.items;
         await pruneWallpaperCache(this.wallpapers.map((item) => item.id));
         const legacy = readLegacySettings();
-        if (legacy && isDefaultSettings(this.settings)) {
-          this.settings = normalizeSettings({ ...this.settings, ...legacy });
-          localStorage.removeItem(LEGACY_STORAGE_KEY);
+        let migrated = false;
+        if (legacy) {
+          clearLegacySettings();
+          if (isDefaultSettings(this.settings)) {
+            this.settings = normalizeSettings({ ...this.settings, ...legacy });
+            migrated = true;
+          }
         }
         settingsRevision += 1;
         const changed = this.reconcileSelections();
         this.loaded = true;
         this.setupChannel();
-        if (changed || legacy) {
+        if (changed || migrated) {
           await this.saveNow();
         }
       } catch (error) {
@@ -353,22 +366,36 @@ export const useAppearanceStore = defineStore('appearance', {
         clearTimeout(saveTimer);
         saveTimer = null;
       }
-      const revision = settingsRevision;
-      this.saving = true;
-      this.error = '';
-      try {
-        const response = await appearanceApi.updateSettings({
-          ...this.settings,
-        });
-        if (revision === settingsRevision) {
-          this.settings = normalizeSettings(response.data.data);
-          this.broadcastSettings();
+      const previousSave = saveInFlight;
+      const request = (async () => {
+        // Serialize saves so an older, slower request cannot reach the server
+        // after a newer one and replace it with stale settings.
+        if (previousSave) {
+          await previousSave.catch(() => undefined);
         }
-      } catch (error) {
-        this.error = errorMessage(error);
-        throw error;
+        const revision = settingsRevision;
+        this.saving = true;
+        this.error = '';
+        try {
+          const response = await appearanceApi.updateSettings({
+            ...this.settings,
+          });
+          if (revision === settingsRevision) {
+            this.settings = normalizeSettings(response.data.data);
+            this.broadcastSettings();
+          }
+        } catch (error) {
+          this.error = errorMessage(error);
+          throw error;
+        } finally {
+          this.saving = false;
+        }
+      })();
+      saveInFlight = request;
+      try {
+        await request;
       } finally {
-        this.saving = false;
+        if (saveInFlight === request) saveInFlight = null;
       }
     },
 

@@ -11,24 +11,45 @@ type ThemePair = {
   secondary: string;
 };
 
-function readPrevious(): ThemePair | null {
+type ThemeSnapshot = Record<string, ThemePair>;
+
+function readStoredTheme(): ThemePair | null {
   try {
-    const raw = localStorage.getItem(PREVIOUS_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<ThemePair>;
-    if (
-      typeof parsed.primary !== 'string' ||
-      typeof parsed.secondary !== 'string'
-    ) {
-      return null;
-    }
-    return { primary: parsed.primary, secondary: parsed.secondary };
+    const primary = localStorage.getItem('themePrimary');
+    const secondary = localStorage.getItem('themeSecondary');
+    if (!primary && !secondary) return null;
+    return {
+      primary: primary || defaultThemeColors.primary,
+      secondary: secondary || defaultThemeColors.secondary,
+    };
   } catch {
     return null;
   }
 }
 
-function writePrevious(value: ThemePair): void {
+function isThemePair(value: unknown): value is ThemePair {
+  if (typeof value !== 'object' || value === null) return false;
+  const pair = value as Partial<ThemePair>;
+  return typeof pair.primary === 'string' && typeof pair.secondary === 'string';
+}
+
+function readPrevious(): ThemeSnapshot | null {
+  try {
+    const raw = localStorage.getItem(PREVIOUS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const snapshot: ThemeSnapshot = {};
+    for (const [name, pair] of Object.entries(parsed)) {
+      if (isThemePair(pair)) snapshot[name] = pair;
+    }
+    return Object.keys(snapshot).length > 0 ? snapshot : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePrevious(value: ThemeSnapshot): void {
   try {
     localStorage.setItem(PREVIOUS_KEY, JSON.stringify(value));
   } catch {
@@ -36,16 +57,11 @@ function writePrevious(value: ThemePair): void {
   }
 }
 
-function currentThemePair(): ThemePair {
+function removePrevious(): void {
   try {
-    return {
-      primary:
-        localStorage.getItem('themePrimary') || defaultThemeColors.primary,
-      secondary:
-        localStorage.getItem('themeSecondary') || defaultThemeColors.secondary,
-    };
+    localStorage.removeItem(PREVIOUS_KEY);
   } catch {
-    return { ...defaultThemeColors };
+    // Theme restoration remains best-effort when storage is unavailable.
   }
 }
 
@@ -56,16 +72,31 @@ export function useWallpaperTheme(
   const theme = useTheme();
   let previous = readPrevious();
 
+  function captureTheme(): ThemeSnapshot {
+    const snapshot: ThemeSnapshot = {};
+    for (const [name, definition] of Object.entries(theme.themes.value)) {
+      const colors = definition.colors;
+      snapshot[name] = {
+        primary:
+          typeof colors?.primary === 'string'
+            ? colors.primary
+            : defaultThemeColors.primary,
+        secondary:
+          typeof colors?.secondary === 'string'
+            ? colors.secondary
+            : defaultThemeColors.secondary,
+      };
+    }
+    return snapshot;
+  }
+
   function apply(wallpaperValue: AppearanceWallpaper): void {
     if (!previous) {
-      previous = currentThemePair();
+      // Capture the user's theme per variant before the wallpaper colours
+      // replace it. The custom theme keys stay untouched so Settings keeps
+      // showing the user's own selection while auto theming is active.
+      previous = captureTheme();
       writePrevious(previous);
-    }
-    try {
-      localStorage.setItem('themePrimary', wallpaperValue.theme_primary);
-      localStorage.setItem('themeSecondary', wallpaperValue.theme_secondary);
-    } catch {
-      // Applying the Vuetify theme still works when storage is unavailable.
     }
     applyUserThemeColors(
       theme.themes.value,
@@ -75,20 +106,24 @@ export function useWallpaperTheme(
   }
 
   function restore(): void {
-    const pair = previous ?? currentThemePair();
-    try {
-      localStorage.setItem('themePrimary', pair.primary);
-      localStorage.setItem('themeSecondary', pair.secondary);
-    } catch {
-      // Storage restoration is best-effort.
+    if (!previous) return;
+    const stored = readStoredTheme();
+    if (stored) {
+      applyUserThemeColors(
+        theme.themes.value,
+        stored.primary,
+        stored.secondary,
+      );
+    } else {
+      for (const [name, pair] of Object.entries(previous)) {
+        const definition = theme.themes.value[name];
+        if (!definition?.colors) continue;
+        definition.colors.primary = pair.primary;
+        definition.colors.secondary = pair.secondary;
+      }
     }
-    applyUserThemeColors(theme.themes.value, pair.primary, pair.secondary);
     previous = null;
-    try {
-      localStorage.removeItem(PREVIOUS_KEY);
-    } catch {
-      // Storage cleanup is best-effort.
-    }
+    removePrevious();
   }
 
   watch(

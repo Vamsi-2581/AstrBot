@@ -649,14 +649,6 @@ onBeforeUnmount(() => {
     overflow: visible;
     white-space: normal;
   }
-
-  .trace-record {
-    grid-template-columns: 1fr;
-  }
-
-  .trace-record-fields {
-    font-size: 11px;
-  }
 }
 
 .trace-record {
@@ -697,5 +689,16 @@ onBeforeUnmount(() => {
 
 .trace-records {
   padding: 4px 0 2px 0;
+}
+
+/* Keep these after the base record rules so the mobile layout wins the cascade. */
+@media (max-width: 800px) {
+  .trace-record {
+    grid-template-columns: 1fr;
+  }
+
+  .trace-record-fields {
+    font-size: 11px;
+  }
 }
 </style>

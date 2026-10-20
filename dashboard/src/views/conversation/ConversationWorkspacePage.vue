@@ -260,8 +260,8 @@ watch([selectedBotIds, selectedTypes, sortValue, groupBySession], () => {
 });
 
 onMounted(async () => {
-  await Promise.all([fetchFilterOptions(), fetchConversations()]);
   document.addEventListener('keydown', handleWorkspaceKeydown);
+  await Promise.all([fetchFilterOptions(), fetchConversations()]);
 });
 
 onBeforeUnmount(() => {

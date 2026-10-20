@@ -213,7 +213,7 @@ async function removeWallpaper(wallpaper: AppearanceWallpaper): Promise<void> {
 
 <style scoped>
 .wallpaper-gallery {
-  border-top: 1px solid rgb(var(--v-theme-on-surface) / 10%);
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   padding-top: 20px;
 }
 
@@ -234,7 +234,7 @@ async function removeWallpaper(wallpaper: AppearanceWallpaper): Promise<void> {
 }
 
 .wallpaper-gallery__heading p {
-  color: rgb(var(--v-theme-on-surface) / 66%);
+  color: rgba(var(--v-theme-on-surface), 0.66);
   font-size: 13px;
   margin: 4px 0 0;
 }
@@ -244,7 +244,7 @@ async function removeWallpaper(wallpaper: AppearanceWallpaper): Promise<void> {
 }
 
 .wallpaper-gallery__empty {
-  color: rgb(var(--v-theme-on-surface) / 64%);
+  color: rgba(var(--v-theme-on-surface), 0.64);
   padding: 16px 0 0;
 }
 
@@ -256,7 +256,7 @@ async function removeWallpaper(wallpaper: AppearanceWallpaper): Promise<void> {
 }
 
 .wallpaper-card {
-  border: 1px solid rgb(var(--v-theme-on-surface) / 12%);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 12px;
   background: rgb(var(--v-theme-surface));
   overflow: hidden;
@@ -306,7 +306,7 @@ async function removeWallpaper(wallpaper: AppearanceWallpaper): Promise<void> {
   gap: 2px;
   min-width: 0;
   font-size: 12px;
-  color: rgb(var(--v-theme-on-surface) / 66%);
+  color: rgba(var(--v-theme-on-surface), 0.66);
 }
 
 .wallpaper-card__meta span:first-child {
@@ -326,7 +326,7 @@ async function removeWallpaper(wallpaper: AppearanceWallpaper): Promise<void> {
 .wallpaper-card__swatch {
   width: 14px;
   height: 14px;
-  border: 1px solid rgb(var(--v-theme-on-surface) / 20%);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.2);
   border-radius: 50%;
 }
 

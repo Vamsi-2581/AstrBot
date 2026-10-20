@@ -232,7 +232,7 @@ const textEnhancementOptions = computed(() => [
 .appearance-controls__hint,
 .appearance-controls__notes p {
   margin: 0;
-  color: rgb(var(--v-theme-on-surface) / 66%);
+  color: rgba(var(--v-theme-on-surface), 0.66);
   font-size: 13px;
   line-height: 1.5;
 }

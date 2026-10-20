@@ -32,7 +32,7 @@ const previewShadeStyle = computed(() => ({
 }));
 
 const previewSurfaceStyle = computed(() => ({
-  backgroundColor: `rgb(var(--v-theme-surface) / ${appearance.settings.surface_opacity})`,
+  backgroundColor: `rgba(var(--v-theme-surface), ${appearance.settings.surface_opacity})`,
   backdropFilter:
     appearance.settings.surface_blur > 0
       ? `blur(${appearance.settings.surface_blur}px) saturate(1.08)`
@@ -133,7 +133,7 @@ onMounted(() => {
 
 .appearance-settings__subtitle,
 .appearance-settings__hint {
-  color: rgb(var(--v-theme-on-surface) / 66%);
+  color: rgba(var(--v-theme-on-surface), 0.66);
   font-size: 13px;
   margin: 4px 0 0;
 }
@@ -155,7 +155,7 @@ onMounted(() => {
 .appearance-preview--empty {
   background: linear-gradient(
     135deg,
-    rgb(var(--v-theme-primary) / 0.3),
+    rgba(var(--v-theme-primary), 0.3),
     rgb(var(--v-theme-surface))
   );
 }
@@ -175,7 +175,7 @@ onMounted(() => {
 
 .appearance-preview__surface {
   align-items: center;
-  border: 1px solid rgb(var(--v-theme-on-surface) / 0.1);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   color: rgb(var(--v-theme-on-surface));
   display: flex;
   justify-content: space-between;

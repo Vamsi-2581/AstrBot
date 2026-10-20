@@ -201,4 +201,75 @@ describe('appearance store', () => {
 
     expect(store.settings.blur).toBe(9);
   });
+
+  it('serializes saves so a delayed older request cannot replace a newer one', async () => {
+    let resolveFirst: (value: unknown) => void = () => undefined;
+    let resolveSecond: (value: unknown) => void = () => undefined;
+    api.updateSettings
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecond = resolve;
+          }),
+      );
+
+    const store = useAppearanceStore();
+    store.settings = { ...defaultSettings };
+    store.update({ blur: 4 });
+    const first = store.saveNow();
+    store.update({ enabled: true });
+    const second = store.saveNow();
+
+    await flushPromises();
+    expect(api.updateSettings).toHaveBeenCalledTimes(1);
+
+    resolveFirst(ok({ ...defaultSettings, blur: 4 }));
+    await first;
+    await flushPromises();
+    expect(api.updateSettings).toHaveBeenCalledTimes(2);
+    expect(api.updateSettings.mock.calls[1][0]).toMatchObject({
+      enabled: true,
+      blur: 4,
+    });
+
+    resolveSecond(ok({ ...defaultSettings, enabled: true, blur: 4 }));
+    await second;
+  });
+
+  it('migrates legacy browser settings once and removes the key', async () => {
+    localStorage.setItem(
+      'astrbot:appearance:v1',
+      JSON.stringify({ enabled: true, blur: 12, surfaceOpacity: 0.5 }),
+    );
+
+    const store = useAppearanceStore();
+    await store.hydrate();
+
+    expect(store.settings.enabled).toBe(true);
+    expect(store.settings.blur).toBe(12);
+    expect(store.settings.surface_opacity).toBe(0.5);
+    expect(localStorage.getItem('astrbot:appearance:v1')).toBeNull();
+    expect(api.updateSettings).toHaveBeenCalled();
+  });
+
+  it('does not reapply legacy settings over server settings', async () => {
+    localStorage.setItem(
+      'astrbot:appearance:v1',
+      JSON.stringify({ enabled: true, blur: 12 }),
+    );
+    api.getSettings.mockResolvedValue(ok({ ...defaultSettings, blur: 20 }));
+
+    const store = useAppearanceStore();
+    await store.hydrate();
+
+    expect(store.settings.blur).toBe(20);
+    expect(localStorage.getItem('astrbot:appearance:v1')).toBeNull();
+    expect(api.updateSettings).not.toHaveBeenCalled();
+  });
 });
