@@ -6,7 +6,7 @@
       <v-card-text class="pa-6">
         <v-form ref="formRef">
           <!-- 基本设置 -->
-          <h3 class="text-h6 mb-4">{{ t('settings.basic') }}</h3>
+          <h3 class="text-title-small mb-4">{{ t('settings.basic') }}</h3>
 
           <v-row>
             <v-col cols="12" md="6">
@@ -30,7 +30,9 @@
           </v-row>
 
           <!-- 检索设置 -->
-          <h3 class="text-h6 mb-4 mt-6">{{ t('settings.retrieval') }}</h3>
+          <h3 class="text-title-small mb-4 mt-6">
+            {{ t('settings.retrieval') }}
+          </h3>
 
           <v-row>
             <v-col cols="12" md="6">
@@ -63,7 +65,7 @@
           </v-row>
 
           <!-- 模型设置 -->
-          <h3 class="text-h6 mb-4 mt-6">
+          <h3 class="text-title-small mb-4 mt-6">
             {{ t('settings.embeddingProvider') }}
           </h3>
 

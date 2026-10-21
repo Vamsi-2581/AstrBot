@@ -155,7 +155,7 @@
       :aria-label="tm('aiSettings.runnerDialog.title')"
     >
       <v-card class="runner-dialog-card">
-        <v-card-title class="text-h3 pa-4 pb-0 pl-6">
+        <v-card-title class="text-headline-small pa-4 pb-0 pl-6">
           {{ tm('aiSettings.runnerDialog.title') }}
         </v-card-title>
         <v-card-text class="px-6 pt-3 pb-2">
@@ -559,21 +559,24 @@ function confirmRunnerChange() {
 .ai-config-panel__title {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin: 0;
   color: rgb(var(--v-theme-on-surface));
-  font-size: 1.34rem;
-  font-weight: 780;
+  font-size: var(--astrbot-page-title-size);
+  font-weight: var(--astrbot-page-title-weight);
   letter-spacing: 0;
-  line-height: 1.25;
+  line-height: var(--astrbot-page-title-line-height);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ai-config-panel__subtitle,
 .ai-config-panel__section-subtitle {
   margin: 5px 0 0;
-  color: rgba(var(--v-theme-on-surface), 0.62);
-  font-size: 0.78rem;
-  line-height: 1.45;
+  color: rgb(var(--v-theme-on-surface-variant));
+  font-size: var(--astrbot-page-subtitle-size);
+  line-height: var(--astrbot-page-subtitle-line-height);
 }
 
 .ai-config-panel__actions {
@@ -617,9 +620,9 @@ function confirmRunnerChange() {
   gap: 7px;
   margin: 0;
   color: rgb(var(--v-theme-on-surface));
-  font-size: 1.04rem;
-  font-weight: 760;
-  line-height: 1.32;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
 }
 
 .ai-config-panel__brand-logo {
@@ -646,7 +649,7 @@ function confirmRunnerChange() {
   color: rgba(var(--v-theme-on-surface), 0.58);
   cursor: pointer;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -681,7 +684,7 @@ function confirmRunnerChange() {
 
 .ai-disabled-state__subtitle {
   margin-top: 3px;
-  font-size: 0.78rem;
+  font-size: var(--astrbot-meta-size);
   line-height: 1.45;
 }
 
@@ -764,6 +767,16 @@ function confirmRunnerChange() {
 }
 
 @media (max-width: 600px) {
+  .ai-config-tabs {
+    gap: 6px;
+  }
+
+  .ai-config-tabs__item {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: var(--astrbot-control-size);
+  }
+
   .ai-config-panel__header {
     align-items: stretch;
     flex-direction: column;

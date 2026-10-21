@@ -18,7 +18,7 @@
     >
       <v-card class="app-dialog sidebar-customizer-dialog">
         <v-card-title
-          class="text-h3 pa-4 pb-0 pl-6 d-flex justify-space-between align-center"
+          class="text-headline-small pa-4 pb-0 pl-6 d-flex justify-space-between align-center"
         >
           <span>{{ t('features.settings.sidebar.customize.title') }}</span>
           <v-btn

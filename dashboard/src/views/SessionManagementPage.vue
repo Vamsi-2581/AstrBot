@@ -1,16 +1,37 @@
 ﻿<template>
   <div class="session-management-page">
-    <v-container fluid class="pa-0">
+    <v-container fluid class="pa-4 pa-md-6">
+      <header class="page-header">
+        <div class="page-header__copy">
+          <h1 class="page-header__title">
+            {{ tm('title') }}
+            <ConfigDocsLink docs="use/custom-rules.html" />
+          </h1>
+          <p class="page-header__subtitle">{{ tm('subtitle') }}</p>
+        </div>
+        <div class="page-header__actions">
+          <v-chip size="small" variant="outlined">
+            {{ totalItems }} {{ tm('customRules.rulesCount') }}
+          </v-chip>
+          <v-btn
+            color="primary"
+            prepend-icon="mdi-refresh"
+            variant="text"
+            :loading="loading"
+            @click="refreshData"
+          >
+            {{ tm('buttons.refresh') }}
+          </v-btn>
+        </div>
+      </header>
+
       <v-card flat>
-        <v-card-title class="d-flex align-center py-3 px-4">
-          <span class="text-h4">{{ tm('customRules.title') }}</span>
-          <ConfigDocsLink docs="use/custom-rules.html" />
+        <div class="session-rules-toolbar">
           <v-btn-toggle
             v-model="targetType"
             density="compact"
             variant="outlined"
             divided
-            class="ml-3"
             mandatory
           >
             <v-btn size="small" value="session">{{
@@ -20,60 +41,52 @@
               tm('targetType.sender')
             }}</v-btn>
           </v-btn-toggle>
-          <v-chip size="small" class="ml-1"
-            >{{ totalItems }} {{ tm('customRules.rulesCount') }}</v-chip
-          >
-          <v-row class="me-4 ms-4" density="comfortable">
-            <v-text-field
-              v-model="searchQuery"
-              prepend-inner-icon="mdi-magnify"
-              :label="
-                isSenderTarget
-                  ? tm('search.senderPlaceholder')
-                  : tm('search.placeholder')
-              "
-              hide-details
-              clearable
-              variant="solo-filled"
-              flat
-              class="me-4"
-              density="compact"
-            ></v-text-field>
-          </v-row>
-          <v-btn
-            v-if="selectedItems.length > 0"
-            color="error"
-            prepend-icon="mdi-delete"
-            variant="tonal"
-            class="mr-2"
-            size="small"
-            @click="confirmBatchDelete"
-          >
-            {{ tm('buttons.batchDelete') }} ({{ selectedItems.length }})
-          </v-btn>
-          <v-btn
-            color="success"
-            prepend-icon="mdi-plus"
-            variant="tonal"
-            class="mr-2"
-            size="small"
-            @click="openAddRuleDialog"
-          >
-            {{ tm('buttons.addRule') }}
-          </v-btn>
-          <v-btn
-            color="primary"
-            prepend-icon="mdi-refresh"
-            variant="tonal"
-            :loading="loading"
-            size="small"
-            @click="refreshData"
-          >
-            {{ tm('buttons.refresh') }}
-          </v-btn>
-        </v-card-title>
+          <v-text-field
+            v-model="searchQuery"
+            class="session-rules-toolbar__search"
+            prepend-inner-icon="mdi-magnify"
+            :label="
+              isSenderTarget
+                ? tm('search.senderPlaceholder')
+                : tm('search.placeholder')
+            "
+            hide-details
+            clearable
+            variant="solo-filled"
+            flat
+            density="compact"
+          ></v-text-field>
+          <div class="session-rules-toolbar__actions">
+            <v-btn
+              v-if="selectedItems.length > 0"
+              color="error"
+              prepend-icon="mdi-delete"
+              variant="tonal"
+              size="small"
+              @click="confirmBatchDelete"
+            >
+              {{ tm('buttons.batchDelete') }} ({{ selectedItems.length }})
+            </v-btn>
+            <v-btn
+              color="success"
+              prepend-icon="mdi-plus"
+              variant="tonal"
+              size="small"
+              @click="openAddRuleDialog"
+            >
+              {{ tm('buttons.addRule') }}
+            </v-btn>
+          </div>
+        </div>
 
         <v-divider></v-divider>
+
+        <p class="table-scroll-hint session-rules-scroll-hint">
+          <v-icon size="14" aria-hidden="true"
+            >mdi-gesture-swipe-horizontal</v-icon
+          >
+          {{ tm('table.scrollHint') }}
+        </p>
 
         <v-card-text class="pa-0">
           <SessionRulesTable
@@ -97,7 +110,9 @@
       <!-- 批量操作面板 -->
       <v-card v-if="!isSenderTarget" flat class="mt-4">
         <v-card-title class="d-flex align-center py-3 px-4">
-          <span class="text-h6">{{ tm('batchOperations.title') }}</span>
+          <span class="text-title-small">{{
+            tm('batchOperations.title')
+          }}</span>
           <v-chip size="small" class="ml-2" color="info" variant="outlined">
             {{ tm('batchOperations.hint') }}
           </v-chip>
@@ -185,7 +200,7 @@
       <!-- 分组管理面板 -->
       <v-card v-if="!isSenderTarget" flat class="mt-4">
         <v-card-title class="d-flex align-center py-3 px-4">
-          <span class="text-h6">{{ tm('groups.title') }}</span>
+          <span class="text-title-small">{{ tm('groups.title') }}</span>
           <v-chip
             size="small"
             class="ml-2"
@@ -1751,3 +1766,47 @@ async function addSelectedToGroup(groupId: string) {
   }
 }
 </script>
+
+<style scoped>
+.session-management-page {
+  min-width: 0;
+}
+
+.session-rules-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--astrbot-space-3);
+  padding: var(--astrbot-space-3) var(--astrbot-space-4);
+}
+
+.session-rules-toolbar__search {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.session-rules-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--astrbot-space-2);
+}
+
+@media (max-width: 600px) {
+  .session-rules-scroll-hint {
+    display: none;
+  }
+
+  .session-rules-toolbar__search,
+  .session-rules-toolbar__actions {
+    flex-basis: 100%;
+  }
+
+  .session-rules-toolbar__actions {
+    justify-content: flex-end;
+  }
+
+  .session-rules-toolbar__actions :deep(.v-btn) {
+    min-height: var(--astrbot-control-size);
+  }
+}
+</style>

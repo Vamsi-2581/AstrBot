@@ -35,12 +35,12 @@ from astrbot.core.prompt_error_reply import (
 if TYPE_CHECKING:
     from astrbot.core.agent.llm_types import LLMResponse
     from astrbot.core.agent.runners.base import BaseAgentRunner
-from astrbot.core.agent.btw.types import (
-    THIRD_PARTY_RUNNER_ERROR_EXTRA_KEY,
-    stop_requested,
-)
 from astrbot.core.agent.llm_types import (
     ProviderRequest,
+)
+from astrbot.core.agent.run_state import (
+    THIRD_PARTY_RUNNER_ERROR_EXTRA_KEY,
+    stop_requested,
 )
 from astrbot.core.platform.astr_message_event import AstrMessageEvent
 from astrbot.core.star.star_handler import EventType

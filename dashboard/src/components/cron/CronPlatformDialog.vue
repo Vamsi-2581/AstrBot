@@ -6,7 +6,7 @@
     :aria-label="tm('platformDialog.title')"
   >
     <v-card class="dashboard-dialog-card platform-dialog__card">
-      <v-card-title class="text-h3 pt-5 px-5">
+      <v-card-title class="text-headline-small pt-5 px-5">
         {{ tm('platformDialog.title') }}
       </v-card-title>
       <v-card-text class="px-5 pb-2 platform-dialog__content">

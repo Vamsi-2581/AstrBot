@@ -6,21 +6,25 @@ complete task, a coding agent CLI carries it out inside its own task folder,
 and the work loop gets back a report it can turn into an answer.
 """
 
+from __future__ import annotations
+
 import asyncio
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import Field
 from pydantic.dataclasses import dataclass
 
 from astrbot import logger
-from astrbot.core.agent.btw import coding_runner, runtime_registry
-from astrbot.core.agent.btw.coding_agents import select_coding_agent
-from astrbot.core.agent.btw.types import WorkDelegation, stop_requested
 from astrbot.core.agent.run_context import ContextWrapper
+from astrbot.core.agent.run_state import stop_requested
 from astrbot.core.agent.tool import FunctionTool, ToolExecResult
 from astrbot.core.astr_agent_context import AstrAgentContext
 from astrbot.core.tools.registry import builtin_tool
 from astrbot.core.utils.error_redaction import safe_error
+
+if TYPE_CHECKING:
+    from astrbot.core.agent.btw.coding_runner import CodingTaskResult
 
 DELEGATE_CODING_TASK_TOOL_NAME = "delegate_coding_task"
 
@@ -54,7 +58,7 @@ def _relative_artifacts(workspace: Path, root: Path, artifacts: list[str]) -> li
     return relative
 
 
-def _format_report(result: coding_runner.CodingTaskResult, agent, root: Path) -> str:
+def _format_report(result: CodingTaskResult, agent, root: Path) -> str:
     """Return the report the work loop reads back as the tool's result."""
     lines = [
         f"status: {result.status}",
@@ -131,6 +135,10 @@ class DelegateCodingTaskTool(FunctionTool[AstrAgentContext]):
         agent_id: str = "",
         **_: object,
     ) -> ToolExecResult:
+        from astrbot.core.agent.btw import coding_runner, runtime_registry
+        from astrbot.core.agent.btw.coding_agents import select_coding_agent
+        from astrbot.core.agent.btw.types import WorkDelegation
+
         event = context.context.event
         execution_context = context.context.context
         profile = execution_context.get_config(umo=event.unified_msg_origin)

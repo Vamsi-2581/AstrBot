@@ -34,20 +34,24 @@
 .dashboard-title {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin: 0;
-  font-size: 24px;
-  line-height: 32px;
-  font-weight: 600;
+  font-size: var(--astrbot-page-title-size);
+  line-height: var(--astrbot-page-title-line-height);
+  font-weight: var(--astrbot-page-title-weight);
   letter-spacing: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-subtitle {
   margin: 4px 0 0;
   color: var(--dashboard-muted);
-  font-size: 0.875rem;
-  line-height: 1.6;
+  font-size: var(--astrbot-page-subtitle-size);
+  line-height: var(--astrbot-page-subtitle-line-height);
   max-width: 860px;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-header-meta,

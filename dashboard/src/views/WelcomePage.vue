@@ -3,21 +3,23 @@
     <v-container fluid class="pa-0">
       <v-row class="px-4 py-3 pb-6">
         <v-col cols="12">
-          <h1 class="text-h1 font-weight-bold mb-2 d-flex align-center">
-            {{ greetingText }} {{ greetingEmoji }}
-          </h1>
-          <p class="text-subtitle-1 text-medium-emphasis mb-0">
-            {{ tm('subtitle') }}
-          </p>
+          <header class="page-header welcome-header">
+            <div class="page-header__copy">
+              <h1 class="page-header__title">
+                {{ greetingText }} {{ greetingEmoji }}
+              </h1>
+              <p class="page-header__subtitle">{{ tm('subtitle') }}</p>
+            </div>
+          </header>
         </v-col>
       </v-row>
 
       <v-row class="px-4">
         <v-col cols="12">
           <v-card class="welcome-card pa-6" elevation="0" border>
-            <div class="mb-4 text-h3 font-weight-bold">
+            <h2 class="page-section-title mb-4">
               {{ tm('onboard.title') }}
-            </div>
+            </h2>
 
             <v-timeline
               align="start"
@@ -35,7 +37,7 @@
                 size="small"
               >
                 <div class="pl-2">
-                  <div class="text-h6 font-weight-bold mb-1">
+                  <div class="text-title-small font-weight-bold mb-1">
                     {{ tm('onboard.step1Title') }}
                   </div>
                   <p class="text-body-2 text-medium-emphasis mb-3">
@@ -70,7 +72,7 @@
                 size="small"
               >
                 <div class="pl-2">
-                  <div class="text-h6 font-weight-bold mb-1">
+                  <div class="text-title-small font-weight-bold mb-1">
                     {{ tm('onboard.step2Title') }}
                   </div>
                   <p class="text-body-2 text-medium-emphasis mb-3">
@@ -109,7 +111,7 @@
               >
                 <div class="pl-2">
                   <div class="d-flex align-center mb-1">
-                    <div class="text-h6 font-weight-bold">
+                    <div class="text-title-small font-weight-bold">
                       {{ tm('onboard.step3Title') }}
                     </div>
                     <v-btn
@@ -151,9 +153,9 @@
       <v-row class="px-4 mt-4">
         <v-col cols="12">
           <v-card class="welcome-card pa-6" elevation="0" border>
-            <div class="mb-2 text-h3 font-weight-bold">
+            <h2 class="page-section-title mb-2">
               {{ tm('help.title') }}
-            </div>
+            </h2>
             <p class="text-body-2 text-medium-emphasis mb-4">
               {{ tm('help.subtitle') }}
             </p>
@@ -207,7 +209,7 @@
       :aria-label="tm('onboard.step3HelpTitle')"
     >
       <v-card class="computer-access-help-dialog">
-        <v-card-title class="text-h3 pa-4 pb-0 pl-6">
+        <v-card-title class="text-headline-small pa-4 pb-0 pl-6">
           {{ tm('onboard.step3HelpTitle') }}
         </v-card-title>
         <v-card-text class="computer-access-help-dialog__content">
@@ -736,6 +738,16 @@ watch(computerAccessRuntime, async (value, oldValue) => {
 @media (max-width: 960px) {
   .welcome-help-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+.welcome-header {
+  margin-bottom: 0;
+}
+
+@media (max-width: 600px) {
+  .welcome-card {
+    padding: var(--astrbot-space-4) !important;
   }
 }
 

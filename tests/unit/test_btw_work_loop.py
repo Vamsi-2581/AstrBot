@@ -5,9 +5,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from astrbot.core.agent.btw.types import WorkSessionStatus, is_work_loop_enabled
+from astrbot.core.agent.btw.types import WorkSessionStatus
 from astrbot.core.agent.btw.work_loop import WorkLoop
 from astrbot.core.agent.btw.work_sessions import WorkSessionManager
+from astrbot.core.agent.loop_policy import is_work_loop_enabled
 from astrbot.core.astr_agent_run_util import run_agent
 from astrbot.core.message.message_event_result import MessageChain
 from astrbot.core.pipeline.process_stage.method import agent_request

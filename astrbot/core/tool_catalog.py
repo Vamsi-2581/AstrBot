@@ -3,7 +3,7 @@ from dataclasses import dataclass, replace
 from typing import Any, Literal, Protocol
 
 from astrbot import logger
-from astrbot.core.agent.btw.loop_routes import route_is_available_in_loop
+from astrbot.core.agent.loop_policy import route_is_available_in_loop
 from astrbot.core.agent.mcp_client import MCPTool
 from astrbot.core.agent.tool import FunctionTool, ToolSet
 from astrbot.core.auth.models import WEBCHAT_INSTANCE_TOOL_ACTIONS

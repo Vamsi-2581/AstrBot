@@ -51,7 +51,7 @@ const getTypeInfo = (type: string): TypeInfo => {
     @update:model-value="emit('update:show', $event)"
   >
     <v-card v-if="command" class="command-details-dialog">
-      <v-card-title class="text-h5">{{
+      <v-card-title class="text-title-medium">{{
         tm('dialogs.details.title')
       }}</v-card-title>
       <v-card-text class="command-details-dialog__body">

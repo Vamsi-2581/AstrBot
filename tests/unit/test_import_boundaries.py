@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).parents[2]
 
 LLM_CONTRACT_NAMES = frozenset(
@@ -563,3 +565,169 @@ def test_public_sdk_and_core_leaf_imports_remain_available() -> None:
     assert "sender_service_config" in sdk.__all__
     assert dashboard_sdk.DashboardJsonAction is not None
     assert leaf.AstrMessageEvent is not None
+
+
+DEFAULT_AGENT_MODULES = (
+    "astrbot.core.astr_main_agent",
+    "astrbot.core.astr_agent_run_util",
+    "astrbot.core.astr_agent_tool_exec",
+    "astrbot.core.tool_catalog",
+    "astrbot.core.pipeline.scheduler",
+    "astrbot.core.pipeline.process_stage.method.agent_request",
+    "astrbot.core.pipeline.process_stage.method.agent_sub_stages.internal",
+    "astrbot.core.pipeline.process_stage.method.agent_sub_stages.third_party",
+    "astrbot.core.pipeline.process_stage.stage",
+)
+
+DEFAULT_AGENT_PATHS = (
+    ROOT / "astrbot" / "core" / "astr_main_agent.py",
+    ROOT / "astrbot" / "core" / "astr_agent_run_util.py",
+    ROOT / "astrbot" / "core" / "astr_agent_tool_exec.py",
+    ROOT / "astrbot" / "core" / "tool_catalog.py",
+    ROOT / "astrbot" / "core" / "pipeline" / "scheduler.py",
+    ROOT
+    / "astrbot"
+    / "core"
+    / "pipeline"
+    / "process_stage"
+    / "method"
+    / "agent_request.py",
+    ROOT
+    / "astrbot"
+    / "core"
+    / "pipeline"
+    / "process_stage"
+    / "method"
+    / "agent_sub_stages"
+    / "internal.py",
+    ROOT
+    / "astrbot"
+    / "core"
+    / "pipeline"
+    / "process_stage"
+    / "method"
+    / "agent_sub_stages"
+    / "third_party.py",
+    ROOT / "astrbot" / "core" / "pipeline" / "process_stage" / "stage.py",
+    ROOT / "astrbot" / "core" / "tools" / "coding_tools.py",
+    ROOT / "astrbot" / "core" / "tools" / "work_tools.py",
+)
+
+
+def _is_type_checking_guard(test: ast.expr) -> bool:
+    """Return whether an ``if`` test is the standard TYPE_CHECKING guard."""
+    return (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING") or (
+        isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
+    )
+
+
+def _module_scope_imports(path: Path) -> set[str]:
+    """Return absolute imports that execute when the module is imported.
+
+    Imports nested in a function or class body run later and do not count.
+    Imports under module-level ``if`` or ``try`` blocks do execute, so they are
+    followed. A ``TYPE_CHECKING`` branch never executes at runtime and is
+    skipped. Relative imports are resolved and imported names are treated as
+    submodules, so the boundary cannot be bypassed with ``from . import btw``
+    or ``from ..agent import btw``.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    relative = path.relative_to(ROOT).with_suffix("")
+    package_parts = list(relative.parts[:-1])
+
+    modules: set[str] = set()
+
+    def add_import(node: ast.Import | ast.ImportFrom) -> None:
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+            return
+        if node.level == 0:
+            base_parts = node.module.split(".") if node.module else []
+        else:
+            parent_count = node.level - 1
+            if parent_count > len(package_parts):
+                return
+            base_parts = package_parts[: len(package_parts) - parent_count]
+            if node.module:
+                base_parts.extend(node.module.split("."))
+        if not base_parts:
+            return
+        modules.add(".".join(base_parts))
+        modules.update(
+            ".".join([*base_parts, alias.name])
+            for alias in node.names
+            if alias.name != "*"
+        )
+
+    def walk(statements: list[ast.stmt]) -> None:
+        for node in statements:
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                add_import(node)
+            elif isinstance(node, ast.If):
+                if _is_type_checking_guard(node.test):
+                    continue
+                walk(node.body)
+                walk(node.orelse)
+            elif isinstance(node, ast.Try):
+                walk(node.body)
+                for handler in node.handlers:
+                    walk(handler.body)
+                walk(node.orelse)
+                walk(node.finalbody)
+            elif isinstance(
+                node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+            ):
+                continue
+
+    walk(tree.body)
+    return modules
+
+
+def test_module_scope_imports_resolves_package_and_alias_imports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Relative and alias-only imports must resolve to the target module."""
+    package = tmp_path / "pkg"
+    package.mkdir()
+    (package / "__init__.py").write_text("from . import btw\n", encoding="utf-8")
+    default = tmp_path / "default.py"
+    default.write_text(
+        "from astrbot.core.agent import btw\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sys.modules[__name__], "ROOT", tmp_path)
+
+    assert "pkg.btw" in _module_scope_imports(package / "__init__.py")
+    assert "astrbot.core.agent.btw" in _module_scope_imports(default)
+
+
+def test_default_agent_runtime_does_not_import_btw_at_module_scope() -> None:
+    """The BTW package is opt-in and must not load on the default path."""
+    for path in DEFAULT_AGENT_PATHS:
+        imports = _module_scope_imports(path)
+        assert not any(
+            _is_module_or_child(module, "astrbot.core.agent.btw") for module in imports
+        ), path.relative_to(ROOT)
+
+
+def test_importing_the_default_agent_does_not_load_btw() -> None:
+    """The full default path, including builtin tool discovery, stays neutral."""
+    code = "\n".join(
+        [
+            "import importlib",
+            "import sys",
+            f"modules = {DEFAULT_AGENT_MODULES!r}",
+            "for module in modules: importlib.import_module(module)",
+            "from astrbot.core.tools.function_tool_manager import FunctionToolManager",
+            "FunctionToolManager().iter_builtin_tools()",
+            "loaded = [",
+            "    name",
+            "    for name in sys.modules",
+            "    if name == 'astrbot.core.agent.btw'",
+            "    or name.startswith('astrbot.core.agent.btw.')",
+            "]",
+            "assert not loaded, loaded",
+            "",
+        ]
+    )
+    subprocess.run([sys.executable, "-c", code], cwd=ROOT, check=True)

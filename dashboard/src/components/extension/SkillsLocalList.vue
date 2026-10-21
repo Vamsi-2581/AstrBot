@@ -35,7 +35,7 @@ function onSearchUpdate(value: string | null) {
 
     <template v-else>
       <div class="skills-list-header">
-        <h3 class="skills-list-title text-h3">
+        <h3 class="skills-list-title text-headline-small">
           {{ tm('status.installed') }}
         </h3>
         <div class="skills-search-wrap">

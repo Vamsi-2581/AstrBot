@@ -12,12 +12,12 @@
 -->
 <template>
   <div class="third-party-agents-page">
-    <header class="third-party-agents-page__header">
-      <div>
-        <h1 class="third-party-agents-page__title">
+    <header class="third-party-agents-page__header page-header">
+      <div class="page-header__copy">
+        <h1 class="page-header__title">
           {{ tm('thirdPartyAgentsPage.title') }}
         </h1>
-        <p class="third-party-agents-page__subtitle">
+        <p class="page-header__subtitle">
           {{ tm('thirdPartyAgentsPage.subtitle') }}
         </p>
       </div>
@@ -47,7 +47,10 @@
       :before-switch="ensureProvidersSaved"
     />
 
-    <FloatingActionStack :label="tm('thirdPartyAgentsPage.actions')">
+    <FloatingActionStack
+      :label="tm('thirdPartyAgentsPage.actions')"
+      inline-on-mobile
+    >
       <v-btn
         class="third-party-agents-page__save"
         color="primary"
@@ -290,21 +293,6 @@ onMounted(load);
 }
 
 .third-party-agents-page__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
   margin-bottom: 16px;
-}
-
-.third-party-agents-page__title {
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.third-party-agents-page__subtitle {
-  margin-top: 4px;
-  opacity: 0.7;
-  max-width: 70ch;
 }
 </style>

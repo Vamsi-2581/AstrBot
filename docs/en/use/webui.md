@@ -83,6 +83,22 @@ shows a generic error on the login page.
 
 Dashboard uses a responsive sidebar and main content area. On desktop, you can collapse and resize the sidebar; on narrow screens it becomes an overlay navigation panel. The appearance menu on login, setup, and signed-in pages selects light, dark, or system appearance. This preference is stored only in the current browser and does not change the AstrBot configuration.
 
+### Wallpaper and surfaces
+
+**Settings → Appearance** includes a separate landscape and portrait wallpaper library. Wallpaper files and appearance settings are stored on the server, and open Dashboard tabs stay in sync. Theme mode remains browser-local.
+
+- JPEG, PNG, WebP, and GIF are supported up to `32 MiB` per file. The server validates the real format and pixel count, then uses a thumbnail for gallery previews and theme colours.
+- Landscape wallpapers are preferred on desktop and landscape viewports; portrait wallpapers are preferred on phones and portrait viewports. The other orientation is used as a fallback.
+- You can adjust fit, position, background blur, brightness, saturation, grayscale, dimming, and surface opacity. Surface opacity applies to the page, cards, header, and sidebar; floating menus keep a minimum readable background.
+- Surface glass blur controls the backdrop blur on cards and page surfaces. Narrow-screen sidebars have a separate blur setting.
+- Text readability enhancement offers a soft shadow and a strong stroke for low-opacity surfaces.
+- Follow wallpaper theme colours replaces the theme primary/secondary colours with colours extracted from the active wallpaper. Disabling it restores the previous theme colours.
+- Random wallpaper on open and scheduled rotation choose from the current orientation without immediately repeating the active wallpaper. Rotation runs only while the page is visible and is coordinated by one tab.
+- The browser caches authenticated wallpaper downloads. Deleting a wallpaper removes its cache entry. Clearing site data or using a private window downloads it again.
+- Deleting a wallpaper removes the server file and library reference; other tabs fall back automatically. Wallpaper assets are included in WebUI data backups, and the server-side selection survives a restore.
+
+GIF and animated WebP use the static thumbnail when reduced motion is enabled.
+
 ## Two-Factor Authentication
 
 AstrBot WebUI supports TOTP (Time-based One-Time Password) based two-factor authentication. The second factor and trusted devices belong to the current Dashboard account. Each account must configure its own factor; it is not inherited from a username or global configuration.

@@ -89,7 +89,7 @@
   },
   "appearance": {
     "title": "壁纸与界面",
-    "subtitle": "壁纸资源保存在服务器；当前选择和显示效果仅保存在此浏览器。",
+    "subtitle": "壁纸资源与外观选择保存在服务器；支持横竖屏图库、主题色联动和跨标签同步。",
     "enable": "启用 Dashboard 壁纸",
     "preview": "实时预览",
     "sampleAction": "示例按钮",
@@ -102,8 +102,8 @@
     "blur": "背景模糊",
     "brightness": "背景亮度",
     "dim": "背景遮罩",
-    "surfaceOpacity": "页面表面透明度",
-    "confirmDelete": "确定删除这张壁纸吗？已选择它的设备将自动取消选择。",
+    "surfaceOpacity": "界面表面透明度",
+    "confirmDelete": "确定删除这张壁纸吗？服务器上的文件和图库引用会被移除，其他标签页会自动回退。",
     "fit": {
       "label": "填充方式",
       "cover": "覆盖",
@@ -134,8 +134,36 @@
       "uploadFailed": "上传壁纸失败",
       "deleteSuccess": "壁纸已删除",
       "deleteFailed": "删除壁纸失败",
-      "resetSuccess": "外观设置已重置"
-    }
+      "resetSuccess": "外观设置已重置",
+      "missing": "所选壁纸已不存在，请重新选择。"
+    },
+    "uploading": "正在上传",
+    "cancel": "取消上传",
+    "fileTooLarge": "壁纸不能超过 32 MiB",
+    "invalidType": "仅支持 JPEG、PNG、WebP、GIF",
+    "bothBadge": "通用",
+    "surfaceBlur": "界面毛玻璃强度",
+    "saturation": "背景饱和度",
+    "grayscale": "背景灰度",
+    "randomOnLoad": "打开时随机壁纸",
+    "rotationEnabled": "定时轮换壁纸",
+    "rotationInterval": "轮换间隔（分钟）",
+    "autoTheme": "跟随壁纸主题色",
+    "textEnhancement": "文字可读性增强",
+    "textEnhancementStrength": "文字增强强度",
+    "mobileSidebarBlur": "窄屏侧栏毛玻璃",
+    "textEnhancementModes": {
+      "off": "关闭",
+      "soft_shadow": "柔和阴影",
+      "stroke": "强力描边"
+    },
+    "previewHint": "预览会应用背景滤镜、遮罩和表面效果；实际页面使用同一组令牌。",
+    "themeColors": "壁纸主题色",
+    "rotationHint": "只在页面可见时轮换；多个标签页会协调，仅一个标签页触发。",
+    "randomHint": "打开或刷新 Dashboard 时，从当前方向的图库中随机选择。",
+    "autoThemeHint": "启用后主色和辅色跟随当前壁纸；关闭时恢复之前的主题色。",
+    "surfaceHint": "设置为 0 时页面和卡片表面完全透明；浮动菜单会保留最低可读底色。",
+    "untitled": "未命名"
   },
   "system": {
     "title": "系统",

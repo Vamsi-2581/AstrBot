@@ -6,7 +6,7 @@ import pytest
 from pydantic import Field
 from pydantic.dataclasses import dataclass
 
-from astrbot.core.agent.btw.runtime_policy import work_loop_is_read_only
+from astrbot.core.agent.loop_policy import work_loop_is_read_only
 from astrbot.core.agent.tool import FunctionTool
 from astrbot.core.astr_main_agent import (
     WORK_LOOP_DELEGATION_PROMPT,

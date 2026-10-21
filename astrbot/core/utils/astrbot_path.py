@@ -40,6 +40,11 @@ def get_astrbot_data_path() -> str:
     return os.path.realpath(os.path.join(get_astrbot_root(), "data"))
 
 
+def get_astrbot_dashboard_path() -> str:
+    """Return the Dashboard-owned data directory path."""
+    return os.path.realpath(os.path.join(get_astrbot_data_path(), "dashboard"))
+
+
 def get_astrbot_config_path() -> str:
     """Return the AstrBot config directory path."""
     return os.path.realpath(os.path.join(get_astrbot_data_path(), "config"))

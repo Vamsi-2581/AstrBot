@@ -19,6 +19,10 @@
     "decrease": "减小字号",
     "increase": "增大字号"
   },
+  "fullscreen": {
+    "enter": "进入控制台全屏",
+    "exit": "退出控制台全屏"
+  },
   "filters": {
     "title": "筛选",
     "button": "过滤器",

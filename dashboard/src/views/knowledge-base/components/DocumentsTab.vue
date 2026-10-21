@@ -145,7 +145,7 @@
     >
       <v-card>
         <v-card-title class="pa-4 d-flex align-center">
-          <span class="text-h5">{{ t('upload.title') }}</span>
+          <span class="text-title-medium">{{ t('upload.title') }}</span>
           <v-spacer />
           <v-btn
             icon="mdi-close"
@@ -182,7 +182,7 @@
                 @click="fileInput?.click()"
               >
                 <v-icon size="64" color="primary">mdi-cloud-upload</v-icon>
-                <p class="mt-4 text-h6">{{ t('upload.dropzone') }}</p>
+                <p class="mt-4 text-title-small">{{ t('upload.dropzone') }}</p>
                 <p class="text-caption text-medium-emphasis mt-2">
                   {{ t('upload.supportedFormats') }}
                 </p>
@@ -314,7 +314,9 @@
           <!-- 清洗设置 (仅在URL模式下显示) -->
           <div v-if="uploadMode === 'url'" class="mt-6">
             <div class="d-flex align-center mb-4">
-              <h3 class="text-h6">{{ t('upload.cleaningSettings') }}</h3>
+              <h3 class="text-title-small">
+                {{ t('upload.cleaningSettings') }}
+              </h3>
             </div>
             <v-row>
               <v-col cols="12" sm="4">
@@ -344,7 +346,7 @@
           <!-- 分块设置 -->
           <div class="mt-6">
             <div class="d-flex align-center mb-4">
-              <h3 class="text-h6">{{ t('upload.chunkSettings') }}</h3>
+              <h3 class="text-title-small">{{ t('upload.chunkSettings') }}</h3>
             </div>
             <v-row>
               <v-col cols="12" sm="6">
@@ -379,7 +381,9 @@
           </div>
 
           <div class="mt-2">
-            <h3 class="text-h6 mb-4">{{ t('upload.batchSettings') }}</h3>
+            <h3 class="text-title-small mb-4">
+              {{ t('upload.batchSettings') }}
+            </h3>
             <v-row>
               <v-col cols="12" sm="4">
                 <v-text-field
@@ -453,7 +457,7 @@
       :aria-label="t('documents.delete')"
     >
       <v-card>
-        <v-card-title class="pa-4 text-h6">{{
+        <v-card-title class="pa-4 text-title-small">{{
           t('documents.delete')
         }}</v-card-title>
         <v-card-text class="pa-6">

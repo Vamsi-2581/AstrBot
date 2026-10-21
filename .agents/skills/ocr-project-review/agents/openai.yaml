@@ -1,0 +1,4 @@
+interface:
+  display_name: 'OCR Project Review'
+  short_description: 'Whole-repo OCR scan with independent finding audit'
+  default_prompt: 'Use $ocr-project-review to install or verify OCR, build project context, scan the whole repository, shard large scopes with --jobs 8, independently audit every finding, and deliver report-final.md; draft Issues only when the user asks.'

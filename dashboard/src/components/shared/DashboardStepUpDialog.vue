@@ -7,7 +7,9 @@
     @update:model-value="onVisibilityChange"
   >
     <v-card>
-      <v-card-title class="text-h3 pa-4 pb-0 pl-6 d-flex align-center">
+      <v-card-title
+        class="text-headline-small pa-4 pb-0 pl-6 d-flex align-center"
+      >
         {{ t('features.authorization.stepUpTitle') }}
         <v-spacer></v-spacer>
         <v-btn

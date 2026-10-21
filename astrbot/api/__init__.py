@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from astrbot.core.agent.btw.submission import (
         submit_work_task as btw_submit_work_task,
     )
-    from astrbot.core.agent.btw.types import (
+    from astrbot.core.agent.loop_policy import (
         is_work_loop_enabled as btw_work_loop_enabled,
     )
     from astrbot.core.agent.tool import FunctionTool, ToolSet
@@ -41,7 +41,7 @@ _EXPORTS = {
         "latest_status_snapshot",
     ),
     "btw_work_loop_enabled": (
-        "astrbot.core.agent.btw.types",
+        "astrbot.core.agent.loop_policy",
         "is_work_loop_enabled",
     ),
     "btw_submit_work_task": (

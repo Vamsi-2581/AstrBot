@@ -200,7 +200,9 @@
                   <v-icon>{{ versionAlertIcon }}</v-icon>
                 </template>
                 <div class="confirm-message">
-                  <div class="text-h6 mb-2">{{ versionAlertTitle }}</div>
+                  <div class="text-title-small mb-2">
+                    {{ versionAlertTitle }}
+                  </div>
                   <div class="mb-2">
                     <strong
                       >{{

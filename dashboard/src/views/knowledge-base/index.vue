@@ -2,7 +2,7 @@
   <div class="kb-container">
     <div class="page-header">
       <div>
-        <h1 class="kb-page-title">
+        <h1 class="page-header__title">
           <button
             v-if="isDetailRoute"
             class="kb-page-title__parent"
@@ -19,7 +19,7 @@
             <span class="kb-page-title__current">{{ displayDetailTitle }}</span>
           </template>
         </h1>
-        <p class="text-body-2 text-medium-emphasis">{{ t('list.subtitle') }}</p>
+        <p class="page-header__subtitle">{{ t('list.subtitle') }}</p>
       </div>
       <ConfigDocsLink docs="use/knowledge-base.html" />
     </div>
@@ -64,18 +64,6 @@ const goToList = () => {
   display: flex;
   justify-content: space-between;
   margin-bottom: 24px;
-}
-
-.kb-page-title {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  font-size: 24px;
-  font-weight: 600;
-  gap: var(--astrbot-space-1);
-  line-height: 32px;
-  margin: 0 0 4px;
-  min-width: 0;
 }
 
 .kb-page-title__parent {

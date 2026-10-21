@@ -1,0 +1,87 @@
+rules:
+  - id: astrbot-tls-verification-disabled
+    languages: [python]
+    message: >-
+      TLS certificate or hostname verification is disabled. AstrBot download
+      and update clients must verify certificates and hostnames.
+    severity: ERROR
+    metadata:
+      category: security
+      confidence: HIGH
+      impact: HIGH
+      likelihood: MEDIUM
+      cwe: 'CWE-295: Improper Certificate Validation'
+      references:
+        - https://github.com/Xero-Team/AstrBot/blob/master/AGENTS.md
+    patterns:
+      - pattern-either:
+          - pattern: $Y(..., verify=False, ...)
+          - pattern: $X.verify = False
+          - pattern: $X.check_hostname = False
+          - pattern: ssl.CERT_NONE
+          - pattern: ssl._create_unverified_context(...)
+
+  - id: astrbot-subprocess-shell-true
+    languages: [python]
+    message: >-
+      subprocess call uses shell=True. Prefer an argument list, and treat the
+      input as untrusted unless it is fully controlled.
+    severity: ERROR
+    metadata:
+      category: security
+      confidence: HIGH
+      impact: HIGH
+      likelihood: MEDIUM
+      cwe: 'CWE-78: Improper Neutralization of Special Elements used in an OS Command'
+      references:
+        - https://github.com/Xero-Team/AstrBot/blob/master/AGENTS.md
+    patterns:
+      - pattern-either:
+          - pattern: subprocess.$F(..., shell=True, ...)
+          - pattern: asyncio.create_subprocess_shell(...)
+
+  - id: astrbot-yaml-unsafe-load
+    languages: [python]
+    message: >-
+      yaml.load without a safe loader can construct arbitrary Python objects.
+      Use yaml.safe_load or an explicit safe loader.
+    severity: ERROR
+    metadata:
+      category: security
+      confidence: HIGH
+      impact: HIGH
+      likelihood: MEDIUM
+      cwe: 'CWE-502: Deserialization of Untrusted Data'
+      references:
+        - https://github.com/Xero-Team/AstrBot/blob/master/AGENTS.md
+    patterns:
+      - pattern: yaml.load(...)
+      - pattern-not: yaml.load(..., Loader=yaml.SafeLoader, ...)
+      - pattern-not: yaml.load(..., Loader=yaml.CSafeLoader, ...)
+      - pattern-not: yaml.load(..., Loader=SafeLoader, ...)
+      - pattern-not: yaml.load(..., Loader=CSafeLoader, ...)
+
+  - id: astrbot-stdlib-xml-parse
+    languages: [python]
+    message: >-
+      Parse untrusted XML with defusedxml. The standard library XML parsers are
+      vulnerable to entity expansion and external-entity attacks.
+    severity: WARNING
+    metadata:
+      category: security
+      confidence: MEDIUM
+      impact: MEDIUM
+      likelihood: LOW
+      cwe: 'CWE-611: Improper Restriction of XML External Entity Reference'
+      references:
+        - https://github.com/Xero-Team/AstrBot/blob/master/AGENTS.md
+    patterns:
+      - pattern-either:
+          - pattern: xml.etree.ElementTree.fromstring(...)
+          - pattern: xml.etree.ElementTree.parse(...)
+          - pattern: ElementTree.fromstring(...)
+          - pattern: ElementTree.parse(...)
+          - pattern: xml.dom.minidom.parseString(...)
+          - pattern: xml.dom.minidom.parse(...)
+          - pattern: xml.sax.parseString(...)
+          - pattern: xml.sax.parse(...)

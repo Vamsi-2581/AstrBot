@@ -158,7 +158,9 @@ async function pipInstall(): Promise<void> {
     >
       <v-card class="app-dialog console-pip-dialog">
         <v-card-title>
-          <span class="text-h5">{{ tm('pipInstall.dialogTitle') }}</span>
+          <span class="text-title-medium">{{
+            tm('pipInstall.dialogTitle')
+          }}</span>
         </v-card-title>
         <v-divider />
         <v-card-text class="console-pip-dialog__content">
@@ -245,7 +247,7 @@ async function pipInstall(): Promise<void> {
 
 .console-font-controls output {
   color: rgba(var(--v-theme-on-surface), 0.62);
-  font-size: 0.72rem;
+  font-size: var(--astrbot-meta-size);
   min-width: 32px;
   text-align: center;
 }
@@ -255,7 +257,7 @@ async function pipInstall(): Promise<void> {
 }
 
 .console-header-actions :deep(.v-label) {
-  font-size: 0.75rem;
+  font-size: 13px;
   opacity: 0.72;
 }
 
@@ -265,7 +267,7 @@ async function pipInstall(): Promise<void> {
 
 .pip-mirror-hint {
   color: rgba(var(--v-theme-on-surface), 0.52);
-  font-size: 0.72rem;
+  font-size: var(--astrbot-meta-size);
   line-height: 1.5;
   margin-top: 8px;
 }

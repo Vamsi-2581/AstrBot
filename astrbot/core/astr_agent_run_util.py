@@ -2,9 +2,9 @@ import asyncio
 from collections.abc import AsyncGenerator
 
 from astrbot import logger
-from astrbot.core.agent.btw.types import mark_work_run_failed
 from astrbot.core.agent.llm_types import LLMResponse
 from astrbot.core.agent.message import Message
+from astrbot.core.agent.run_state import mark_work_run_failed
 from astrbot.core.agent.runners.tool_loop_agent_runner import ToolLoopAgentRunner
 from astrbot.core.astr_agent_context import AstrAgentContext
 from astrbot.core.message.components import Json

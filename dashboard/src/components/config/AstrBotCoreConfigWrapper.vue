@@ -352,13 +352,16 @@ function getSectionIcon(sectionKey: string) {
   display: flex;
   gap: 4px;
   margin: 0;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
 }
 
 .config-plugin-section__subtitle {
   margin: 6px 0 0;
-  color: rgba(var(--v-theme-on-surface), 0.62);
+  color: rgb(var(--v-theme-on-surface-variant));
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .config-standard-section__groups {
@@ -381,11 +384,19 @@ function getSectionIcon(sectionKey: string) {
   .config-workspace__nav {
     flex-direction: row;
     flex-wrap: wrap;
+    gap: 6px;
     min-width: 0;
   }
 
   .config-workspace__nav-item {
+    min-height: var(--astrbot-control-size);
     width: auto;
+  }
+}
+
+@media (max-width: 767px) and (pointer: coarse) {
+  .config-workspace__main {
+    min-width: 0;
   }
 }
 </style>

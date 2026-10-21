@@ -2,8 +2,10 @@
   <div class="about-page">
     <div class="about-page__content">
       <div class="about-page__hero">
-        <h1 class="font-weight-bold">{{ tm('hero.title') }}</h1>
-        <p class="text-subtitle-1 text-medium-emphasis">
+        <h1 class="page-header__title about-page__title">
+          {{ tm('hero.title') }}
+        </h1>
+        <p class="page-header__subtitle about-page__subtitle">
           {{ tm('hero.subtitle') }}
         </p>
         <div class="about-page__actions">
@@ -49,6 +51,11 @@ function open(url: string): void {
 .about-page__hero {
   max-width: 600px;
   text-align: center;
+}
+
+.about-page__title,
+.about-page__subtitle {
+  justify-content: center;
 }
 
 .about-page__actions {

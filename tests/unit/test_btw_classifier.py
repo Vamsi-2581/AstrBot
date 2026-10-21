@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import astrbot.core.astr_main_agent as main_agent
+import astrbot.core.agent.btw.capabilities as btw_capabilities
 from astrbot.core.agent.btw.classifier import (
     ROUTING_QUESTION,
     classify_request,
@@ -253,8 +253,7 @@ async def initialized_loop(profile, monkeypatch, decision="work"):
         SimpleNamespace(astrbot_config=profile, execution_context=context)
     )
     monkeypatch.setattr(
-        main_agent,
-        "resolve_btw_capabilities",
+        "astrbot.core.agent.conversation_loop.resolve_btw_capabilities",
         AsyncMock(return_value=deepcopy(CAPABILITIES)),
     )
     return loop, executor, classifier, fallback
@@ -484,7 +483,7 @@ async def test_capability_resolver_matches_live_catalog_and_keeps_request_inert(
     event.set_extra("keep", object())
     original = dict(event._extras)
     profile["btw"]["skill_routes"] = [{"skill_name": "weather", "loop": "work"}]
-    caps = await main_agent.resolve_btw_capabilities(event, context)
+    caps = await btw_capabilities.resolve_btw_capabilities(event, context)
     assert caps["conversation"] == []
     assert {item["name"] for item in caps["work"]} == {
         "tool:query",
@@ -496,12 +495,12 @@ async def test_capability_resolver_matches_live_catalog_and_keeps_request_inert(
     context.conversation_manager.get_conversation.assert_not_awaited()
     context.skill_manager.list_workspace_skills.assert_not_called()
     profile["btw"]["plugin_routes"] = [{"plugin_id": "weather", "loop": "both"}]
-    caps = await main_agent.resolve_btw_capabilities(event, context)
+    caps = await btw_capabilities.resolve_btw_capabilities(event, context)
     assert {item["name"] for item in caps["conversation"]} == {"tool:query"}
     skill.source_type = "plugin"
     skill.plugin_name = "weather"
     profile["plugin_set"] = []
-    hidden = await main_agent.resolve_btw_capabilities(event, context)
+    hidden = await btw_capabilities.resolve_btw_capabilities(event, context)
     assert not any(
         item["name"].startswith("skill:") for items in hidden.values() for item in items
     )
@@ -511,7 +510,7 @@ async def test_capability_resolver_matches_live_catalog_and_keeps_request_inert(
         None,
         False,
     )
-    assert await main_agent.resolve_btw_capabilities(event, context) == {
+    assert await btw_capabilities.resolve_btw_capabilities(event, context) == {
         "conversation": [],
         "work": [],
     }

@@ -117,7 +117,7 @@ watch(
   font-size: 0.8125rem;
   font-weight: 500;
   gap: 6px;
-  height: 34px;
+  height: var(--astrbot-control-size);
   padding: 0 12px;
   text-decoration: none;
 }

@@ -112,7 +112,7 @@ watch(
     <v-card class="skills-upload-dialog">
       <v-card-title class="skills-upload-dialog__header px-6 pt-6 pb-2">
         <div class="skills-upload-dialog__heading">
-          <div class="text-h4 font-weight-medium">
+          <div class="text-title-large font-weight-medium">
             {{ tm('skills.uploadDialogTitle') }}
           </div>
         </div>
@@ -175,7 +175,7 @@ watch(
           <div class="skills-dropzone__icon">
             <v-icon size="34">mdi-folder-zip-outline</v-icon>
           </div>
-          <div class="text-h6 font-weight-medium">
+          <div class="text-title-small font-weight-medium">
             {{ tm('skills.dropzoneTitle') }}
           </div>
           <div class="skills-dropzone__subtitle">

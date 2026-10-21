@@ -8,6 +8,10 @@ const allowedDynamicStyles = new Map([
   ['src/views/extension/PluginDetailPage.vue', ['item.depth']],
   ['src/components/appearance/DashboardWallpaperLayer.vue', ['layerStyle']],
   [
+    'src/components/appearance/WallpaperGallery.vue',
+    ['wallpaper.theme_primary', 'wallpaper.theme_secondary'],
+  ],
+  [
     'src/components/appearance/DashboardAppearanceSettings.vue',
     ['previewImageStyle', 'previewShadeStyle', 'previewSurfaceStyle'],
   ],

@@ -129,7 +129,7 @@ const STAR_COUNT_CACHE_TTL_MS = 30 * 60 * 1000;
 // 更新日志对话框
 const changelogDialog = ref(false);
 
-const sidebarWidth = ref(235);
+const sidebarWidth = ref(256);
 const minSidebarWidth = 200;
 const maxSidebarWidth = 300;
 const isResizing = ref(false);
@@ -146,6 +146,20 @@ watch(
   },
   { immediate: true },
 );
+
+function closeMobileSidebarOnEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape' && isMobile.value && customizer.Sidebar_drawer) {
+    customizer.Sidebar_drawer = false;
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', closeMobileSidebarOnEscape);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', closeMobileSidebarOnEscape);
+});
 
 function openExternalLink(url: string) {
   if (typeof window !== 'undefined') {
@@ -281,6 +295,8 @@ function openChangelogDialog() {
     class="leftSidebar"
     :width="sidebarWidth"
     :rail="isRailSidebar"
+    :scrim="isMobile"
+    :permanent="!isMobile"
   >
     <div class="sidebar-container">
       <v-list

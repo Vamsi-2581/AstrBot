@@ -60,7 +60,9 @@ function handleOverlayModelUpdate(value: boolean) {
   >
     <v-card class="app-dialog config-profile-drawer-card">
       <div class="config-profile-drawer-header">
-        <span class="text-h6">{{ tm('configProfileDrawer.title') }}</span>
+        <span class="text-title-small">{{
+          tm('configProfileDrawer.title')
+        }}</span>
         <v-btn
           icon="mdi-close"
           variant="text"

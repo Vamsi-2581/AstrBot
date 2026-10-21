@@ -12,12 +12,17 @@ from dataclasses import replace
 import mcp
 
 from astrbot import logger
-from astrbot.core.agent.btw.runtime_policy import (
+from astrbot.core.agent.handoff import HandoffTool
+from astrbot.core.agent.llm_types import ProviderRequest
+from astrbot.core.agent.loop_policy import (
+    btw_config as btw_config_for,
+)
+from astrbot.core.agent.loop_policy import (
+    is_btw_enabled,
+    loop_mode_of,
     resolve_computer_runtime,
     work_loop_is_read_only,
 )
-from astrbot.core.agent.handoff import HandoffTool
-from astrbot.core.agent.llm_types import ProviderRequest
 from astrbot.core.agent.mcp_client import MCPTool
 from astrbot.core.agent.message import Message
 from astrbot.core.agent.run_context import ContextWrapper
@@ -100,10 +105,9 @@ class FunctionToolExecutor(BaseFunctionToolExecutor[AstrAgentContext]):
             return None
         if not isinstance(profile, dict):
             return None
-        btw = profile.get("btw", {})
-        if not isinstance(btw, dict) or not btw.get("enabled", False):
+        if not is_btw_enabled(profile):
             return None
-        loop_mode = "work" if event.get_extra("btw_loop") == "work" else "conversation"
+        loop_mode = loop_mode_of(event.get_extra("btw_loop"))
         if not tool_blocked_in_loop(
             str(getattr(tool, "name", "")),
             cls._required_actions(tool),
@@ -381,11 +385,11 @@ class FunctionToolExecutor(BaseFunctionToolExecutor[AstrAgentContext]):
         loop's own policy: the capability routes the profile assigned, the
         tools that belong to one loop only, and the read-only work loop.
         """
-        btw_config = cfg.get("btw", {})
-        if not isinstance(btw_config, dict) or not btw_config.get("enabled", False):
+        btw_config = btw_config_for(cfg)
+        if not is_btw_enabled(cfg):
             return toolset
         plugins = getattr(getattr(ctx, "catalogs", None), "plugins", None)
-        loop_mode = "work" if event.get_extra("btw_loop") == "work" else "conversation"
+        loop_mode = loop_mode_of(event.get_extra("btw_loop"))
         read_only = work_loop_is_read_only(cfg, loop_mode)
         return ToolSet(
             [
@@ -410,12 +414,7 @@ class FunctionToolExecutor(BaseFunctionToolExecutor[AstrAgentContext]):
         """Keep handoffs inside the originating loop's computer boundary."""
         from astrbot.core.tool_catalog import COMPUTER_TOOL_ACTIONS, COMPUTER_TOOL_NAMES
 
-        btw = cfg.get("btw", {})
-        if (
-            not isinstance(btw, dict)
-            or not btw.get("enabled", False)
-            or runtime != "none"
-        ):
+        if not is_btw_enabled(cfg) or runtime != "none":
             return toolset
         return ToolSet(
             [
