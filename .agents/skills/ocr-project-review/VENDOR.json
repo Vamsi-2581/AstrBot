@@ -1,0 +1,15 @@
+{
+  "source": "https://github.com/alibaba/open-code-review",
+  "commit": "375f64cd6f67a48a135da83cfcf59c52669a09cb",
+  "commit_date_utc": "2026-10-20T09:50:03Z",
+  "license": "Apache-2.0",
+  "purpose": "checkout-only wrapper around the ocr CLI; not a copy of the upstream agent skill",
+  "local_patches": [
+    "Skill name is ocr-project-review, not open-code-review",
+    "Credentials come from the skill-local .env through a dedicated provider and api_key_cmd",
+    "Whole-project review uses ocr scan with JSON output, not the upstream diff-review command",
+    "A generated temporary rule suppresses compiler/lint/style findings without editing project rules",
+    "The skill renders a custom Markdown report and requires an independent audit before finalizing",
+    "Scripts and workflow are AstrBot-specific; upstream CLI and docs remain the source of OCR behavior"
+  ]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Semgrep Project Review'
+  short_description: 'Whole-repo Semgrep audit with independent verification'
+  default_prompt: 'Use $semgrep-project-review to run uvx semgrep with Python 3.15 parse normalization, independently audit every finding, and file deduped Issues for confirmed non-security defects.'

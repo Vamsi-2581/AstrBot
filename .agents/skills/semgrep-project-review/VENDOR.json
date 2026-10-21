@@ -1,0 +1,16 @@
+{
+  "source": "https://github.com/semgrep/semgrep",
+  "cli_version": "1.157.0",
+  "container_image": "docker.io/semgrep/semgrep:1.182.0",
+  "license": "LGPL-2.1",
+  "purpose": "checkout-only wrapper around the Semgrep OSS CLI; not a copy of the upstream source tree",
+  "local_patches": [
+    "Runs Semgrep through uvx with a pinned CLI version and metrics disabled",
+    "Falls back to a pinned container image when the host semgrep-core binary crashes",
+    "Mirrors the worktree and rewrites PEP 758 except clauses for the Python 3.15 parser",
+    "Adds an AstrBot-specific rule pack for TLS, subprocess, YAML, and XML invariants",
+    "Normalizes findings, requires an independent audit, and renders its own Markdown report",
+    "Files deduped Issues for confirmed non-security defects and routes security findings to private advisories"
+  ],
+  "skill_license": "AGPL-3.0-or-later"
+}

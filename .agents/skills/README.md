@@ -41,15 +41,17 @@ Shared locks live under `.agents/shared/`:
 
 ## Catalog
 
-| Skill                   | Load when                                                             |
-| ----------------------- | --------------------------------------------------------------------- |
-| `sync-upstream`         | Absorb or audit `AstrBotDevs/AstrBot` `master`                        |
-| `create-astrbot-plugin` | Create or repair a plugin (Star) package                              |
-| `archify`               | Checkout-only diagram renderer; not shipped in sdist, wheel, or image |
-| `audit-product`         | Baseline or module product audit; Chinese Markdown report + diagrams  |
-| `plan-issue`            | Issue or pasted request → research, clarify, file-path plan           |
-| `simplifier`            | Smallest current change; YAGNI ladder; over-engineering delete-list   |
-| `dashboard-ui`          | Build or modify the Dashboard (Vue 3 + Vuetify 4) UI                  |
+| Skill                    | Load when                                                             |
+| ------------------------ | --------------------------------------------------------------------- |
+| `sync-upstream`          | Absorb or audit `AstrBotDevs/AstrBot` `master`                        |
+| `create-astrbot-plugin`  | Create or repair a plugin (Star) package                              |
+| `archify`                | Checkout-only diagram renderer; not shipped in sdist, wheel, or image |
+| `audit-product`          | Baseline or module product audit; Chinese Markdown report + diagrams  |
+| `plan-issue`             | Issue or pasted request → research, clarify, file-path plan           |
+| `simplifier`             | Smallest current change; YAGNI ladder; over-engineering delete-list   |
+| `dashboard-ui`           | Build or modify the Dashboard (Vue 3 + Vuetify 4) UI                  |
+| `ocr-project-review`     | Whole-repo OCR scan plus mandatory independent finding audit          |
+| `semgrep-project-review` | Whole-repo Semgrep audit plus deduped confirmed-defect Issue filing   |
 
 Do not add a skill that only restates `AGENTS.md`. Split a skill when a
 second, independently loadable workflow appears.
@@ -123,3 +125,46 @@ frontmatter, headings, referenced paths, and pinned versions. The official
 Vuetify MCP setup for OpenCode and Codex is documented in
 `dashboard-ui/REFERENCE.md`; the local OpenCode client config lives in the
 gitignored `.opencode/opencode.json`.
+
+`ocr-project-review` wraps the Apache-2.0
+[alibaba/open-code-review](https://github.com/alibaba/open-code-review) CLI.
+Credentials come from its gitignored `.env` (`OCR_LLM_URL`,
+`OCR_LLM_API_KEY`, `OCR_LLM_MODEL`); `scripts/ocr_skill.py install` creates a
+dedicated OCR provider whose `api_key_cmd` re-reads that file, so the key is
+not copied into `~/.opencodereview/config.json`. `run` executes `ocr scan`
+over the whole repository with a generated rule that suppresses
+compiler/lint/style findings, then writes normalized findings and a report
+under a new `.tmp/ocr-project-review/<timestamp>/` directory. For large
+repositories, `run --jobs 8` splits
+reviewable files by module into up to eight balanced shards, merges the
+results, and keeps a coverage table in the report. OCR findings are hypotheses:
+every one must
+receive a `confirmed`, `false-positive`, or `uncertain` verdict before
+`finalize` writes `report-final.md`. Reporting is the default; the `issues`
+command only drafts confirmed findings, and `issues --create` runs after the
+user explicitly asks and targets `Xero-Team/AstrBot` with duplicate checks.
+Related issues block creation unless reviewed; `--supersede NUMBER:DRAFT`
+merges the original report into the new Issue and closes the original with a
+link after the replacement exists. Security findings stay out of public Issues.
+Do not vendor the upstream skill tree, edit project
+`.opencodereview/rule.json`, or commit `.env`.
+
+`semgrep-project-review` wraps the LGPL-2.1
+[semgrep/semgrep](https://github.com/semgrep/semgrep) CLI. It runs through
+`uvx --from semgrep==1.157.0 semgrep` with metrics off and explicit registry
+packs (`p/python`, `p/typescript`, `p/security-audit`) plus
+`semgrep-project-review/rules/astrbot.yml`. Newer local Semgrep builds can
+crash `semgrep-core`, so `--engine auto` retries with the pinned
+`docker.io/semgrep/semgrep:1.182.0` image. Semgrep's parser does
+not understand Python 3.15 PEP 758 `except A, B:` clauses, so `run` mirrors the
+worktree and rewrites those clauses to `except (A, B):` without changing line
+numbers before scanning. Findings are normalized under
+`.tmp/semgrep-project-review/<timestamp>/` and every one must receive a
+`confirmed`, `false-positive`, or `uncertain` verdict before `finalize` writes
+`report-final.md`. After the audit, `issues` searches open and closed Issues and
+PRs, skips exact duplicates, and drafts confirmed non-security defects; `issues
+--create` files them on `Xero-Team/AstrBot` with the `bug` template. Findings
+with a security category, CWE/OWASP tag, or exploitable failure mode stay in
+`security-findings.md` and use the private advisory channel. Do not use
+`--config auto`, `--autofix`, the Pro engine, or the Secrets product, and do not
+commit `.tmp/` output.
