@@ -137,7 +137,29 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Install PSScriptAnalyzer
         shell: pwsh
-        run: Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
+        run: |
+          # A gallery outage or a runner image without the default source must
+          # not fail the format gate; retry and register PSGallery if needed.
+          if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
+            Register-PSRepository -Default -ErrorAction SilentlyContinue
+          }
+          $installed = $false
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            try {
+              Install-Module PSScriptAnalyzer -Scope CurrentUser -Force `
+                -SkipPublisherCheck -Repository PSGallery -ErrorAction Stop
+              $installed = $true
+              break
+            } catch {
+              Write-Warning "PSScriptAnalyzer install attempt $attempt failed: $_"
+              if ($attempt -lt 3) {
+                Start-Sleep -Seconds (10 * $attempt)
+              }
+            }
+          }
+          if (-not $installed) {
+            throw 'Unable to install PSScriptAnalyzer from PSGallery.'
+          }
       - name: Invoke-ScriptAnalyzer
         shell: pwsh
         run: ./scripts/lint_powershell.ps1
