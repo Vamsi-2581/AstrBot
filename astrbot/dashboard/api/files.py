@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
 from astrbot.core.auth.models import Resource
+from astrbot.core.utils.media_utils import MEDIA_MIME_EXTENSIONS
 from astrbot.dashboard.async_utils import run_maybe_async
 from astrbot.dashboard.responses import error, ok
 from astrbot.dashboard.schemas import ChatUploadInitRequest, ChatUploadSessionRequest
@@ -78,25 +79,15 @@ async def _serve_token_file(file_token: str, service: FileService):
         raise HTTPException(status_code=404) from exc
 
 
-_SAFE_MEDIA_TYPES = frozenset(
-    {
-        "image/png",
-        "image/jpeg",
-        "image/gif",
-        "image/webp",
-        "image/bmp",
-        "image/x-icon",
-        "audio/mpeg",
-        "audio/ogg",
-        "audio/wav",
-        "audio/webm",
-        "audio/mp4",
-        "video/mp4",
-        "video/webm",
-        "video/ogg",
-        "text/plain",
-    }
-)
+# Media types the ChatUI renders inline. The set is derived from the shared
+# media registry so platform attachments (.wav, .mov, .avif, ...) keep the
+# Content-Type their <audio>/<video>/<img> element needs; anything else,
+# including svg/html/script payloads, falls back to application/octet-stream.
+_SAFE_MEDIA_TYPES = frozenset(MEDIA_MIME_EXTENSIONS) | {
+    "image/vnd.microsoft.icon",
+    "image/x-icon",
+    "text/plain",
+}
 
 
 def _attachment_media_type(mimetype: str | None) -> str:
