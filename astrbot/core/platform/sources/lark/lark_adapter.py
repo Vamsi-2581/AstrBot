@@ -48,6 +48,7 @@ USER_NAME_LOOKUP_TIMEOUT_SECONDS = 5
 
 _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 _MAX_TEMP_STEM_LENGTH = 80
+_MAX_TEMP_SUFFIX_LENGTH = 16
 
 
 def _build_temp_file_name(
@@ -59,7 +60,7 @@ def _build_temp_file_name(
 
     safe_name = _CONTROL_CHARS.sub("", Path(file_name).name) if file_name else ""
     stem = Path(safe_name).stem[:_MAX_TEMP_STEM_LENGTH]
-    suffix = Path(safe_name).suffix or default_suffix
+    suffix = (Path(safe_name).suffix or default_suffix)[:_MAX_TEMP_SUFFIX_LENGTH]
     parts = [part for part in (f"lark_{message_type}", stem, uuid4().hex) if part]
     return "_".join(parts) + suffix
 

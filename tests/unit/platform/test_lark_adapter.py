@@ -925,3 +925,6 @@ def test_lark_temp_file_name_is_sanitized_and_bounded():
 
     no_extension = _build_temp_file_name("file", "notes", ".bin")
     assert no_extension.endswith(".bin")
+
+    long_suffix = _build_temp_file_name("file", "clip." + "x" * 300, ".bin")
+    assert len(long_suffix) < 200
