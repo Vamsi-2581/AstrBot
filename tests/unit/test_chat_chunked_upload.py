@@ -1,4 +1,7 @@
 import asyncio
+import os
+import stat
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -230,3 +233,84 @@ async def test_assemble_offloads_merge_and_preserves_destination_on_failure(
     assert calls
     assert destination.read_bytes() == b"previous"
     assert not list(tmp_path.glob(".backup.zip.*"))
+
+
+def _complete_upload(uploads, data: bytes = b"0123456789"):
+    session = uploads.init_session(
+        owner="alice",
+        purpose="backup",
+        filename="backup.zip",
+        original_filename="backup.zip",
+        total_size=len(data),
+    )
+    (session.chunk_dir / "0.part").write_bytes(data)
+    session.received_chunks.add(0)
+    return session
+
+
+@pytest.mark.asyncio
+async def test_concurrent_assembly_claims_the_session_once(service, tmp_path):
+    uploads = service.chunked_uploads
+    session = _complete_upload(uploads)
+    destination = tmp_path / "backup.zip"
+
+    results = await asyncio.gather(
+        uploads.assemble(session.id, destination),
+        uploads.assemble(session.id, destination),
+        return_exceptions=True,
+    )
+
+    assert sorted(type(result).__name__ for result in results) == [
+        "ChunkedUploadError",
+        "int",
+    ]
+    assert session.id not in uploads.sessions
+    assert not list(tmp_path.glob(".backup.zip.*"))
+
+
+@pytest.mark.asyncio
+async def test_cancelled_assembly_finishes_worker_and_cleans_up(
+    service, tmp_path, monkeypatch
+):
+    uploads = service.chunked_uploads
+    session = _complete_upload(uploads)
+    destination = tmp_path / "backup.zip"
+    entered = threading.Event()
+    release = threading.Event()
+    original = uploads._assemble_sync
+
+    def slow_assemble(upload_session, dest_path):
+        entered.set()
+        assert release.wait(5)
+        return original(upload_session, dest_path)
+
+    monkeypatch.setattr(
+        type(uploads),
+        "_assemble_sync",
+        staticmethod(slow_assemble),
+    )
+    task = asyncio.create_task(uploads.assemble(session.id, destination))
+    assert await asyncio.to_thread(entered.wait, 2)
+    task.cancel()
+    release.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert session.id not in uploads.sessions
+    assert not session.chunk_dir.exists()
+    assert not list(tmp_path.glob(".backup.zip.*"))
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows does not model POSIX file modes")
+@pytest.mark.asyncio
+async def test_assembly_preserves_restrictive_destination_mode(service, tmp_path):
+    uploads = service.chunked_uploads
+    session = _complete_upload(uploads)
+    destination = tmp_path / "backup.zip"
+    destination.write_bytes(b"old")
+    destination.chmod(0o640)
+
+    await uploads.assemble(session.id, destination)
+
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o640
