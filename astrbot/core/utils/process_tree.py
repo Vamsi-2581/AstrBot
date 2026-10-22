@@ -463,8 +463,10 @@ class ThreadAssigner:
         """Wait for a pid, bind it, and resume it."""
         try:
             self._ready.set()
-            if not self._event.wait(_ASSIGNER_CLOSE_TIMEOUT):
-                return
+            # Wait until either a child is handed over or close() signals the
+            # listener. A timeout here would let a slow arm-to-spawn gap leave
+            # a CREATE_SUSPENDED child permanently suspended.
+            self._event.wait()
             if self._args is None:
                 return  # Closing a tree that was never handed a child.
             self._assign(*self._args)
