@@ -297,9 +297,9 @@ export const logApi = {
       openApiV1.getLogHistory({ query: filters }),
     );
   },
-  exportArchive(redact = true) {
+  exportArchive(redact = true, startTime?: number, endTime?: number) {
     return openApiV1.exportLogs({
-      query: { redact },
+      query: { redact, start_time: startTime, end_time: endTime },
       responseType: 'blob',
     }) as Promise<AxiosResponse<Blob>>;
   },

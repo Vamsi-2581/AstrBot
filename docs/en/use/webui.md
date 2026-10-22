@@ -8,20 +8,21 @@ The AstrBot admin panel features plugin management, log viewing, visual configur
 
 These entries match the default WebUI sidebar. If you customized the sidebar, check or restore the default layout under `Settings → Appearance` in the lower-left corner.
 
-| Previous entry point                        | Current entry point                                                                 |
-| ------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Providers → Add Provider → Agent Runner     | Config → Select a profile → AI → `…` next to the AI heading → Change execution mode |
-| Data / Dashboard                            | More Features → Data and Logs → Statistics                                          |
-| Conversation Management / Conversations     | More Features → Data and Logs → Conversations                                       |
-| Logs / Console                              | More Features → Data and Logs → Logs                                                |
-| Trace                                       | More Features → Data and Logs → Trace                                               |
-| Config → Normal Config                      | Config → Select a profile                                                           |
-| Config → System Config                      | Settings → General, Appearance, Network, or Security                                |
-| Command Management                          | Extensions → Manage Handlers → Commands                                             |
-| Standalone MCP / Skills entries             | Extensions → MCP Servers / Skills                                                   |
-| Config → AI → Capabilities → BTW dual loops | More Features → BTW Dual Loop (`/btw`)                                              |
-| Work-task status and coding-agent output    | More Features → BTW Delegated Runs (`/btw/runs`)                                    |
-| Persona / Persona Settings                  | Prompts / Prompt Settings                                                           |
+| Previous entry point                            | Current entry point                                                                 |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Providers → Add Provider → Agent Runner         | Config → Select a profile → AI → `…` next to the AI heading → Change execution mode |
+| Data / Dashboard                                | More Features → Data and Logs → Statistics                                          |
+| Conversation Management / Conversations         | More Features → Data and Logs → Conversations                                       |
+| Logs / Console                                  | More Features → Data and Logs → Logs                                                |
+| Trace                                           | More Features → Data and Logs → Trace                                               |
+| Config → Normal Config                          | Config → Select a profile                                                           |
+| Config → System Config                          | Settings → General, Appearance, Network, or Security                                |
+| Settings → General → Cache → Export diagnostics | Settings → Maintenance → Diagnostics → Export diagnostics                           |
+| Command Management                              | Extensions → Manage Handlers → Commands                                             |
+| Standalone MCP / Skills entries                 | Extensions → MCP Servers / Skills                                                   |
+| Config → AI → Capabilities → BTW dual loops     | More Features → BTW Dual Loop (`/btw`)                                              |
+| Work-task status and coding-agent output        | More Features → BTW Delegated Runs (`/btw/runs`)                                    |
+| Persona / Persona Settings                      | Prompts / Prompt Settings                                                           |
 
 Legacy log, trace, conversation, and statistics URLs still redirect to the matching tabs. Agent runners are now saved with each profile instead of being created as a provider; see [Agent Runner](./agent-runner.md).
 
@@ -154,7 +155,11 @@ The Conversations tab searches and manages saved conversation history:
 
 The Logs tab shows live AstrBot logs. You can filter by level and install a missing Pip package from the page. Pip install requires step-up. Enable DEBUG logs in Settings before looking for DEBUG output.
 
-Click `Export diagnostics` and confirm the content and privacy notice to download a ZIP. It includes available disk and rotated logs, configured custom logs, up to 500 cached events, available trace history, configuration profiles and routes, plugin versions and status, environment details and a manifest. Existing data remains exportable when file logging or tracing is disabled; missing trace history is recorded without enabling tracing. Trace history is limited to the latest 50 traces and 16 MiB in total. Disk logs are limited to 256 MiB of source data, skipping individual files larger than 64 MiB and, in redacted mode, oversized lines. Truncation and missing items are recorded. Raw databases and plugin source code are excluded. The dialog enables `Redact credentials (recommended)` by default. Recognized credentials are masked, and public IPv4/IPv6 addresses use consistent aliases such as `[PUBLIC_IP_1]` across the bundle. Alternate spellings of the same address share an alias; protocols, ports, paths, local and other non-public addresses remain. No original-address mapping is included. Conversations and personal data may remain; review before sharing. Uncheck this option when diagnosis requires original values. This retains passwords, keys, tokens, public IPs and other sensitive data, and adds `raw` to the filename; share only privately with someone you trust. Reopening the dialog resets the option to enabled. Only authenticated dashboard administrators can download bundles; developer API keys are not accepted. The button in `Settings` → `General` → cache panel uses the same export.
+Click `Export diagnostics` and confirm the content and privacy notice to download a ZIP. It includes available disk and rotated logs, configured custom logs, up to 500 cached events, available trace history, configuration profiles and routes, plugin versions and status, environment details and a manifest. Existing data remains exportable when file logging or tracing is disabled; missing trace history is recorded without enabling tracing. Trace history is limited to the latest 50 traces and 16 MiB in total. Disk logs are limited to 256 MiB of source data, skipping individual files larger than 64 MiB and, in redacted mode, oversized lines. Truncation and missing items are recorded. Raw databases and plugin source code are excluded. The dialog enables `Redact credentials (recommended)` by default. Recognized credentials are masked, and public IPv4/IPv6 addresses use consistent aliases such as `[PUBLIC_IP_1]` across the bundle. Alternate spellings of the same address share an alias; protocols, ports, paths, local and other non-public addresses remain. No original-address mapping is included. Conversations and personal data may remain; review before sharing. Uncheck this option when diagnosis requires original values. This retains passwords, keys, tokens, public IPs and other sensitive data, and adds `raw` to the filename; share only privately with someone you trust. Reopening the dialog resets the option to enabled. Only authenticated dashboard administrators can download bundles; developer API keys are not accepted. The `Diagnostics` entry under `Settings` → `Maintenance` uses the same export.
+
+The export dialog offers `Last hour`, `Last 12 hours`, `Last day`, `Last 3 days` and `Custom`, with `Last day` selected by default. Preset ranges are calculated when you click download. Select `Custom` to enter start and end times using your browser’s local time. Only disk logs, cached logs and traces within that range are exported. Timestamp-free continuation lines follow the preceding disk-log record; standalone content without a recognized timestamp is excluded. Disk timestamps without an explicit offset use the server’s local time. Traces are selected by start time and retain their complete details, with the existing limit of the latest 50 matching traces and 16 MiB. Configuration, plugin status and environment details remain current snapshots. The selected range is recorded in `manifest.json`.
+
+In the diagnostic bundle, cached logs are stored in `logs/astrbot.in-memory.log`, cached traces in `traces/history.in-memory.jsonl`, and persisted trace history in `traces/history.jsonl`. The `webui_version` field in `environment.json` records the version declared by the WebUI assets being served, or `null` when unavailable.
 
 Open `Filters` next to the search box to filter by level, source (System/Plugin), individual plugin, and bot platform. Combine these conditions with `Search logs`. Plugin menus prefer display names and show plugin IDs as subtitles; `System` replaces the former Core source label.
 

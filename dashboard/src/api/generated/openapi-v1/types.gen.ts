@@ -7494,6 +7494,14 @@ export type ExportLogsData = {
      * Mask recognized credentials. Disable only for private diagnosis.
      */
     redact?: boolean;
+    /**
+     * Inclusive minimum log timestamp or trace start time, in Unix seconds. Omit for no lower bound. Undated standalone log content is excluded when a time bound is set.
+     */
+    start_time?: number;
+    /**
+     * Inclusive maximum log timestamp or trace start time, in Unix seconds. Omit for no upper bound. Must not be before start_time. Matching traces retain their complete details.
+     */
+    end_time?: number;
   };
   url: '/api/v1/logs/export';
 };
