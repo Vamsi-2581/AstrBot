@@ -10,7 +10,7 @@ import re
 import subprocess  # noqa: S404  # subprocess is an intentional runtime dependency
 from datetime import datetime
 from pathlib import Path
-from typing import Any, BinaryIO
+from typing import IO, Any, BinaryIO
 from urllib.parse import quote, quote_plus
 
 from astrbot import __version__
@@ -217,7 +217,7 @@ class DiagnosticRedactor:
     def copy_log(
         self,
         source: BinaryIO,
-        target: BinaryIO,
+        target: IO[bytes],
         limit: int,
         *,
         start_time: int | None = None,
@@ -384,9 +384,9 @@ def collect_diagnostics(
             {"section": "plugins.json", "error": "Plugin metadata unavailable"}
         )
     loader = getattr(getattr(core, "plugin_manager", None), "loader", None)
-    failed_plugins = (
-        loader.failed_plugins() if hasattr(loader, "failed_plugins") else {}
-    )
+    failed_plugins = {}
+    if loader is not None and hasattr(loader, "failed_plugins"):
+        failed_plugins = loader.failed_plugins()
     sections["plugins.json"] = {
         "plugins": plugins,
         "failed_plugins": copy.deepcopy(failed_plugins),

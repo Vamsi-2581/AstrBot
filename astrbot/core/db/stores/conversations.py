@@ -360,10 +360,12 @@ class ConversationStoreMixin(DatabaseStoreMixin):
         async with store_session(self) as session:
             session: AsyncSession
             offset = (page - 1) * page_size
-            conversation_id = col(Preference.value)["val"].as_string()
+            conversation_id: T.Any = col(Preference.value)["val"].as_string()
 
             base_query = (
-                select(
+                # SQLAlchemy's select overloads cannot infer labels built from
+                # JSON index expressions.
+                select(  # type: ignore[reportCallIssue]
                     col(Preference.scope_id).label("session_id"),
                     conversation_id.label("conversation_id"),
                     col(ConversationV2.prompt_id).label("prompt_id"),

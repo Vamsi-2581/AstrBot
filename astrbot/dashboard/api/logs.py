@@ -19,6 +19,14 @@ _SSE_RESPONSE: dict[int | str, dict[str, Any]] = {
         "content": {"text/event-stream": {"schema": {"type": "string"}}},
     }
 }
+_ZIP_RESPONSE: dict[int | str, dict[str, Any]] = {
+    200: {
+        "description": "Diagnostic ZIP archive",
+        "content": {
+            "application/zip": {"schema": {"type": "string", "format": "binary"}}
+        },
+    }
+}
 
 
 async def require_system_scope(request: Request) -> AuthContext:
@@ -117,7 +125,7 @@ async def live_logs(
     )
 
 
-@router.get("/logs/export")
+@router.get("/logs/export", responses=_ZIP_RESPONSE)
 async def export_logs(
     redact: bool = Query(default=True),
     start_time: int | None = Query(default=None, ge=0),
@@ -125,6 +133,7 @@ async def export_logs(
     _auth: AuthContext = Depends(require_diagnostic_export),
     service: LogService = Depends(get_service),
 ):
+    archive_path: Any = None
     try:
         archive_path = await asyncio.to_thread(
             service.export_logs,
@@ -134,6 +143,7 @@ async def export_logs(
         )
     except LogServiceError as exc:
         _raise_log_error(exc)
+    assert archive_path is not None
     return FileResponse(
         archive_path,
         media_type="application/zip",
