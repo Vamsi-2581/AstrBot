@@ -62,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { chatApi } from '@/api/v1';
 import { fetchWithAuth } from '@/api/http';
 import {
@@ -115,10 +115,14 @@ const messages = ref<ChatRecord[]>([]);
 const draft = ref('');
 const sending = ref(false);
 const messagesEl = ref<HTMLElement | null>(null);
+let activeAbort: AbortController | null = null;
 
 watch(
   () => props.thread?.thread_id,
   (threadId) => {
+    activeAbort?.abort();
+    activeAbort = null;
+    sending.value = false;
     if (threadId) {
       void loadThread(threadId);
     } else {
@@ -128,19 +132,29 @@ watch(
   { immediate: true },
 );
 
+onBeforeUnmount(() => {
+  activeAbort?.abort();
+  activeAbort = null;
+});
+
 function close() {
+  activeAbort?.abort();
+  activeAbort = null;
+  sending.value = false;
   emit('update:modelValue', false);
 }
 
 async function loadThread(threadId: string) {
   try {
     const response = await chatApi.getThread(threadId);
+    if (props.thread?.thread_id !== threadId) return;
     const history = response.data?.data?.history || [];
     messages.value = history.map((record) =>
       normalizeRecord(record as HistoryRecord),
     );
     scrollToBottom();
   } catch (error) {
+    if (props.thread?.thread_id !== threadId) return;
     console.error('Failed to load thread:', error);
     messages.value = [];
   }
@@ -175,6 +189,8 @@ async function send() {
   scrollToBottom();
 
   const abort = new AbortController();
+  activeAbort?.abort();
+  activeAbort = abort;
   sending.value = true;
   const stepUpTokens = props.webChatStepUpTokens || undefined;
   const selection = props.getProviderSelection?.() ?? {
@@ -209,13 +225,19 @@ async function send() {
       scrollToBottom();
     });
   } catch (error) {
+    if (abort.signal.aborted) return;
     appendPlain(
       threadBotRecord,
       `\n\n${String((error as Error)?.message || error)}`,
     );
     console.error('Failed to send thread message:', error);
   } finally {
-    sending.value = false;
+    if (activeAbort === abort) {
+      activeAbort = null;
+      sending.value = false;
+    } else if (activeAbort === null) {
+      sending.value = false;
+    }
   }
 }
 
