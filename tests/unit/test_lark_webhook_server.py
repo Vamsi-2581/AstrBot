@@ -289,3 +289,47 @@ async def test_lark_webhook_accepts_matching_verification_token():
         )
     )
     assert rejected == ({"error": "Invalid verification token"}, 401)
+
+
+@pytest.mark.asyncio
+async def test_lark_webhook_treats_non_ascii_credentials_as_mismatch():
+    server = LarkWebhookServer(
+        {
+            "app_id": "app-id",
+            "app_secret": "secret",
+            "lark_encrypt_key": "encrypt-key",
+        },
+        event_queue=SimpleNamespace(),
+    )
+
+    rejected_signature = await server.handle_callback(
+        _FakeRequest(
+            body=b"{}",
+            event_data={"type": "event_callback"},
+            headers={
+                "X-Lark-Request-Timestamp": str(int(time.time())),
+                "X-Lark-Request-Nonce": "nonce",
+                "X-Lark-Signature": "签名",
+            },
+        )
+    )
+    assert rejected_signature == ({"error": "Invalid signature"}, 401)
+
+    token_server = LarkWebhookServer(
+        {
+            "app_id": "app-id",
+            "app_secret": "secret",
+            "lark_verification_token": "verification-token",
+        },
+        event_queue=SimpleNamespace(),
+    )
+    rejected_token = await token_server.handle_callback(
+        _FakeRequest(
+            body=b"{}",
+            event_data={
+                "type": "event_callback",
+                "header": {"token": "令牌"},
+            },
+        )
+    )
+    assert rejected_token == ({"error": "Invalid verification token"}, 401)

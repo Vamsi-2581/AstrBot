@@ -103,7 +103,12 @@ class LarkWebhookServer:
         bytes_b = bytes_b1 + body
         h = hashlib.sha256(bytes_b)
         calculated_signature = h.hexdigest()
-        return hmac.compare_digest(calculated_signature, signature)
+        # compare_digest rejects non-ASCII str operands with TypeError; encode
+        # both sides so a malformed header is a normal verification failure.
+        return hmac.compare_digest(
+            calculated_signature.encode("utf-8"),
+            signature.encode("utf-8"),
+        )
 
     def decrypt_event(self, encrypted_data: str) -> dict:
         """解密事件数据
@@ -205,7 +210,10 @@ class LarkWebhookServer:
                 token = header.get("token", "")
             else:
                 token = event_data.get("token", "")
-            if not hmac.compare_digest(str(token), self.verification_token):
+            if not hmac.compare_digest(
+                str(token).encode("utf-8"),
+                str(self.verification_token).encode("utf-8"),
+            ):
                 logger.error("[Lark Webhook] Verification Token 不匹配。")
                 return {"error": "Invalid verification token"}, 401
 
