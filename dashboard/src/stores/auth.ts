@@ -7,6 +7,7 @@ import {
   UPGRADE_RECOVERY_EVENT,
   UPGRADE_RECOVERY_TOKEN_KEY,
 } from '@/api/v1';
+import { useProviderModelSelection } from '@/composables/useProviderModelSelection';
 import { resolveErrorMessage } from '@/utils/errorUtils';
 
 // Imported lazily so the router module (which reads this store in its guards)
@@ -192,10 +193,21 @@ export const useAuthStore = defineStore('auth', {
     },
     logout() {
       this.username = '';
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      localStorage.removeItem('change_pwd_hint');
-      localStorage.removeItem('password_upgrade_required');
+      useProviderModelSelection().setSelection('');
+      try {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        localStorage.removeItem('change_pwd_hint');
+        localStorage.removeItem('password_upgrade_required');
+        for (let index = localStorage.length - 1; index >= 0; index--) {
+          const key = localStorage.key(index);
+          if (key?.startsWith('chat.sessionProvider.')) {
+            localStorage.removeItem(key);
+          }
+        }
+      } catch {
+        // Storage availability must not prevent logout or the in-memory reset.
+      }
       void authApi.logout().catch(() => undefined);
       void navigateTo('/auth/login');
     },

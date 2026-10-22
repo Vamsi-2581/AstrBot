@@ -270,6 +270,7 @@ import ChatComposer from '@/components/chat/ChatComposer.vue';
 import SessionTitleDialog from '@/components/chat/SessionTitleDialog.vue';
 import {
   readStoredValue,
+  removeStoredValue,
   writeStoredValue,
 } from '@/components/chat/chatHelpers';
 import DashboardStepUpDialog from '@/components/shared/DashboardStepUpDialog.vue';
@@ -547,12 +548,8 @@ const {
   },
 });
 
-const {
-  selectedTokenProviderId,
-  tokenUsageIndicator,
-  syncSelectedTokenProvider,
-  loadTokenProviders,
-} = useTokenUsage({ tm, activeMessages, isUserMessage });
+const { selectedTokenProviderId, tokenUsageIndicator, loadTokenProviders } =
+  useTokenUsage({ tm, activeMessages, isUserMessage });
 
 const multiModelEnabled = ref(false);
 const multiModelMax = ref(3);
@@ -746,17 +743,17 @@ const chatInputListeners = {
 
 function getSelectedProviderSelection() {
   const inputSelection = inputRef.value?.getCurrentSelection();
-  if (inputSelection?.providerId) {
+  if (
+    currentProviderId.value &&
+    inputSelection?.providerId === currentProviderId.value
+  ) {
     selectedTokenProviderId.value = inputSelection.providerId;
     return inputSelection;
   }
-  if (typeof window === 'undefined') {
-    return { providerId: '', modelName: '' };
-  }
-  syncSelectedTokenProvider();
+  selectedTokenProviderId.value = currentProviderId.value;
   return {
-    providerId: readStoredValue('selectedProvider'),
-    modelName: readStoredValue('selectedProviderModel'),
+    providerId: currentProviderId.value,
+    modelName: currentModelName.value,
   };
 }
 
@@ -791,23 +788,22 @@ function writeSessionProviderSelection(
   sessionId: string,
   selection: { providerId?: string; modelName?: string } | null,
 ) {
-  if (!sessionId || !selection?.providerId) return;
-  try {
-    writeStoredValue(
-      SESSION_PROVIDER_STORAGE_PREFIX + sessionId,
-      JSON.stringify({
-        providerId: selection.providerId,
-        modelName: selection.modelName || '',
-      }),
-    );
-  } catch {
-    // Session model persistence must not block chat flows.
+  if (!sessionId) return;
+  if (!selection?.providerId) {
+    removeStoredValue(SESSION_PROVIDER_STORAGE_PREFIX + sessionId);
+    return;
   }
+  writeStoredValue(
+    SESSION_PROVIDER_STORAGE_PREFIX + sessionId,
+    JSON.stringify({
+      providerId: selection.providerId,
+      modelName: selection.modelName || '',
+    }),
+  );
 }
 
 // Remember the model picked by the user for the active session.
 watch([currentProviderId, currentModelName], ([providerId, modelName]) => {
-  if (!currSessionId.value || !providerId) return;
   writeSessionProviderSelection(currSessionId.value, {
     providerId,
     modelName,
@@ -1072,11 +1068,10 @@ async function selectSession(sessionId: string, pushRoute = true) {
   currSessionId.value = sessionId;
   replyTarget.value = null;
   const storedSelection = readSessionProviderSelection(sessionId);
-  if (storedSelection) {
-    setProviderSelection(storedSelection.providerId, storedSelection.modelName);
-  } else {
-    writeSessionProviderSelection(sessionId, getSelectedProviderSelection());
-  }
+  setProviderSelection(
+    storedSelection?.providerId || '',
+    storedSelection?.modelName || '',
+  );
   if (pushRoute && route.path !== `${basePath()}/${sessionId}`) {
     await router.push(`${basePath()}/${sessionId}`);
     if (currSessionId.value !== sessionId) return;

@@ -231,6 +231,9 @@ ChatUI supports these common workflows:
 - Copy or regenerate existing replies, including regenerating with another model.
 - Edit a user message and continue generation from that point, or start a thread from a specific excerpt.
 - Switch between streaming/normal response modes and SSE/WebSocket transport modes. On touch or other coarse-pointer devices, the nested Transport and Language menus open on click instead of hover.
+
+To return to the model configured in the selected profile, open the model selector and choose **Default model** (**Follow the selected profile's default model**). This clears the override for the current conversation; other conversations retain their saved model choices. Logging out clears all saved ChatUI model choices in this browser.
+
 - Browse the current project workspace from ChatUI. Text previews use Shiki syntax highlighting and follow the active light or dark theme; binary files show metadata only.
 
 ### Sharing a conversation

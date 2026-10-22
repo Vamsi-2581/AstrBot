@@ -16,6 +16,15 @@ export function writeStoredValue(key: string, value: string): void {
   }
 }
 
+/** Remove browser state when storage is available. */
+export function removeStoredValue(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Browser persistence must not block chat interactions.
+  }
+}
+
 /** Normalize a raw token count into a finite non-negative number. */
 export function readTokenCount(value: unknown): number {
   const count = Number(value || 0);
