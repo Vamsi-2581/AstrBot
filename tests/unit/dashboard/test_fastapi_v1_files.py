@@ -56,3 +56,30 @@ async def test_v1_file_content_is_forced_to_attachment(
         assert response.headers["content-type"].startswith(media_type)
         assert response.headers["x-content-type-options"] == "nosniff"
         assert response.headers["content-disposition"].startswith("attachment;")
+
+
+@pytest.mark.asyncio
+async def test_v1_token_file_is_forced_to_attachment(
+    asgi_client: httpx.AsyncClient,
+    asgi_app: FastAPI,
+    tmp_path: Path,
+):
+    html_file = tmp_path / "token.html"
+    html_file.write_text("<script>alert(1)</script>", encoding="utf-8")
+    png_file = tmp_path / "token.png"
+    png_file.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+    token_service = asgi_app.state.services.files.file_token_service
+    html_token = await token_service.register_file(str(html_file), ttl_seconds=60)
+    png_token = await token_service.register_file(str(png_file), ttl_seconds=60)
+
+    html_response = await asgi_client.get(f"/api/v1/files/tokens/{html_token}")
+    assert html_response.status_code == 200
+    assert html_response.headers["content-type"].startswith("application/octet-stream")
+    assert html_response.headers["x-content-type-options"] == "nosniff"
+    assert html_response.headers["content-disposition"].startswith("attachment;")
+
+    png_response = await asgi_client.get(f"/api/v1/files/tokens/{png_token}")
+    assert png_response.status_code == 200
+    assert png_response.headers["content-type"].startswith("image/png")
+    assert png_response.headers["content-disposition"].startswith("attachment;")

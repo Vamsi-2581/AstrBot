@@ -1,3 +1,4 @@
+import mimetypes
 from pathlib import Path
 from typing import Any
 
@@ -74,7 +75,11 @@ async def _serve_token_file(file_token: str, service: FileService):
             if owned
             else None
         )
-        return FileResponse(file_path, background=background)
+        return _file_response(
+            file_path,
+            mimetypes.guess_type(file_path)[0],
+            background=background,
+        )
     except FileServiceError as exc:
         raise HTTPException(status_code=404) from exc
 
@@ -95,7 +100,12 @@ def _attachment_media_type(mimetype: str | None) -> str:
     return candidate if candidate in _SAFE_MEDIA_TYPES else "application/octet-stream"
 
 
-def _file_response(file_path: str, mimetype: str | None = None) -> FileResponse:
+def _file_response(
+    file_path: str,
+    mimetype: str | None = None,
+    *,
+    background: BackgroundTask | None = None,
+) -> FileResponse:
     return FileResponse(
         file_path,
         media_type=_attachment_media_type(mimetype),
@@ -106,6 +116,7 @@ def _file_response(file_path: str, mimetype: str | None = None) -> FileResponse:
             ),
             "X-Content-Type-Options": "nosniff",
         },
+        background=background,
     )
 
 
