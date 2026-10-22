@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import shlex
 from typing import Any, cast
 
@@ -22,6 +23,15 @@ except ImportError:
     logger.warning(
         "shipyard_neo_sdk is not installed. ShipyardNeoBooter will not work without it."
     )
+
+
+_ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _invalid_env_key(env: dict[str, str] | None) -> str | None:
+    if not env:
+        return None
+    return next((key for key in env if not _ENV_KEY_RE.fullmatch(str(key))), None)
 
 
 def _maybe_model_dump(value: Any) -> dict[str, Any]:
@@ -110,6 +120,15 @@ class NeoShellComponent(ShellComponent):
             return {
                 "stdout": "",
                 "stderr": "error: only shell mode is supported in shipyard_neo booter.",
+                "exit_code": 2,
+                "success": False,
+            }
+
+        invalid_key = _invalid_env_key(env)
+        if invalid_key is not None:
+            return {
+                "stdout": "",
+                "stderr": f"error: invalid environment variable name: {invalid_key}",
                 "exit_code": 2,
                 "success": False,
             }

@@ -1437,3 +1437,11 @@ async def test_media_resolver_keeps_oversized_pending_path_for_audio():
 
     async with media_utils.MediaResolver(ref, media_type="audio").as_path() as resolved:
         assert resolved.path == Path(ref)
+
+
+def test_describe_media_ref_omits_url_userinfo():
+    described = media_utils.describe_media_ref("https://user:pass@example.com/x")
+
+    assert "example.com" in described
+    assert "user" not in described
+    assert "pass" not in described

@@ -1,7 +1,7 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile, WebSocket
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from astrbot.core.auth.models import WEBCHAT_INSTANCE_TOOL_ACTIONS, Resource
 from astrbot.dashboard.responses import ApiError, error, ok
@@ -28,6 +28,7 @@ from .auth import (
     require_scope,
 )
 from .error_handling import safe_service_message, service_error_response
+from .files import attachment_file_response
 
 router = APIRouter(tags=["Open API"])
 _SSE_RESPONSE: dict[int | str, dict[str, Any]] = {
@@ -147,6 +148,20 @@ async def _open_api_chat_response(
         )
 
     api_key_principal = {"key_id": auth.api_key_id, "scopes": auth.scopes}
+    declared_username, username_err = open_api_service.resolve_open_username(
+        post_data.get("username")
+    )
+    if username_err:
+        return _open_api_error(username_err)
+    if not declared_username:
+        return _open_api_error("Invalid username")
+    if not auth.api_key_id or not await open_api_service.authorize_declared_chat_user(
+        key_id=auth.api_key_id,
+        action="session.manage",
+        username=declared_username,
+    ):
+        raise ApiError("Authorization denied", status_code=403)
+
     try:
         (
             effective_username,
@@ -158,13 +173,6 @@ async def _open_api_chat_response(
         )
     except OpenApiServiceError as exc:
         return _open_api_error(str(exc))
-
-    if not auth.api_key_id or not await open_api_service.authorize_declared_chat_user(
-        key_id=auth.api_key_id,
-        action="session.manage",
-        username=effective_username,
-    ):
-        raise ApiError("Authorization denied", status_code=403)
 
     config_err = await open_api_service.update_session_config_route(
         username=effective_username,
@@ -371,7 +379,7 @@ async def get_open_api_file(
 ):
     try:
         file_path, mimetype = await chat_service.resolve_attachment_file(attachment_id)
-        return FileResponse(file_path, media_type=mimetype)
+        return attachment_file_response(file_path, mimetype)
     except ChatServiceError as exc:
         return _open_api_error(str(exc))
     except FileNotFoundError, OSError:

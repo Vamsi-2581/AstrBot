@@ -669,7 +669,8 @@ class FunctionToolExecutor(BaseFunctionToolExecutor[AstrAgentContext]):
                             result_text += content.text + "\n"
         except Exception as e:
             result_text = (
-                f"error: Background task execution failed, internal error: {e!s}"
+                "error: Background task execution failed, internal error: "
+                f"{safe_error('', e)}"
             )
 
         event = run_context.context.event
@@ -710,7 +711,8 @@ class FunctionToolExecutor(BaseFunctionToolExecutor[AstrAgentContext]):
                             result_text += content.text + "\n"
         except Exception as e:
             result_text = (
-                f"error: Background task execution failed, internal error: {e!s}"
+                "error: Background task execution failed, internal error: "
+                f"{safe_error('', e)}"
             )
 
         event = run_context.context.event
@@ -976,8 +978,8 @@ class FunctionToolExecutor(BaseFunctionToolExecutor[AstrAgentContext]):
                                     direct_result_sent = True
                                 except Exception as e:
                                     logger.error(
-                                        f"Tool 直接发送消息失败: {e}",
-                                        exc_info=True,
+                                        "Tool direct send failed: %s",
+                                        safe_error("", e),
                                     )
                         if not direct_result_sent:
                             yield mcp.types.CallToolResult(

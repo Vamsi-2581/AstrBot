@@ -1283,7 +1283,7 @@ async def test_local_setup_can_skip_default_password_auth(
             },
         )
         data = await response.get_json()
-        assert data["status"] == "ok"
+        assert data["status"] == "ok", data
         assert data["data"]["username"] == setup_username
         assert data["data"]["token"]
         assert (
@@ -1317,7 +1317,7 @@ async def test_authenticated_default_password_login_can_complete_setup(
     )
     test_client = DashboardTestClient(app)
     setup_password = "AstrbotSetup123"
-    setup_username = "astrbot-admin"
+    setup_username = f"astrbot-admin-{uuid.uuid4().hex[:8]}"
 
     try:
         await _set_dashboard_password_change_required(core_lifecycle_td, True)
@@ -1357,6 +1357,92 @@ async def test_authenticated_default_password_login_can_complete_setup(
             setup_password,
         )
         assert core_lifecycle_td.astrbot_config["dashboard"]["password"] == ""
+
+        from astrbot.core.db.po import AuthRoleBinding
+
+        async with core_lifecycle_td.db.get_db() as session:
+            accounts = list((await session.execute(select(DashboardAccount))).scalars())
+            renamed = next(
+                account for account in accounts if account.username == setup_username
+            )
+            bindings = list(
+                (
+                    await session.execute(
+                        select(AuthRoleBinding).where(
+                            col(AuthRoleBinding.subject_id)
+                            == f"dashboard-account:{renamed.account_id}",
+                            col(AuthRoleBinding.role) == "root",
+                        )
+                    )
+                ).scalars()
+            )
+        assert bindings
+        assert all(
+            account.username != original_dashboard_config["username"]
+            for account in accounts
+        )
+    finally:
+        await _restore_dashboard_password_state(
+            core_lifecycle_td,
+            original_dashboard_config,
+        )
+
+
+@pytest.mark.asyncio
+async def test_authenticated_setup_cannot_reset_another_account(
+    app: FastAPI,
+    core_lifecycle_td: AstrBotCoreLifecycle,
+):
+    original_dashboard_config = copy.deepcopy(
+        core_lifecycle_td.astrbot_config["dashboard"]
+    )
+    test_client = DashboardTestClient(app)
+    other_username = f"other-{uuid.uuid4().hex[:8]}"
+    other_password = "OtherAccount123"
+    setup_password = "AstrbotSetup123"
+
+    try:
+        await _set_dashboard_password_change_required(core_lifecycle_td, True)
+        await app.state.services.auth.create_dashboard_account(
+            username=other_username,
+            password=other_password,
+            created_by="test",
+        )
+        login_response = await test_client.post(
+            "/api/v1/auth/login",
+            json={
+                "username": core_lifecycle_td.astrbot_config["dashboard"]["username"],
+                "password": _resolve_dashboard_password(core_lifecycle_td),
+            },
+        )
+        token = (await login_response.get_json())["data"]["token"]
+
+        response = await test_client.post(
+            "/api/v1/auth/setup",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "username": other_username,
+                "password": setup_password,
+                "confirm_password": setup_password,
+            },
+        )
+        data = await response.get_json()
+        assert data["status"] == "error"
+
+        async with core_lifecycle_td.db.get_db() as session:
+            other = (
+                await session.execute(
+                    select(DashboardAccount).where(
+                        col(DashboardAccount.username) == other_username
+                    )
+                )
+            ).scalar_one()
+        assert verify_dashboard_password(other.password_hash, other_password)
+        assert not verify_dashboard_password(other.password_hash, setup_password)
+        assert (
+            core_lifecycle_td.astrbot_config["dashboard"]["username"]
+            == original_dashboard_config["username"]
+        )
     finally:
         await _restore_dashboard_password_state(
             core_lifecycle_td,
@@ -1523,3 +1609,58 @@ async def test_removed_plugin_web_routes_return_404_without_redirect(
     response = await DashboardTestClient(app).get(path, follow_redirects=False)
     assert response.status_code == 404
     assert "location" not in response.headers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("path", "payload"),
+    [
+        (
+            "/api/v1/authorization/step-up",
+            {
+                "action": "identity.manage",
+                "resource_type": "api-key",
+                "resource_id": "collection",
+                "password": "wrong-password",
+            },
+        ),
+        (
+            "/api/v1/authorization/role-bindings/batch-revoke/step-up",
+            {"binding_ids": ["missing-binding"], "password": "wrong-password"},
+        ),
+        (
+            "/api/v1/authorization/webchat-step-up",
+            {"session_id": str(uuid.uuid4()), "password": "wrong-password"},
+        ),
+    ],
+)
+async def test_step_up_paths_share_the_auth_rate_limiter(
+    app: FastAPI,
+    core_lifecycle_td: AstrBotCoreLifecycle,
+    authenticated_header: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    payload: dict,
+):
+    monkeypatch.setenv("ASTRBOT_TEST_MODE", "false")
+    app.state.dashboard_server._rate_limiter_registry.clear()
+    cfg = core_lifecycle_td.astrbot_config["dashboard"]
+    rl_original = cfg.get("auth_rate_limit", {})
+    tp_original = cfg.get("trust_proxy_headers", False)
+    cfg["auth_rate_limit"] = {
+        "enable": True,
+        "average_interval": 3600.0,
+        "max_burst": 1,
+    }
+    cfg["trust_proxy_headers"] = True
+
+    try:
+        client = DashboardTestClient(app)
+        headers = {**authenticated_header, "X-Forwarded-For": "198.51.100.20"}
+        first = await client.post(path, json=payload, headers=headers)
+        assert first.status_code != 429
+        second = await client.post(path, json=payload, headers=headers)
+        assert second.status_code == 429
+    finally:
+        cfg["auth_rate_limit"] = rl_original
+        cfg["trust_proxy_headers"] = tp_original

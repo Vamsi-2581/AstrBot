@@ -1155,6 +1155,8 @@ class PluginService:
             plugin_repo = str(plugin.get("repo") or "").strip().rstrip("/").lower()
             if record_repo and plugin_repo == record_repo:
                 return plugin
+            if record_repo or record_repo_identifier:
+                continue
             plugin_name = str(plugin.get("name") or "").strip()
             if plugin_name and plugin_name in record_names:
                 return plugin
@@ -1895,6 +1897,7 @@ class PluginService:
         )
 
     async def save_custom_sources(self, data: object) -> tuple[None, str]:
+        self._ensure_not_demo()
         payload = data if isinstance(data, dict) else {}
         sources = PluginService._custom_sources_from_payload(payload)
         await self.preferences.global_put("custom_plugin_sources", sources)
@@ -1912,6 +1915,7 @@ class PluginService:
         return sources
 
     async def create_custom_source(self, data: object) -> list:
+        self._ensure_not_demo()
         source = data if isinstance(data, dict) else {}
         sources = await self.get_custom_sources()
         sources.append(source)
@@ -1919,12 +1923,14 @@ class PluginService:
         return sources
 
     async def replace_custom_sources(self, data: object) -> list:
+        self._ensure_not_demo()
         payload = data if isinstance(data, dict) else {}
         sources = PluginService._custom_sources_from_payload(payload)
         await self.preferences.global_put("custom_plugin_sources", sources)
         return sources
 
     async def delete_custom_source(self, source_id: str) -> list:
+        self._ensure_not_demo()
         sources = await self.get_custom_sources()
         filtered = [
             source

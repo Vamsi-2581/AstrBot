@@ -742,3 +742,106 @@ async def test_v1_config_scope_includes_bot_and_provider(
         "key-abk_fastapi_v1_config",
         "key-abk_fastapi_v1_bot",
     ]
+
+
+@pytest.mark.asyncio
+async def test_v1_config_route_mutations_require_collection_capability(
+    asgi_client: httpx.AsyncClient,
+    fake_core_lifecycle,
+    fake_db: FakeDb,
+):
+    raw_key = "config-route-collection-key"
+    fake_db.add_api_key(raw_key, ["config"])
+    headers = {"X-API-Key": raw_key}
+
+    routing = {"webchat-main:private:*": "group-conf"}
+    allowed = await asgi_client.put(
+        "/api/v1/config-routes",
+        headers=headers,
+        json={"routing": routing},
+    )
+    assert allowed.status_code == 200
+
+    fake_db.capabilities = {
+        capability
+        for capability in fake_db.capabilities
+        if capability[2] != "config-route"
+    }
+    denied = await asgi_client.put(
+        "/api/v1/config-routes",
+        headers=headers,
+        json={"routing": routing},
+    )
+    assert denied.status_code == 403
+
+    denied_clear = await asgi_client.put(
+        "/api/v1/config-routes",
+        headers=headers,
+        json={"routing": {}},
+    )
+    assert denied_clear.status_code == 403
+    assert fake_core_lifecycle.umop_config_router.umop_to_conf_id == routing
+
+
+@pytest.mark.asyncio
+async def test_v1_default_operator_can_replace_and_clear_config_routes(
+    asgi_client: httpx.AsyncClient,
+    fake_core_lifecycle,
+):
+    routing = {"webchat-main:private:*": "group-conf"}
+    replaced = await asgi_client.put(
+        "/api/v1/config-routes",
+        headers=_jwt_headers(),
+        json={"routing": routing},
+    )
+    assert replaced.status_code == 200
+    assert fake_core_lifecycle.umop_config_router.umop_to_conf_id == routing
+
+    cleared = await asgi_client.put(
+        "/api/v1/config-routes",
+        headers=_jwt_headers(),
+        json={"routing": {}},
+    )
+    assert cleared.status_code == 200
+    assert fake_core_lifecycle.umop_config_router.umop_to_conf_id == {}
+
+
+@pytest.mark.asyncio
+async def test_v1_config_route_mutations_reject_invalid_config_ids(
+    asgi_client: httpx.AsyncClient,
+    fake_core_lifecycle,
+):
+    headers = _jwt_headers()
+    invalid_routing = {"webchat-main:private:*": "bad id"}
+
+    replaced = await asgi_client.put(
+        "/api/v1/config-routes",
+        headers=headers,
+        json={"routing": invalid_routing},
+    )
+    assert replaced.status_code == 400
+    assert fake_core_lifecycle.umop_config_router.umop_to_conf_id == {}
+
+    upserted = await asgi_client.put(
+        "/api/v1/config-routes/webchat-main:private:*",
+        headers=headers,
+        json={"config_id": "bad id"},
+    )
+    assert upserted.status_code == 400
+    assert fake_core_lifecycle.umop_config_router.umop_to_conf_id == {}
+
+
+@pytest.mark.asyncio
+async def test_v1_config_route_list_ignores_malformed_persisted_ids(
+    asgi_client: httpx.AsyncClient,
+    fake_core_lifecycle,
+):
+    fake_core_lifecycle.umop_config_router.umop_to_conf_id = {
+        "webchat-main:private:*": "bad id",
+        "webchat-main:group:demo": "default",
+    }
+
+    response = await asgi_client.get("/api/v1/config-routes", headers=_jwt_headers())
+
+    assert response.status_code == 200
+    assert response.json()["data"]["routing"] == {"webchat-main:group:demo": "default"}

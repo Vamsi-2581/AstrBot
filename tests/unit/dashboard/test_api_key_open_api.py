@@ -1220,19 +1220,28 @@ async def test_open_api_auth_validation_and_key_carriers(
         name_prefix="auth-carrier-key",
     )
 
-    headers_and_urls = [
+    header_carriers = [
         ({"X-API-Key": raw_key}, "/api/v1/im/bots"),
-        ({}, f"/api/v1/im/bots?api_key={raw_key}"),
-        ({}, f"/api/v1/im/bots?key={raw_key}"),
         ({"Authorization": f"Bearer {raw_key}"}, "/api/v1/im/bots"),
         ({"Authorization": f"ApiKey {raw_key}"}, "/api/v1/im/bots"),
     ]
-    for headers, url in headers_and_urls:
+    for headers, url in header_carriers:
         res = await test_client.get(url, headers=headers)
         assert res.status_code == 200
         data = await res.get_json()
         assert data["status"] == "ok"
         assert isinstance(data["data"]["bot_ids"], list)
+
+    query_carriers = [
+        f"/api/v1/im/bots?api_key={raw_key}",
+        f"/api/v1/im/bots?key={raw_key}",
+    ]
+    for url in query_carriers:
+        res = await test_client.get(url)
+        assert res.status_code == 401
+        data = await res.get_json()
+        assert data["status"] == "error"
+        assert data["message"] == "Missing API key"
 
 
 @pytest.mark.asyncio
@@ -1685,3 +1694,136 @@ async def test_file_scope_is_available_for_developer_api_key(
     assert upload_data["data"]["stored_filename"].endswith("_api-key-upload.txt")
     assert upload_data["data"]["type"] == "file"
     assert upload_data["data"]["attachment_id"]
+
+
+@pytest.mark.asyncio
+async def test_bearer_api_key_enforces_scope_like_header_carriers(
+    test_client: DashboardTestClient,
+    authenticated_header: dict,
+    dashboard_password: str,
+):
+    im_key, _ = await _create_api_key(
+        test_client,
+        authenticated_header,
+        dashboard_password,
+        scopes=["im"],
+        name_prefix="bearer-scope-key",
+    )
+
+    for headers in (
+        {"Authorization": f"Bearer {im_key}"},
+        {"X-API-Key": im_key},
+    ):
+        response = await test_client.get("/api/v1/plugins", headers=headers)
+        assert response.status_code == 403
+
+    plugin_key, _ = await _create_api_key(
+        test_client,
+        authenticated_header,
+        dashboard_password,
+        scopes=["plugin"],
+        name_prefix="bearer-plugin-key",
+    )
+    response = await test_client.get(
+        "/api/v1/plugins",
+        headers={"Authorization": f"Bearer {plugin_key}"},
+    )
+    assert response.status_code == 200
+    assert (await response.get_json())["status"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_open_chat_authorizes_api_key_before_creating_session(
+    app: FastAPI,
+    test_client: DashboardTestClient,
+    authenticated_header: dict,
+    dashboard_password: str,
+    core_lifecycle_td: AstrBotCoreLifecycle,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    raw_key, key_id = await _create_api_key(
+        test_client,
+        authenticated_header,
+        dashboard_password,
+        scopes=["chat"],
+        name_prefix="chat-preauth-key",
+    )
+    username = "preauth-user"
+    session_id = f"openapi_preauth_{uuid.uuid4().hex[:10]}"
+    payload = {
+        "message": "hello",
+        "username": username,
+        "session_id": session_id,
+        "enable_streaming": False,
+    }
+
+    denied = await test_client.post(
+        "/api/v1/chat",
+        json=payload,
+        headers={"X-API-Key": raw_key},
+    )
+    assert denied.status_code == 403
+    assert await core_lifecycle_td.db.get_platform_session_by_id(session_id) is None
+
+    await _grant_webchat_user(app, key_id, username, "session.manage")
+
+    async def fake_chat_response(
+        _chat_service,
+        effective_username: str,
+        post_data: dict,
+        **_kwargs,
+    ):
+        return ok(
+            {
+                "session_id": post_data.get("session_id"),
+                "creator": effective_username,
+            }
+        )
+
+    monkeypatch.setattr(
+        open_api_routes,
+        "_build_streaming_chat_response",
+        fake_chat_response,
+    )
+    allowed = await test_client.post(
+        "/api/v1/chat",
+        json=payload,
+        headers={"X-API-Key": raw_key},
+    )
+    assert allowed.status_code == 200
+    created = await core_lifecycle_td.db.get_platform_session_by_id(session_id)
+    assert created is not None
+    assert created.creator == username
+
+
+@pytest.mark.asyncio
+async def test_commands_use_the_plugin_scope(
+    test_client: DashboardTestClient,
+    authenticated_header: dict,
+    dashboard_password: str,
+):
+    plugin_key, _ = await _create_api_key(
+        test_client,
+        authenticated_header,
+        dashboard_password,
+        scopes=["plugin"],
+        name_prefix="commands-plugin-key",
+    )
+    allowed = await test_client.get(
+        "/api/v1/commands",
+        headers={"X-API-Key": plugin_key},
+    )
+    assert allowed.status_code == 200
+
+    chat_key, _ = await _create_api_key(
+        test_client,
+        authenticated_header,
+        dashboard_password,
+        scopes=["chat"],
+        name_prefix="commands-chat-key",
+    )
+    denied = await test_client.get(
+        "/api/v1/commands",
+        headers={"X-API-Key": chat_key},
+    )
+    assert denied.status_code == 403

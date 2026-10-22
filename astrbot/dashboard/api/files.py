@@ -1,3 +1,5 @@
+import mimetypes
+from pathlib import Path
 from typing import Any
 
 from fastapi import (
@@ -14,11 +16,15 @@ from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
 from astrbot.core.auth.models import Resource
+from astrbot.core.utils.media_utils import MEDIA_MIME_EXTENSIONS
 from astrbot.dashboard.async_utils import run_maybe_async
 from astrbot.dashboard.responses import error, ok
 from astrbot.dashboard.schemas import ChatUploadInitRequest, ChatUploadSessionRequest
 from astrbot.dashboard.services.chat_service import ChatService, ChatServiceError
 from astrbot.dashboard.services.file_service import FileService, FileServiceError
+from astrbot.dashboard.services.plugin_file_ticket_service import (
+    content_disposition_header,
+)
 from astrbot.dashboard.upload_utils import UploadFileAdapter
 
 from .auth import AuthContext, object_resource, require_resource_action, require_scope
@@ -69,15 +75,49 @@ async def _serve_token_file(file_token: str, service: FileService):
             if owned
             else None
         )
-        return FileResponse(file_path, background=background)
+        return attachment_file_response(
+            file_path,
+            mimetypes.guess_type(file_path)[0],
+            background=background,
+        )
     except FileServiceError as exc:
         raise HTTPException(status_code=404) from exc
 
 
-def _file_response(file_path: str, mimetype: str | None = None) -> FileResponse:
-    if mimetype:
-        return FileResponse(file_path, media_type=mimetype)
-    return FileResponse(file_path)
+# Media types the ChatUI renders inline. The set is derived from the shared
+# media registry so platform attachments (.wav, .mov, .avif, ...) keep the
+# Content-Type their <audio>/<video>/<img> element needs; anything else,
+# including svg/html/script payloads, falls back to application/octet-stream.
+_SAFE_MEDIA_TYPES = frozenset(MEDIA_MIME_EXTENSIONS) | {
+    "image/vnd.microsoft.icon",
+    "image/x-icon",
+    "text/plain",
+}
+
+
+def _attachment_media_type(mimetype: str | None) -> str:
+    candidate = (mimetype or "").split(";", 1)[0].strip().lower()
+    return candidate if candidate in _SAFE_MEDIA_TYPES else "application/octet-stream"
+
+
+def attachment_file_response(
+    file_path: str,
+    mimetype: str | None = None,
+    *,
+    background: BackgroundTask | None = None,
+) -> FileResponse:
+    return FileResponse(
+        file_path,
+        media_type=_attachment_media_type(mimetype),
+        headers={
+            "Content-Disposition": content_disposition_header(
+                "attachment",
+                Path(file_path).name,
+            ),
+            "X-Content-Type-Options": "nosniff",
+        },
+        background=background,
+    )
 
 
 async def _run_file(operation, *, error_message: str = "File access error"):
@@ -200,7 +240,7 @@ async def get_file_by_name(
     if isinstance(result, dict) and result.get("status") == "error":
         return result
     file_path, mimetype = result
-    return _file_response(file_path, mimetype)
+    return attachment_file_response(file_path, mimetype)
 
 
 @router.get("/files/{attachment_id}", responses=_BINARY_FILE_RESPONSE)
@@ -214,7 +254,7 @@ async def get_file(
     if isinstance(result, dict) and result.get("status") == "error":
         return result
     file_path, mimetype = result
-    return _file_response(file_path, mimetype)
+    return attachment_file_response(file_path, mimetype)
 
 
 @router.delete("/files/{attachment_id}")

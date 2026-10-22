@@ -461,14 +461,16 @@ class SlackAdapter(Platform):
                     _SLACK_FILE_MAX_BYTES,
                 )
                 raise Exception("下载文件失败: size limit exceeded")
-            content = await resp.read()
-            if len(content) > _SLACK_FILE_MAX_BYTES:
-                logger.warning(
-                    "Rejecting Slack file over %s bytes",
-                    _SLACK_FILE_MAX_BYTES,
-                )
-                raise Exception("下载文件失败: size limit exceeded")
-            return base64.b64encode(content).decode("utf-8")
+            content = bytearray()
+            async for chunk in resp.content.iter_chunked(64 * 1024):
+                content.extend(chunk)
+                if len(content) > _SLACK_FILE_MAX_BYTES:
+                    logger.warning(
+                        "Rejecting Slack file over %s bytes",
+                        _SLACK_FILE_MAX_BYTES,
+                    )
+                    raise Exception("下载文件失败: size limit exceeded")
+            return base64.b64encode(bytes(content)).decode("utf-8")
 
     async def run(self) -> None:
         self.bot_self_id = await self.get_bot_user_id()

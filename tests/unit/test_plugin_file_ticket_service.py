@@ -132,6 +132,8 @@ async def test_attachment_ticket_is_handle_cookie_bound_and_single_use(tmp_path:
 
     redeemed = await service.redeem(handle, created.cookie_secret)
     assert redeemed.path == output.resolve()
+    assert redeemed.file_handle.read() == b"download"
+    redeemed.file_handle.close()
     assert redeemed.clear_cookie is True
     with pytest.raises(RawFileError) as replay:
         await service.redeem(handle, created.cookie_secret)
@@ -160,6 +162,8 @@ async def test_inline_ticket_allows_three_reads_then_expires(tmp_path: Path):
     handle = str(created.data["ticket_url"]).rsplit("/", 1)[1]
     for _index in range(3):
         redeemed = await service.redeem(handle, created.cookie_secret)
+        assert redeemed.file_handle.read() == b"\x89PNG\r\n\x1a\npreview"
+        redeemed.file_handle.close()
         assert redeemed.clear_cookie is False
     with pytest.raises(RawFileError):
         await service.redeem(handle, created.cookie_secret)

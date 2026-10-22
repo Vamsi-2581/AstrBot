@@ -1,4 +1,7 @@
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from starlette.datastructures import UploadFile as StarletteUploadFile
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.formparsers import MultiPartException
 
 from astrbot import logger
 from astrbot.core.star.plugin_catalog import PluginCatalog
@@ -33,6 +36,20 @@ from astrbot.dashboard.services.plugin_service import (
 from .auth import AuthContext, require_scope
 
 router = APIRouter(tags=["Plugins"])
+_MAX_CONFIG_UPLOAD_FILES = 32
+_MAX_CONFIG_FORM_FIELDS = 100
+# Starlette applies ``max_part_size`` only to non-file parts. File parts are
+# bounded by ConfigFileService's per-file limit and the request body
+# middleware, so keep metadata fields small instead of letting one buffer a
+# large request body in memory.
+_MAX_CONFIG_FORM_FIELD_BYTES = 1024 * 1024
+
+
+def _multipart_error_status(detail: str) -> int:
+    normalized = detail.casefold()
+    if "too many" in normalized or "exceeded" in normalized:
+        return 413
+    return 422
 
 
 async def require_plugin_scope(request: Request) -> AuthContext:
@@ -117,6 +134,14 @@ async def _run_service(operation, *, log_label: str | None = None):
             "message": PLUGIN_OPERATION_FAILED_MESSAGE,
             "data": {},
         }
+
+
+async def _run_plugin_sources(operation, *, log_label: str):
+    async def wrapped():
+        sources = await run_maybe_async(operation)
+        return {"sources": sources}, "保存成功"
+
+    return await _run_service(wrapped, log_label=log_label)
 
 
 @router.get("/plugins/failed")
@@ -253,9 +278,9 @@ async def create_plugin_source(
     _auth: AuthContext = Depends(require_plugin_scope),
     service: PluginService = Depends(get_service),
 ):
-    return ok(
-        {"sources": await service.create_custom_source(model_dict(payload))},
-        message="保存成功",
+    return await _run_plugin_sources(
+        lambda: service.create_custom_source(model_dict(payload)),
+        log_label="Create plugin source",
     )
 
 
@@ -265,9 +290,9 @@ async def replace_plugin_sources(
     _auth: AuthContext = Depends(require_plugin_scope),
     service: PluginService = Depends(get_service),
 ):
-    return ok(
-        {"sources": await service.replace_custom_sources(model_dict(payload))},
-        message="保存成功",
+    return await _run_plugin_sources(
+        lambda: service.replace_custom_sources(model_dict(payload)),
+        log_label="Replace plugin sources",
     )
 
 
@@ -277,9 +302,9 @@ async def delete_plugin_source(
     _auth: AuthContext = Depends(require_plugin_scope),
     service: PluginService = Depends(get_service),
 ):
-    return ok(
-        {"sources": await service.delete_custom_source(source_id)},
-        message="保存成功",
+    return await _run_plugin_sources(
+        lambda: service.delete_custom_source(source_id),
+        log_label="Delete plugin source",
     )
 
 
@@ -408,16 +433,37 @@ async def upload_plugin_config_files(
     _auth: AuthContext = Depends(require_plugin_id_scope),
     service: ConfigFileService = Depends(get_config_file_service),
 ):
-    form = await request.form()
-    files = [value for _, value in form.multi_items() if isinstance(value, UploadFile)]
-    return ok(
-        await service.upload_config_file(
-            scope="plugin",
-            name=plugin_id,
-            key_path=config_key,
-            files=files,
+    form = None
+    try:
+        form = await request.form(
+            max_files=_MAX_CONFIG_UPLOAD_FILES,
+            max_fields=_MAX_CONFIG_FORM_FIELDS,
+            max_part_size=_MAX_CONFIG_FORM_FIELD_BYTES,
         )
-    )
+        files = [
+            value
+            for _, value in form.multi_items()
+            if isinstance(value, StarletteUploadFile)
+        ]
+        return ok(
+            await service.upload_config_file(
+                scope="plugin",
+                name=plugin_id,
+                key_path=config_key,
+                files=files,
+            )
+        )
+    except MultiPartException as exc:
+        detail = exc.message
+        status_code = _multipart_error_status(detail)
+        raise ApiError("Invalid upload request", status_code=status_code) from exc
+    except StarletteHTTPException as exc:
+        detail = str(exc.detail)
+        status_code = _multipart_error_status(detail)
+        raise ApiError("Invalid upload request", status_code=status_code) from exc
+    finally:
+        if form is not None:
+            await form.close()
 
 
 @router.delete("/plugins/{plugin_id:path}/config-files")

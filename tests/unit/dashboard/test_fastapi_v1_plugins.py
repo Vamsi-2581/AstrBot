@@ -1003,3 +1003,110 @@ async def test_v1_token_file_is_public(
 def test_v1_openapi_websocket_routes_are_mounted(asgi_app):
     assert str(asgi_app.url_path_for("chat_ws")) == "/api/v1/chat/ws"
     assert str(asgi_app.url_path_for("unified_chat_ws")) == "/api/v1/unified-chat/ws"
+
+
+@pytest.mark.asyncio
+async def test_v1_plugin_config_upload_rejects_too_many_files(
+    asgi_client: httpx.AsyncClient,
+):
+    files = [
+        ("files", (f"file-{index}.txt", b"data", "text/plain")) for index in range(33)
+    ]
+
+    response = await asgi_client.post(
+        "/api/v1/plugins/astrbot_plugin_demo/config-files/assets",
+        files=files,
+        headers=_jwt_headers(),
+    )
+
+    assert response.status_code == 413
+    data = response.json()
+    assert data["status"] == "error"
+    assert data["message"] == "Invalid upload request"
+
+
+@pytest.mark.asyncio
+async def test_v1_plugin_config_upload_rejects_oversized_form_fields(
+    asgi_client: httpx.AsyncClient,
+):
+    response = await asgi_client.post(
+        "/api/v1/plugins/astrbot_plugin_demo/config-files/assets",
+        data={"metadata": "x" * (2 * 1024 * 1024)},
+        files=[("files", ("file.txt", b"data", "text/plain"))],
+        headers=_jwt_headers(),
+    )
+
+    assert response.status_code == 413
+    data = response.json()
+    assert data["status"] == "error"
+    assert data["message"] == "Invalid upload request"
+
+
+@pytest.mark.asyncio
+async def test_v1_plugin_config_upload_accepts_parts_up_to_the_service_limit(
+    asgi_client: httpx.AsyncClient,
+    asgi_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    captured: dict[str, list[int]] = {}
+
+    async def fake_upload_config_file(
+        *,
+        scope: str,
+        name: str,
+        key_path: str,
+        files: list,
+    ):
+        captured["sizes"] = [len(await file.read()) for file in files]
+        return {"uploaded": [], "errors": []}
+
+    monkeypatch.setattr(
+        asgi_app.state.services.config_files,
+        "upload_config_file",
+        fake_upload_config_file,
+    )
+
+    payload = b"x" * (9 * 1024 * 1024)
+    response = await asgi_client.post(
+        "/api/v1/plugins/astrbot_plugin_demo/config-files/assets",
+        files=[("files", ("large.bin", payload, "application/octet-stream"))],
+        headers=_jwt_headers(),
+    )
+
+    assert response.status_code == 200
+    assert captured["sizes"] == [len(payload)]
+
+
+@pytest.mark.asyncio
+async def test_v1_plugin_source_mutations_reject_demo_mode_with_envelope(
+    asgi_client: httpx.AsyncClient,
+    asgi_app: FastAPI,
+):
+    service = asgi_app.state.services.plugins
+    original_demo_mode = service.demo_mode
+    service.demo_mode = True
+    try:
+        responses = [
+            await asgi_client.post(
+                "/api/v1/plugin-sources",
+                headers=_jwt_headers(),
+                json={"url": "https://example.com/source"},
+            ),
+            await asgi_client.put(
+                "/api/v1/plugin-sources",
+                headers=_jwt_headers(),
+                json={"sources": []},
+            ),
+            await asgi_client.delete(
+                "/api/v1/plugin-sources/source-id",
+                headers=_jwt_headers(),
+            ),
+        ]
+    finally:
+        service.demo_mode = original_demo_mode
+
+    for response in responses:
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "error"
+        assert "demo" in data["message"].lower()

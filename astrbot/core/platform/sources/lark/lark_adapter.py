@@ -46,6 +46,24 @@ USER_NAME_FAILURE_CACHE_TTL_SECONDS = 60
 USER_NAME_CACHE_MAX_SIZE = 1000
 USER_NAME_LOOKUP_TIMEOUT_SECONDS = 5
 
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+_MAX_TEMP_STEM_LENGTH = 80
+_MAX_TEMP_SUFFIX_LENGTH = 16
+
+
+def _build_temp_file_name(
+    message_type: str,
+    file_name: str,
+    default_suffix: str,
+) -> str:
+    """Build a bounded, path-component-safe temporary file name."""
+
+    safe_name = _CONTROL_CHARS.sub("", Path(file_name).name) if file_name else ""
+    stem = Path(safe_name).stem[:_MAX_TEMP_STEM_LENGTH]
+    suffix = (Path(safe_name).suffix or default_suffix)[:_MAX_TEMP_SUFFIX_LENGTH]
+    parts = [part for part in (f"lark_{message_type}", stem, uuid4().hex) if part]
+    return "_".join(parts) + suffix
+
 
 @register_platform_adapter(
     "lark",
@@ -109,6 +127,14 @@ class LarkPlatformAdapter(Platform):
 
         self.webhook_server = None
         if self.connection_mode == "webhook":
+            if not (
+                platform_config.get("lark_encrypt_key")
+                or platform_config.get("lark_verification_token")
+            ):
+                raise ValueError(
+                    "Lark webhook mode requires lark_encrypt_key or "
+                    "lark_verification_token"
+                )
             self.webhook_server = LarkWebhookServer(platform_config, event_queue)
             self.webhook_server.set_callback(self.handle_webhook_event)
 
@@ -563,7 +589,7 @@ class LarkPlatformAdapter(Platform):
             logger.warning(
                 "[Lark] 获取引用消息异常 id=%s error=%s，降级为轻量 Reply。",
                 parent_message_id,
-                e,
+                safe_error("", e),
             )
             return _lightweight_reply(), ""
 
@@ -658,11 +684,12 @@ class LarkPlatformAdapter(Platform):
         if file_bytes is None:
             return None
 
-        suffix = Path(file_name).suffix if file_name else default_suffix
         temp_dir = Path(get_astrbot_temp_path())
         temp_dir.mkdir(parents=True, exist_ok=True)
-        temp_path = (
-            temp_dir / f"lark_{message_type}_{file_name}_{uuid4().hex[:4]}{suffix}"
+        temp_path = temp_dir / _build_temp_file_name(
+            message_type,
+            file_name,
+            default_suffix,
         )
         temp_path.write_bytes(file_bytes)
         return str(temp_path.resolve())
@@ -797,14 +824,27 @@ class LarkPlatformAdapter(Platform):
         try:
             content_json_b = json.loads(message.content)
         except json.JSONDecodeError:
-            logger.error(f"[Lark] 解析消息内容失败: {message.content}")
+            logger.error(
+                "[Lark] 解析消息内容失败 id=%s type=%s",
+                message.message_id,
+                message.message_type,
+            )
             return
 
         if not isinstance(content_json_b, dict):
-            logger.error(f"[Lark] 消息内容不是 JSON Object: {message.content}")
+            logger.error(
+                "[Lark] 消息内容不是 JSON Object id=%s type=%s",
+                message.message_id,
+                message.message_type,
+            )
             return
 
-        logger.debug(f"[Lark] 解析消息内容: {content_json_b}")
+        logger.debug(
+            "[Lark] 解析消息内容 id=%s type=%s fields=%s",
+            message.message_id,
+            message.message_type,
+            sorted(content_json_b),
+        )
         parsed_components = await self._parse_message_components(
             message_id=message.message_id,
             message_type=message.message_type or "unknown",

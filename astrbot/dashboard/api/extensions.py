@@ -22,8 +22,8 @@ def get_command_service(request: Request) -> CommandService:
     return request.app.state.services.commands
 
 
-async def require_tool_scope(request: Request) -> AuthContext:
-    return await require_scope(request, "tool")
+async def require_command_scope(request: Request) -> AuthContext:
+    return await require_scope(request, "plugin")
 
 
 def _raise_command_error(exc: CommandServiceError) -> None:
@@ -99,7 +99,7 @@ async def _update_command_permission(
 @router.get("/commands")
 async def list_commands(
     config_id: str | None = None,
-    _auth: AuthContext = Depends(require_tool_scope),
+    _auth: AuthContext = Depends(require_command_scope),
     service: CommandService = Depends(get_command_service),
 ):
     return await _list_commands(config_id, service)
@@ -108,7 +108,7 @@ async def list_commands(
 @router.get("/commands/conflicts")
 async def list_command_conflicts(
     config_id: str | None = None,
-    _auth: AuthContext = Depends(require_tool_scope),
+    _auth: AuthContext = Depends(require_command_scope),
     service: CommandService = Depends(get_command_service),
 ):
     return await _list_command_conflicts(service, config_id or "")
@@ -117,7 +117,7 @@ async def list_command_conflicts(
 @router.patch("/commands/builtin")
 async def bulk_toggle_builtin_commands(
     payload: BuiltinCommandBulkToggleRequest,
-    _auth: AuthContext = Depends(require_tool_scope),
+    _auth: AuthContext = Depends(require_command_scope),
     service: CommandService = Depends(get_command_service),
 ):
     return await _bulk_toggle_builtin_commands(payload, service)
@@ -127,7 +127,7 @@ async def bulk_toggle_builtin_commands(
 async def update_command(
     command_id: str,
     payload: CommandUpdateRequest,
-    _auth: AuthContext = Depends(require_tool_scope),
+    _auth: AuthContext = Depends(require_command_scope),
     service: CommandService = Depends(get_command_service),
 ):
     if payload.enabled is not None:

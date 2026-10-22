@@ -322,3 +322,26 @@ class TestGetBooterRebuild:
         # No delete_sandbox kwarg for non-neo booters
         call_kwargs = stale.shutdown.call_args.kwargs
         assert call_kwargs == {}
+
+
+@pytest.mark.asyncio
+async def test_neo_shell_rejects_invalid_environment_keys():
+    from astrbot.core.computer.booters.shipyard_neo import NeoShellComponent
+
+    sandbox = SimpleNamespace(
+        shell=SimpleNamespace(exec=AsyncMock(return_value={"success": True}))
+    )
+    component = NeoShellComponent(sandbox)
+
+    rejected = await component.exec(
+        "echo hello",
+        env={"GOOD_KEY": "1", "BAD KEY": "x"},
+    )
+
+    assert rejected["success"] is False
+    assert "invalid environment variable name" in rejected["stderr"]
+    sandbox.shell.exec.assert_not_awaited()
+
+    accepted = await component.exec("echo hello", env={"GOOD_KEY": "1"})
+    assert accepted["success"] is True
+    sandbox.shell.exec.assert_awaited_once()

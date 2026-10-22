@@ -90,17 +90,28 @@ def _rsa_jwks() -> tuple[object, dict]:
     return key, {"keys": [jwk]}
 
 
-def _id_token(key, *, nonce: str = "nonce-1", kid: str = "key-1") -> str:
+def _id_token(
+    key,
+    *,
+    nonce: str | None = "nonce-1",
+    kid: str = "key-1",
+    audience: object = "cid",
+    authorized_party: str | None = None,
+) -> str:
     now = datetime.datetime.now(datetime.UTC)
+    payload: dict[str, object] = {
+        "sub": "subject-123",
+        "aud": audience,
+        "iss": "https://idp",
+        "iat": now,
+        "exp": now + datetime.timedelta(minutes=5),
+    }
+    if nonce is not None:
+        payload["nonce"] = nonce
+    if authorized_party is not None:
+        payload["azp"] = authorized_party
     return pyjwt.encode(
-        {
-            "sub": "subject-123",
-            "aud": "cid",
-            "iss": "https://idp",
-            "iat": now,
-            "exp": now + datetime.timedelta(minutes=5),
-            "nonce": nonce,
-        },
+        payload,
         key,
         algorithm="RS256",
         headers={"kid": kid},
@@ -242,3 +253,54 @@ async def test_oidc_callback_rejects_unlinked_when_auto_create_disabled(
     result = await service.oidc_callback("code", "state-1")
 
     assert result.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_oidc_verify_id_token_requires_nonce(monkeypatch) -> None:
+    key, jwks = _rsa_jwks()
+    client = OidcClient({"issuer": "https://idp", "client_id": "cid"})
+
+    async def fake_discovery():
+        return {"issuer": "https://idp", "jwks_uri": "https://idp/jwks"}
+
+    async def fake_get_json(_url: str):
+        return jwks
+
+    monkeypatch.setattr(client, "discovery", fake_discovery)
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    with pytest.raises(OidcError):
+        await client.verify_id_token(_id_token(key, nonce=None), "nonce-1")
+    with pytest.raises(OidcError):
+        await client.verify_id_token(_id_token(key, nonce="other"), "nonce-1")
+
+
+@pytest.mark.asyncio
+async def test_oidc_verify_id_token_validates_authorized_party(monkeypatch) -> None:
+    key, jwks = _rsa_jwks()
+    client = OidcClient({"issuer": "https://idp", "client_id": "cid"})
+
+    async def fake_discovery():
+        return {"issuer": "https://idp", "jwks_uri": "https://idp/jwks"}
+
+    async def fake_get_json(_url: str):
+        return jwks
+
+    monkeypatch.setattr(client, "discovery", fake_discovery)
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    with pytest.raises(OidcError):
+        await client.verify_id_token(
+            _id_token(key, audience=["cid", "other"], authorized_party=None),
+            "nonce-1",
+        )
+    with pytest.raises(OidcError):
+        await client.verify_id_token(
+            _id_token(key, audience=["cid", "other"], authorized_party="other"),
+            "nonce-1",
+        )
+    claims = await client.verify_id_token(
+        _id_token(key, audience=["cid", "other"], authorized_party="cid"),
+        "nonce-1",
+    )
+    assert claims["azp"] == "cid"

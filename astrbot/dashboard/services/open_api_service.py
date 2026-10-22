@@ -416,6 +416,33 @@ class OpenApiService:
             return "SESSION_ERROR"
         return "INVALID_MESSAGE"
 
+    async def _authorize_declared_send(
+        self,
+        post_data: dict,
+        api_key_principal: dict,
+        send_error: Callable[[str, str], Awaitable[None]],
+    ) -> bool:
+        """Authorize the username an API-key caller declared for one send."""
+
+        declared_username, username_err = self.resolve_open_username(
+            post_data.get("username")
+        )
+        if username_err:
+            await send_error(username_err, self.get_chat_send_error_code(username_err))
+            return False
+        if not declared_username:
+            await send_error("Invalid username", "BAD_USER")
+            return False
+        key_id = api_key_principal.get("key_id")
+        if not isinstance(key_id, str) or not await self.authorize_declared_chat_user(
+            key_id=key_id,
+            action="session.manage",
+            username=declared_username,
+        ):
+            await send_error("Authorization denied", "FORBIDDEN")
+            return False
+        return True
+
     async def handle_chat_ws_send(
         self,
         *,
@@ -431,6 +458,16 @@ class OpenApiService:
             await send_error("Missing key: message", "INVALID_MESSAGE")
             return
 
+        # Authorize the caller-declared username before prepare_chat_send()
+        # creates the platform session, mirroring the HTTP chat route so
+        # neither carrier mutates state before the capability check.
+        if api_key_principal is not None and not await self._authorize_declared_send(
+            post_data,
+            api_key_principal,
+            send_error,
+        ):
+            return
+
         try:
             (
                 effective_username,
@@ -444,18 +481,6 @@ class OpenApiService:
             message = str(exc)
             await send_error(message, self.get_chat_send_error_code(message))
             return
-
-        if api_key_principal is not None:
-            key_id = api_key_principal.get("key_id")
-            if not isinstance(
-                key_id, str
-            ) or not await self.authorize_declared_chat_user(
-                key_id=key_id,
-                action="session.manage",
-                username=effective_username,
-            ):
-                await send_error("Authorization denied", "FORBIDDEN")
-                return
 
         config_err = await self.update_session_config_route(
             username=effective_username,

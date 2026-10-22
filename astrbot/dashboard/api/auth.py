@@ -316,10 +316,6 @@ def _extract_raw_api_key(request: Request) -> str | None:
         return None
     if separator and scheme.lower() == "apikey":
         return credentials.strip()
-    if key := request.query_params.get("api_key"):
-        return key.strip()
-    if key := request.query_params.get("key"):
-        return key.strip()
     if key := request.headers.get("X-API-Key"):
         return key.strip()
     return None
@@ -606,7 +602,10 @@ async def require_scope(
         scheme, separator, _credentials = auth_header.partition(" ")
         if separator and scheme.lower() == "bearer":
             try:
-                return await _require_api_key_scope(request, token, scope)
+                auth = await _require_api_key_scope(request, token, scope)
+                if authorize_action:
+                    await _authorize_scope_action(request, auth, scope, action_override)
+                return auth
             except ApiError as api_key_exc:
                 raise api_key_exc from exc
         raise ApiError("Invalid token", status_code=401) from exc
@@ -744,8 +743,6 @@ def _has_auth_credentials(request: Request) -> bool:
     scheme, separator, _credentials = auth_header.partition(" ")
     return bool(
         (separator and scheme.lower() in {"bearer", "apikey"})
-        or request.query_params.get("api_key")
-        or request.query_params.get("key")
         or request.headers.get("X-API-Key")
     )
 
@@ -794,7 +791,11 @@ async def _setup(
     if auth is None:
         result = await service.setup(_payload(payload))
     else:
-        result = await service.setup_authenticated(_payload(payload), auth.username)
+        result = await service.setup_authenticated(
+            _payload(payload),
+            auth.username,
+            auth.account_id,
+        )
     return _auth_service_response(
         request,
         result,

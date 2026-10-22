@@ -553,3 +553,48 @@ async def test_default_market_update_refresh_does_not_persist_when_record_is_non
     )
 
     assert saved == []
+
+
+@pytest.mark.asyncio
+async def test_custom_source_writes_reject_demo_mode() -> None:
+    service = PluginService.__new__(PluginService)
+    service.demo_mode = True
+    service.preferences = SimpleNamespace(
+        global_get=AsyncMock(return_value=[]),
+        global_put=AsyncMock(),
+    )
+
+    with pytest.raises(PluginServiceError):
+        await service.save_custom_sources({"sources": []})
+    with pytest.raises(PluginServiceError):
+        await service.create_custom_source({"url": "https://example.com"})
+    with pytest.raises(PluginServiceError):
+        await service.replace_custom_sources({"sources": []})
+    with pytest.raises(PluginServiceError):
+        await service.delete_custom_source("source-id")
+
+    service.preferences.global_put.assert_not_awaited()
+    service.preferences.global_get.assert_not_awaited()
+
+
+def test_market_name_fallback_requires_a_record_without_repo() -> None:
+    service = PluginService.__new__(PluginService)
+    market = {
+        "owner-b/same-name": {
+            "name": "same-name",
+            "author": "owner-b",
+            "repo": "https://github.com/owner-b/same-name",
+        }
+    }
+
+    record_with_repo = {
+        "name": "same-name",
+        "repo": "https://github.com/owner-a/same-name",
+    }
+    assert service.resolve_market_plugin_entry(market, record_with_repo) is None
+
+    record_without_repo = {"name": "same-name"}
+    assert (
+        service.resolve_market_plugin_entry(market, record_without_repo)
+        == market["owner-b/same-name"]
+    )

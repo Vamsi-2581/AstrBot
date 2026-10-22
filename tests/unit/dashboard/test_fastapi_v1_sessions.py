@@ -966,3 +966,99 @@ async def test_v1_dashboard_api_service_errors_preserve_business_message(
     assert response.status_code == business_status
     assert response.json()["status"] == "error"
     assert response.json()["message"] == message
+
+
+@pytest.mark.asyncio
+async def test_v1_session_group_path_is_the_only_mutation_target(
+    asgi_client: httpx.AsyncClient,
+    asgi_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    store = {
+        "session_groups": {
+            "group-a": {"name": "Group A", "umos": []},
+            "group-b": {
+                "name": "Group B",
+                "umos": ["webchat:FriendMessage:victim"],
+            },
+        }
+    }
+
+    async def fake_global_get(key: str, default=None):
+        return store.get(key, default)
+
+    async def fake_global_put(key: str, value):
+        store[key] = copy.deepcopy(value)
+
+    preferences = asgi_app.state.services.sessions.preferences
+    monkeypatch.setattr(preferences, "global_get", fake_global_get)
+    monkeypatch.setattr(preferences, "global_put", fake_global_put)
+
+    headers = _jwt_headers()
+    mismatch_response = await asgi_client.put(
+        "/api/v1/session-groups/group-a",
+        json={"id": "group-b", "name": "Renamed"},
+        headers=headers,
+    )
+    assert mismatch_response.status_code == 400
+    assert store["session_groups"]["group-b"]["name"] == "Group B"
+    assert store["session_groups"]["group-b"]["umos"] == [
+        "webchat:FriendMessage:victim"
+    ]
+
+    same_id_response = await asgi_client.put(
+        "/api/v1/session-groups/group-a",
+        json={"id": "group-a", "name": "Renamed A"},
+        headers=headers,
+    )
+    assert same_id_response.status_code == 200
+    assert store["session_groups"]["group-a"]["name"] == "Renamed A"
+
+
+@pytest.mark.asyncio
+async def test_v1_session_authorization_covers_every_declared_target(
+    asgi_client: httpx.AsyncClient,
+    asgi_app: FastAPI,
+    fake_db: FakeDb,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from astrbot.core.auth.models import Resource
+    from astrbot.dashboard.responses import ApiError
+
+    allowed = "webchat:FriendMessage:allowed"
+    victim = "webchat:FriendMessage:victim"
+    fake_db.umo_ids = [allowed, victim]
+
+    async def deny_victim(request, auth, *, action, resource):
+        if resource.id == Resource.session("default", victim).id:
+            raise ApiError("Authorization denied", status_code=403)
+
+    monkeypatch.setattr(
+        dashboard_sessions_api,
+        "require_resource_action",
+        deny_victim,
+    )
+
+    async def unexpected_mutation(_payload):
+        raise AssertionError("mutation ran before authorization completed")
+
+    monkeypatch.setattr(
+        asgi_app.state.services.sessions,
+        "batch_update_service",
+        unexpected_mutation,
+    )
+
+    headers = _jwt_headers()
+    mixed_response = await asgi_client.patch(
+        "/api/v1/sessions/service",
+        json={"umo": allowed, "umos": [victim], "llm_enabled": False},
+        headers=headers,
+    )
+    assert mixed_response.status_code == 403
+
+    scope_response = await asgi_client.patch(
+        "/api/v1/sessions/service",
+        json={"umo": allowed, "scope": "all", "llm_enabled": False},
+        headers=headers,
+    )
+    assert scope_response.status_code == 403

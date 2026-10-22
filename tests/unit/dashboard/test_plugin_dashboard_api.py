@@ -431,6 +431,7 @@ async def test_page_session_shell_and_public_bundle_contract(plugin_api):
     asset = await plugin_api.client.get(bundle_path, headers={"Origin": "null"})
     assert asset.status_code == 200
     assert asset.headers["access-control-allow-origin"] == "null"
+    assert asset.headers["vary"] == "Origin, Cookie"
     assert "immutable" in asset.headers["cache-control"]
     with_cookie = await plugin_api.client.get(
         bundle_path,

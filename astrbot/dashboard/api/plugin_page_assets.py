@@ -110,7 +110,7 @@ async def get_plugin_page_bundle_asset(
         media_type=asset.content_type,
         headers={
             "Access-Control-Allow-Origin": origin or "null",
-            "Vary": "Origin",
+            "Vary": "Origin, Cookie",
             "X-Content-Type-Options": "nosniff",
             "Cache-Control": "public, max-age=31536000, immutable",
         },

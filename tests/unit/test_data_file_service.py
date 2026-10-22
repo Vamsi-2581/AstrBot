@@ -375,3 +375,14 @@ async def test_search_rejects_symlink_root(tmp_path: Path):
     (svc.root / "link").symlink_to(outside, target_is_directory=True)
     with pytest.raises(DataFileServiceError):
         await svc.search("secret", "link", is_root=True, can_read=True)
+
+
+def test_sensitive_path_classification_is_case_insensitive(tmp_path: Path):
+    svc = service(tmp_path)
+
+    # Case-variant paths cannot be created on every test platform, so assert
+    # the dedicated classifier that `_entry` now uses.
+    assert svc.path_is_sensitive("Config/cmd_config.json")
+    assert svc.path_is_sensitive("CONFIG/x.json")
+    assert svc.path_is_sensitive("Backups/x.db")
+    assert not svc.path_is_sensitive("plugins/readme.txt")

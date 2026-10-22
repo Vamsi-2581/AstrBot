@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request
 
-from astrbot.core.auth.models import Resource
-from astrbot.dashboard.responses import ok
+from astrbot.core.auth.models import AuthorizationValueError, Resource
+from astrbot.dashboard.responses import ApiError, ok
 from astrbot.dashboard.schemas import (
     ConfigContentRequest,
     ConfigProfileCreateRequest,
@@ -56,6 +56,46 @@ async def _authorize_config_resource(
         action="platform.manage" if write else "platform.read",
         resource=Resource.instance(config_id),
     )
+
+
+async def _authorize_config_route_collection(
+    request: Request,
+    auth: AuthContext,
+    *,
+    write: bool,
+) -> None:
+    await require_resource_action(
+        request,
+        auth,
+        action="platform.manage" if write else "platform.read",
+        resource=Resource.named("config-route", "collection", config_id="default"),
+    )
+
+
+def _validate_config_route_ids(config_ids: set[str]) -> None:
+    for config_id in config_ids:
+        try:
+            Resource.instance(config_id)
+        except AuthorizationValueError as exc:
+            raise ApiError("Invalid config id", status_code=400) from exc
+
+
+async def _can_read_config(
+    request: Request,
+    auth: AuthContext,
+    config_id: str,
+) -> bool:
+    try:
+        await _authorize_config_resource(request, auth, config_id=config_id)
+    except ApiError as exc:
+        if exc.status_code == 403:
+            return False
+        raise
+    except AuthorizationValueError:
+        # Persisted routing data predates route-id validation; do not let one
+        # malformed entry break the whole listing endpoint.
+        return False
+    return True
 
 
 async def _authorize_config_credentials_if_changed(
@@ -262,13 +302,22 @@ async def list_config_routes(
     auth: AuthContext = Depends(require_config_scope),
     service: ConfigRoutingService = Depends(get_routing_service),
 ):
-    await require_resource_action(
-        request,
-        auth,
-        action="platform.read",
-        resource=Resource.named("config-route", "collection", config_id="default"),
+    await _authorize_config_route_collection(request, auth, write=False)
+    routes = service.list_routes()
+    readable_ids = {
+        config_id
+        for config_id in set(routes.get("routing", {}).values())
+        if await _can_read_config(request, auth, config_id)
+    }
+    return ok(
+        {
+            "routing": {
+                umo: config_id
+                for umo, config_id in routes.get("routing", {}).items()
+                if config_id in readable_ids
+            }
+        }
     )
-    return ok(service.list_routes())
 
 
 @router.put("/config-routes")
@@ -278,8 +327,8 @@ async def replace_config_routes(
     auth: AuthContext = Depends(require_config_scope),
     service: ConfigRoutingService = Depends(get_routing_service),
 ):
-    for config_id in set(payload.routing.values()):
-        await _authorize_config_resource(request, auth, config_id=config_id, write=True)
+    await _authorize_config_route_collection(request, auth, write=True)
+    _validate_config_route_ids(set(payload.routing.values()))
     await service.replace_route_mapping(payload.routing)
     return ok(message="更新成功")
 
@@ -292,9 +341,8 @@ async def upsert_config_route(
     auth: AuthContext = Depends(require_config_scope),
     service: ConfigRoutingService = Depends(get_routing_service),
 ):
-    await _authorize_config_resource(
-        request, auth, config_id=payload.config_id, write=True
-    )
+    await _authorize_config_route_collection(request, auth, write=True)
+    _validate_config_route_ids({payload.config_id})
     await service.set_route(umo, payload.config_id)
     return ok(message="更新成功")
 
@@ -306,11 +354,6 @@ async def delete_config_route(
     auth: AuthContext = Depends(require_config_scope),
     service: ConfigRoutingService = Depends(get_routing_service),
 ):
-    await require_resource_action(
-        request,
-        auth,
-        action="platform.manage",
-        resource=Resource.named("config-route", umo, config_id="default"),
-    )
+    await _authorize_config_route_collection(request, auth, write=True)
     await service.delete_route_by_umo(umo)
     return ok(message="删除成功")

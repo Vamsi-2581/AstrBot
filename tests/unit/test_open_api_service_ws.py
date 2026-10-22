@@ -678,6 +678,9 @@ async def test_ws_handshake_and_send_use_explicit_capabilities(tmp_path):
         api_key_principal={"key_id": created.key_id, "scopes": ["chat"]},
     )
     assert errors == [("Authorization denied", "FORBIDDEN")]
+    # The capability check must run before prepare_chat_send() so a denied
+    # caller never gets a platform session created on its behalf.
+    service.prepare_chat_send.assert_not_awaited()
 
     await authorization.grant_capability(
         subject=subject,

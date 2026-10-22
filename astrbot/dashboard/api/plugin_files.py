@@ -1,7 +1,6 @@
 """Raw Dashboard Extension Protocol v1 file-ticket route."""
 
-import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import Iterator
 
 from fastapi import APIRouter, Request
 from fastapi.responses import Response, StreamingResponse
@@ -28,10 +27,12 @@ def _raw_error(status_code: int) -> Response:
     )
 
 
-async def _file_chunks(path) -> AsyncIterator[bytes]:
-    with path.open("rb") as handle:
-        while chunk := await asyncio.to_thread(handle.read, 128 * 1024):
+def _file_chunks(handle) -> Iterator[bytes]:
+    try:
+        while chunk := handle.read(128 * 1024):
             yield chunk
+    finally:
+        handle.close()
 
 
 @router.get("/api/plugin-files/v1/{ticket_handle}")
@@ -58,7 +59,7 @@ async def get_plugin_file(ticket_handle: str, request: Request):
     except RawFileError as exc:
         return _raw_error(exc.status_code)
     response = StreamingResponse(
-        _file_chunks(redeemed.path),
+        _file_chunks(redeemed.file_handle),
         media_type=redeemed.content_type,
         headers={
             "Content-Length": str(redeemed.size),

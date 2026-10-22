@@ -10,13 +10,17 @@
 import asyncio
 import base64
 import hashlib
+import hmac
 import json
+import time
 from collections.abc import Awaitable, Callable
 
 # PyCryptodome is required by the upstream AES protocol implementation here.
 from Crypto.Cipher import AES  # noqa: S413  # nosec B413
 
 from astrbot import logger
+
+SIGNATURE_TIMESTAMP_WINDOW_SECONDS = 300
 
 
 class AESCipher:
@@ -99,7 +103,12 @@ class LarkWebhookServer:
         bytes_b = bytes_b1 + body
         h = hashlib.sha256(bytes_b)
         calculated_signature = h.hexdigest()
-        return calculated_signature == signature
+        # compare_digest rejects non-ASCII str operands with TypeError; encode
+        # both sides so a malformed header is a normal verification failure.
+        return hmac.compare_digest(
+            calculated_signature.encode("utf-8"),
+            signature.encode("utf-8"),
+        )
 
     def decrypt_event(self, encrypted_data: str) -> dict:
         """解密事件数据
@@ -152,6 +161,13 @@ class LarkWebhookServer:
             logger.error("[Lark Webhook] 请求体为空")
             return {"error": "Empty request body"}, 400
 
+        if not self.encrypt_key and not self.verification_token:
+            logger.error(
+                "[Lark Webhook] 未配置 lark_encrypt_key 或 "
+                "lark_verification_token，拒绝处理请求"
+            )
+            return {"error": "Webhook authentication is not configured"}, 401
+
         # 如果配置了 encrypt_key，进行签名验证
         if self.encrypt_key:
             timestamp = request.headers.get("X-Lark-Request-Timestamp", "")
@@ -161,6 +177,17 @@ class LarkWebhookServer:
             if not (timestamp and nonce and signature):
                 logger.error("[Lark Webhook] 缺少签名验证头")
                 return {"error": "Missing signature headers"}, 401
+            try:
+                request_timestamp = int(timestamp)
+            except TypeError, ValueError:
+                logger.error("[Lark Webhook] 签名时间戳无效")
+                return {"error": "Invalid signature timestamp"}, 401
+            if (
+                abs(time.time() - request_timestamp)
+                > SIGNATURE_TIMESTAMP_WINDOW_SECONDS
+            ):
+                logger.error("[Lark Webhook] 签名时间戳超出允许窗口")
+                return {"error": "Signature timestamp expired"}, 401
             if not self.verify_signature(
                 timestamp, nonce, self.encrypt_key, body, signature
             ):
@@ -183,7 +210,10 @@ class LarkWebhookServer:
                 token = header.get("token", "")
             else:
                 token = event_data.get("token", "")
-            if token != self.verification_token:
+            if not hmac.compare_digest(
+                str(token).encode("utf-8"),
+                str(self.verification_token).encode("utf-8"),
+            ):
                 logger.error("[Lark Webhook] Verification Token 不匹配。")
                 return {"error": "Invalid verification token"}, 401
 
