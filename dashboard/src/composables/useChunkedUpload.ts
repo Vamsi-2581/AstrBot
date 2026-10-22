@@ -244,9 +244,18 @@ export function useChunkedUpload(api: ChunkedUploadApi) {
   }
 
   async function start(f: File): Promise<unknown> {
+    if (status.value === 'uploading') return undefined;
+    status.value = 'uploading';
+    const previousUploadId = uploadId;
+    if (previousUploadId) {
+      try {
+        await api.abortUpload({ upload_id: previousUploadId });
+      } catch (err) {
+        console.error('Failed to abort previous upload:', err);
+      }
+    }
     file = f;
     cancelled = false;
-    status.value = 'uploading';
     errorMessage.value = '';
     totalBytes.value = f.size;
     uploadId = '';

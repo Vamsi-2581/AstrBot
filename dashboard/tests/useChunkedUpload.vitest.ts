@@ -216,6 +216,7 @@ describe('useChunkedUpload', () => {
     api.initUpload = vi.fn(() => fail('init failed'));
     await uploader.start(makeFile(10, 'second.bin'));
     expect(uploader.status.value).toBe('error');
+    expect(api.abortUpload).toHaveBeenCalledWith({ upload_id: 'u1' });
 
     api.initUpload = vi.fn(() =>
       ok({ upload_id: 'second-upload', chunk_size: 10, total_chunks: 1 }),
@@ -232,6 +233,32 @@ describe('useChunkedUpload', () => {
     expect(api.completeUpload).toHaveBeenLastCalledWith({
       upload_id: 'second-upload',
     });
+  });
+
+  it('rejects overlapping starts before they can mix upload state', async () => {
+    let resolveInit: ((value: unknown) => void) | undefined;
+    const api = mockApi({
+      initUpload: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveInit = resolve;
+          }),
+      ),
+    });
+    const uploader = useChunkedUpload(api);
+
+    const first = uploader.start(makeFile(10, 'first.bin'));
+    expect(await uploader.start(makeFile(10, 'second.bin'))).toBeUndefined();
+    expect(api.initUpload).toHaveBeenCalledTimes(1);
+
+    resolveInit?.({
+      data: {
+        status: 'ok',
+        data: { upload_id: 'u1', chunk_size: 10, total_chunks: 1 },
+      },
+    });
+    await first;
+    expect(uploader.status.value).toBe('done');
   });
 
   it('rejects malformed init payloads', async () => {
