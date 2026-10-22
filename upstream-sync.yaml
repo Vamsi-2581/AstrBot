@@ -5,27 +5,28 @@ upstream:
   branch: master
 
 last_synced:
-  commit: f2404c191716a64daaa422be7f3c567cace50d39
-  synced_at_utc: 2026-10-20T10:42:33Z
+  commit: 0cd42bd4dd216d8810da4e3f5fb2e381d3c6817e
+  synced_at_utc: 2026-10-22T17:07:10Z
   sync_method: adapt
   source_pr: >-
-    10614, 10522, 10576, 10517, 10622, 10629, 10636, 10608, 10647
+    10418, 10659, 10660, 10644, 10661, 10664, 10663, 10635, 10670, 10666
   note: >-
-    Reviewed dffe922773725e9c178392c423676ad65044748c..f2404c191716a64daaa422be7f3c567cace50d39
-    (9 commits). Adapted 6: #10614 added OpenTelemetry-backed tracing and bounded
-    SQLite history on the fork's grouped trace.* configuration, per-runtime
-    session-waiter registry, sanitized log broker, and MDI-only Dashboard, with
-    schema_revision 4 and five review-driven fixes (cleanup warning, waiter
-    admission before route.stop, docs placement, persistent-history hints, and
-    equal-timestamp terminal-state protection); #10522 preserved fetched model
-    metadata; #10517 added the dict template default and its regression test;
-    #10636 updated the pinned CodeQL action to v4.39.0; #10608 attached the pip
-    dialog to the console fullscreen element and kept it readable; #10647 applied
-    grouped configuration hints and conditional segmented-reply options while
-    preserving fork-only keys and zh/en-only metadata. Skipped 3: #10576 targets
-    an absent dynamic plugin sidebar; #10622 targets an absent desktop updater
-    notice; #10629's installer/mirror feature was intentionally removed from this
-    fork, and its equal-timestamp trace guard was already absorbed by #10614's
-    follow-up. Upstream legacy files (star/context.py, migra_helper.py,
-    changelogs/unreleased.md, api/v1.ts, monolithic dashboard test, ja-JP/ru-RU
-    catalogs) remain deleted or remapped.
+    Reviewed f2404c191716a64daaa422be7f3c567cace50d39..0cd42bd4dd216d8810da4e3f5fb2e381d3c6817e
+    (10 commits, all adapted). #10418 added redacted diagnostic ZIP export
+    (log and trace files, in-memory entries, redaction, disk/concurrency guards,
+    Dashboard controls, OpenAPI client and bilingual docs); #10659 added time
+    range filtering for disk logs, cached logs and traces, renamed the in-memory
+    archive entries, recorded webui_version, and moved the entry to Settings ->
+    Maintenance -> Diagnostics; #10660 made the fixture newline explicit;
+    #10644 included scheduled tasks in backups; #10661 added provider stats,
+    UMO aliases, API keys and MCP configuration while excluding and clearing
+    trusted devices; #10664 replaced json_extract with portable SQLAlchemy JSON
+    expressions in the fork conversation store; #10663 restored the default chat
+    model option and cleared stale per-session selections; #10635 stopped sending
+    non-string enums to Gemini; #10670 moved pip to 26.2.2 (certifi>=2026.10.19
+    was already required by the fork CA-bundle fix); #10666 flushes log SSE
+    headers before waiting. Fork adaptations keep grouped log.*/trace.* config,
+    the features/logs catalog, the fork staged backup importer and SQLite stores,
+    tests/unit/dashboard route tests, en-US/zh-CN only, and in-app /help docs.
+    A shared follow-up declares the runtime application/zip response and clears
+    the pyright findings. No upstream version bump was included.
