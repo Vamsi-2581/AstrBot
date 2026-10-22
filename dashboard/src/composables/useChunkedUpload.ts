@@ -249,6 +249,11 @@ export function useChunkedUpload(api: ChunkedUploadApi) {
     status.value = 'uploading';
     errorMessage.value = '';
     totalBytes.value = f.size;
+    uploadId = '';
+    chunkSize = 0;
+    totalChunks = 0;
+    chunkSizes = [];
+    uploadedBytes.value = 0;
     try {
       await initSession();
       phase.value = 'chunks';

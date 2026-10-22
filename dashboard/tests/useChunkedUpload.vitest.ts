@@ -207,6 +207,33 @@ describe('useChunkedUpload', () => {
     expect(result).toEqual({ filename: 'ok.bin' });
   });
 
+  it('does not resume an old upload after a new init fails', async () => {
+    const api = mockApi();
+    const uploader = useChunkedUpload(api);
+    await uploader.start(makeFile(10, 'first.bin'));
+    expect(uploader.status.value).toBe('done');
+
+    api.initUpload = vi.fn(() => fail('init failed'));
+    await uploader.start(makeFile(10, 'second.bin'));
+    expect(uploader.status.value).toBe('error');
+
+    api.initUpload = vi.fn(() =>
+      ok({ upload_id: 'second-upload', chunk_size: 10, total_chunks: 1 }),
+    );
+    const statusUpload = vi.fn(() => ok({ received_chunks: [0, 1, 2] }));
+    api.statusUpload = statusUpload;
+    await uploader.resume();
+
+    expect(api.initUpload).toHaveBeenCalledWith({
+      filename: 'second.bin',
+      total_size: 10,
+    });
+    expect(statusUpload).not.toHaveBeenCalled();
+    expect(api.completeUpload).toHaveBeenLastCalledWith({
+      upload_id: 'second-upload',
+    });
+  });
+
   it('rejects malformed init payloads', async () => {
     const api = mockApi({
       initUpload: vi.fn(() => ok({ upload_id: 1 })),
