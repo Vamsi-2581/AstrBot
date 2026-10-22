@@ -1,7 +1,7 @@
 """Tests for EventBus."""
 
 import asyncio
-from contextlib import suppress
+from contextlib import nullcontext, suppress
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -278,7 +278,10 @@ class _FakeSessionEvent:
         self._message_type = message_type
         self._group_id = group_id
         self._extras = dict(extras or {})
-        self.trace = SimpleNamespace(umo=self.unified_msg_origin)
+        self.trace = SimpleNamespace(
+            umo=self.unified_msg_origin,
+            context=lambda: nullcontext(),
+        )
 
     @property
     def unified_msg_origin(self) -> str:

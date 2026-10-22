@@ -24,7 +24,12 @@ from astrbot.core.knowledge_base.kb_mgr import KnowledgeBaseManager
 from astrbot.core.llm_error_messages import LLM_ERROR_MESSAGES
 from astrbot.core.message.components import Plain
 from astrbot.core.message.message_event_result import MessageChain
-from astrbot.core.platform.astr_message_event import AstrMessageEvent, MessageSession
+from astrbot.core.platform.astr_message_event import (
+    AstrMessageEvent,
+    MessageSession,
+    current_message_event,
+    streaming_response_event,
+)
 from astrbot.core.platform.message_protocol import (
     MessageDeliveryCapabilities,
     MessageEnvelope,
@@ -798,6 +803,24 @@ class CoreExecutionContext:
                 session, message_chain
             )
         if result.success:
+            event = current_message_event.get()
+            if (
+                event is not None
+                and event._execution_active
+                and message_chain.chain
+                and streaming_response_event.get() is not event
+            ):
+                event.trace.record(
+                    "response_sent",
+                    kind="response",
+                    message=event._outline_chain(message_chain.chain),
+                    component_types=[
+                        str(component.type) for component in message_chain.chain
+                    ],
+                    component_count=len(message_chain.chain),
+                    message_type=message_chain.type,
+                    target_umo=str(session),
+                )
             await self._persist_accepted_group_send(session, message_chain)
             return result
         logger.warning(

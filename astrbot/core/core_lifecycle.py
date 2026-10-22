@@ -350,10 +350,8 @@ class AstrBotCoreLifecycle:
             LogManager.configure_logger(
                 logger, self.astrbot_config, override_level="DEBUG"
             )
-            LogManager.configure_trace_logger(self.astrbot_config)
         else:
             LogManager.configure_logger(logger, self.astrbot_config)
-            LogManager.configure_trace_logger(self.astrbot_config)
 
         self._register_cleanup("database", self.db.close)
         authorization = self.services.authorization
@@ -759,6 +757,9 @@ class AstrBotCoreLifecycle:
                     self._register_cleanup("pipeline work tasks", scheduler.close)
                 await self._cleanup_stack.aclose()
 
+            from astrbot.core.utils.trace_store import close_trace_store
+
+            await asyncio.to_thread(close_trace_store)
             self._initialized = False
             self._stopped = True
 

@@ -7,6 +7,7 @@ import logging
 import os
 import sys
 import tempfile
+import threading
 import time
 import uuid
 from collections import deque
@@ -18,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger as _raw_loguru_logger
+from opentelemetry.trace import format_span_id, format_trace_id, get_current_span
 
 from astrbot.core.config.default import VERSION
 from astrbot.core.utils.astrbot_path import (
@@ -25,6 +27,7 @@ from astrbot.core.utils.astrbot_path import (
     get_astrbot_data_path,
 )
 from astrbot.core.utils.error_redaction import redact_sensitive_text
+from astrbot.core.utils.telemetry import bounded_attributes, bounded_text
 
 CACHED_SIZE = 500
 PLUGIN_LOGGER_PREFIX = "astrbot.plugin."
@@ -217,6 +220,12 @@ class _RecordEnricherFilter(logging.Filter):
         record.summary = redact_sensitive_text(
             str(getattr(record, "summary", record.getMessage()))[:512]
         )
+        span = get_current_span()
+        # Copied task contexts can still reference a span after its execution ends.
+        if span.is_recording():
+            trace_context = span.get_span_context()
+            record.trace_id = format_trace_id(trace_context.trace_id)
+            record.span_id = format_span_id(trace_context.span_id)
         return True
 
 
@@ -304,6 +313,14 @@ def _patch_record(record: Record) -> None:
     extra.setdefault("plugin_name", None)
     extra.setdefault("platform_id", None)
     extra.setdefault("platform_type", None)
+    extra.setdefault(
+        "trace_tag",
+        (
+            f" [trace_id={extra['trace_id']} span_id={extra.get('span_id', '')}]"
+            if extra.get("trace_id")
+            else ""
+        ),
+    )
     _sanitize_loguru_record(record)
     extra.setdefault("summary", redact_sensitive_text(str(record["message"])[:512]))
 
@@ -387,6 +404,8 @@ class _LoguruInterceptHandler(logging.Handler):
             "plugin_name": getattr(record, "plugin_name", None),
             "platform_id": getattr(record, "platform_id", None),
             "platform_type": getattr(record, "platform_type", None),
+            "trace_id": getattr(record, "trace_id", None),
+            "span_id": getattr(record, "span_id", None),
         }
 
         _loguru.bind(**payload).opt(exception=False).log(
@@ -402,24 +421,77 @@ class LogBroker:
     def __init__(self) -> None:
         self.log_cache = deque(maxlen=CACHED_SIZE)
         self.subscribers: list[asyncio.Queue] = []
+        self._subscriber_lock = threading.Lock()
+        self._subscriber_loops: dict[
+            asyncio.Queue, asyncio.AbstractEventLoop | None
+        ] = {}
+        self._pending_callbacks: dict[asyncio.Queue, int] = {}
 
     def register(self) -> asyncio.Queue:
         q = asyncio.Queue(maxsize=CACHED_SIZE + 10)
-        self.subscribers.append(q)
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        with self._subscriber_lock:
+            self.subscribers.append(q)
+            self._subscriber_loops[q] = loop
+            self._pending_callbacks[q] = 0
         return q
 
     def unregister(self, q: asyncio.Queue) -> None:
-        if q in self.subscribers:
-            self.subscribers.remove(q)
+        with self._subscriber_lock:
+            if q in self.subscribers:
+                self.subscribers.remove(q)
+            self._subscriber_loops.pop(q, None)
+            self._pending_callbacks.pop(q, None)
 
     def publish(self, log_entry: dict) -> None:
         sanitized = sanitize_log_payload(log_entry)
-        self.log_cache.append(sanitized)
-        for q in self.subscribers:
+        if sanitized.get("type") != "trace":
+            self.log_cache.append(sanitized)
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            current_loop = None
+        for q in tuple(self.subscribers):
+            owner = self._subscriber_loops.get(q)
+            if owner is None or owner is current_loop:
+                try:
+                    q.put_nowait(sanitized)
+                except asyncio.QueueFull:
+                    # A subscriber that cannot keep up drops this entry; log
+                    # streaming is best-effort and must never block publishing.
+                    continue
+                continue
+            # Reserve space before scheduling so queued callbacks stay bounded.
+            with self._subscriber_lock:
+                if (
+                    q not in self._pending_callbacks
+                    or q.qsize() + self._pending_callbacks[q] >= q.maxsize
+                    or owner.is_closed()
+                ):
+                    continue
+                self._pending_callbacks[q] += 1
+
+            def enqueue(queue=q, entry=sanitized):
+                with self._subscriber_lock:
+                    if queue not in self._pending_callbacks:
+                        return
+                    self._pending_callbacks[queue] -= 1
+                try:
+                    queue.put_nowait(entry)
+                except asyncio.QueueFull:
+                    # The consumer's bounded queue is full; dropping one
+                    # best-effort log entry is preferable to unbounded growth.
+                    return
+
             try:
-                q.put_nowait(sanitized)
-            except asyncio.QueueFull:
-                pass
+                owner.call_soon_threadsafe(enqueue)
+            except RuntimeError:
+                with self._subscriber_lock:
+                    if q in self._pending_callbacks:
+                        self._pending_callbacks[q] -= 1
 
 
 class LogQueueHandler(logging.Handler):
@@ -443,7 +515,39 @@ class LogQueueHandler(logging.Handler):
                 "level": record.levelname,
                 "time": timestamp,
                 "timestamp": timestamp,
-                "data": log_entry,
+                "data": bounded_text(log_entry),
+                "severity_text": record.levelname,
+                "severity_number": {10: 5, 20: 9, 30: 13, 40: 17, 50: 21}.get(
+                    record.levelno, 0
+                ),
+                "body": bounded_text(record.getMessage()),
+                **(
+                    {
+                        "trace_id": getattr(record, "trace_id", None),
+                        "span_id": getattr(record, "span_id", None),
+                        "trace_flags": 1,
+                    }
+                    if getattr(record, "trace_id", None)
+                    else {}
+                ),
+                "attributes": bounded_attributes(
+                    {
+                        "astrbot.category": category,
+                        "astrbot.source": getattr(record, "source", "core"),
+                        "astrbot.plugin_name": getattr(record, "plugin_name", None),
+                        "astrbot.platform_id": getattr(record, "platform_id", None),
+                        "astrbot.platform_type": getattr(record, "platform_type", None),
+                        "code.file.path": getattr(record, "pathname", None),
+                        "code.line.number": getattr(record, "lineno", None),
+                    }
+                ),
+                "resource": {
+                    "attributes": {
+                        "service.name": "astrbot",
+                        "service.version": VERSION,
+                    }
+                },
+                "instrumentation_scope": {"name": record.name},
                 "category": category if category in LOG_CATEGORIES else "system",
                 "privacy": privacy if privacy in LOG_PRIVACY else "internal",
                 "event_id": str(getattr(record, "event_id", "") or _new_event_id()),
@@ -467,7 +571,6 @@ class LogManager:
     _configured = False
     _console_sink_id: int | None = None
     _file_sink_id: int | None = None
-    _trace_sink_id: int | None = None
     _plugin_logger_names: set[str] = set()
     _plugin_level_overrides: dict[str, str] | None = None
     _log_broker: LogBroker | None = None
@@ -705,27 +808,12 @@ class LogManager:
         level: int,
         max_mb: int | None,
         backup_count: int,
-        trace: bool,
     ) -> int:
         os.makedirs(os.path.dirname(file_path) or ".", exist_ok=True)
         rotation = f"{max_mb} MB" if max_mb and max_mb > 0 else None
         retention = (
             backup_count if rotation and backup_count and backup_count > 0 else None
         )
-        if trace:
-            return _loguru.add(
-                file_path,
-                level="INFO",
-                format="[{time:YYYY-MM-DD HH:mm:ss.SSS}] {message}",
-                encoding="utf-8",
-                rotation=rotation,
-                retention=retention,
-                enqueue=True,
-                diagnose=False,
-                backtrace=False,
-                filter=_trace_sink_filter,
-            )
-
         logging_level_name = logging.getLevelName(level)
         if isinstance(logging_level_name, int):
             logging_level_name = "INFO"
@@ -815,38 +903,6 @@ class LogManager:
                 level=logger.level,
                 max_mb=max_mb,
                 backup_count=3,
-                trace=False,
             )
         except Exception as e:
             logger.error(f"Failed to add file sink: {e}")
-
-    @classmethod
-    def configure_trace_logger(cls, config: dict | None) -> None:
-        if not config:
-            return
-
-        trace_config = config.get("trace") or {}
-        enable = bool(trace_config.get("log_enable"))
-        path = trace_config.get("log_path")
-        max_mb = trace_config.get("log_max_mb")
-
-        trace_logger = logging.getLogger("astrbot.trace")
-        cls._ensure_logger_enricher_filter(trace_logger)
-        cls._ensure_logger_sanitize_filter(trace_logger)
-        cls._ensure_logger_intercept_handler(trace_logger)
-        trace_logger.setLevel(logging.INFO)
-        trace_logger.propagate = False
-
-        cls._remove_sink(cls._trace_sink_id)
-        cls._trace_sink_id = None
-
-        if not enable:
-            return
-
-        cls._trace_sink_id = cls._add_file_sink(
-            file_path=cls._resolve_log_path(path or "logs/astrbot.trace.log"),
-            level=logging.INFO,
-            max_mb=max_mb,
-            backup_count=3,
-            trace=True,
-        )

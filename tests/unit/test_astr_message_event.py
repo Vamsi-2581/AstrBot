@@ -3,7 +3,7 @@
 import asyncio
 import re
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -16,8 +16,18 @@ from astrbot.core.message.components import (
     Plain,
     Reply,
 )
-from astrbot.core.message.message_event_result import MessageChain, MessageEventResult
-from astrbot.core.platform.astr_message_event import AstrMessageEvent
+from astrbot.core.message.message_event_result import (
+    MessageChain,
+    MessageEventResult,
+    ResultContentType,
+)
+from astrbot.core.pipeline.respond.stage import RespondStage
+from astrbot.core.platform.astr_message_event import (
+    AstrMessageEvent,
+    current_message_event,
+    event_context,
+    streaming_response_event,
+)
 from astrbot.core.platform.astrbot_message import AstrBotMessage, Group, MessageMember
 from astrbot.core.platform.message_type import MessageType
 from astrbot.core.platform.platform_metadata import PlatformMetadata
@@ -71,6 +81,331 @@ def astr_message_event(platform_meta, astrbot_message):
         platform_meta=platform_meta,
         session_id="session123",
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool_response", [False, True])
+async def test_streaming_trace_only_records_final_response(
+    astr_message_event, monkeypatch, tool_response
+):
+    """Aggregate adapter chunks without hiding independent tool responses."""
+    event = astr_message_event
+    event.trace = MagicMock()
+
+    async def stream():
+        yield MessageChain([Plain("Hello")])
+        if tool_response:
+            await event.send(MessageChain([Plain("Tool reply")]))
+        yield MessageChain([Plain("hidden reasoning")], type="reasoning")
+        yield MessageChain([], type="break")
+        yield MessageChain([Plain(" world")])
+
+    async def deliver(generator, use_fallback):
+        async for chunk in generator:
+            if chunk.type not in {"reasoning", "break"}:
+                await event.send(chunk)
+        # The QQ streaming protocol may require an empty closing frame.
+        await event.send(MessageChain([Plain("\n")]))
+
+    event.send_streaming = AsyncMock(side_effect=deliver)
+    event.set_result(
+        MessageEventResult()
+        .set_result_content_type(ResultContentType.STREAMING_RESULT)
+        .set_async_stream(stream())
+    )
+    stage = RespondStage()
+    stage.ctx = SimpleNamespace(
+        astrbot_config={},
+        file_token_service=MagicMock(),
+        execution_context=SimpleNamespace(persist_accepted_group_response=AsyncMock()),
+        handlers=MagicMock(),
+        plugins=MagicMock(),
+    )
+    stage.config = {"provider_settings": {}}
+    await stage.process(event)
+
+    records = event.trace.record.call_args_list
+    assert [record.args[0] for record in records] == ["response_sent"] * (
+        2 if tool_response else 1
+    )
+    assert [record.kwargs["message"] for record in records] == (
+        ["Tool reply", "Hello world"] if tool_response else ["Hello world"]
+    )
+    assert records[-1].kwargs["streaming"] is True
+    assert "source" not in records[-1].kwargs
+    assert streaming_response_event.get() is None
+    await event.send(MessageChain([Plain("Normal reply")]))
+    assert event.trace.record.call_args.kwargs["message"] == "Normal reply"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [ValueError, asyncio.CancelledError])
+async def test_streaming_trace_context_restored_after_failure(
+    astr_message_event, failure
+):
+    """Failed or cancelled delivery must not suppress subsequent responses."""
+    event = astr_message_event
+    event.trace = MagicMock()
+    event.send_streaming = AsyncMock(side_effect=failure("delivery interrupted"))
+
+    async def stream():
+        yield MessageChain([Plain("Hello")])
+
+    event.set_result(
+        MessageEventResult()
+        .set_result_content_type(ResultContentType.STREAMING_RESULT)
+        .set_async_stream(stream())
+    )
+    stage = RespondStage()
+    stage.ctx = SimpleNamespace(
+        astrbot_config={},
+        file_token_service=MagicMock(),
+        execution_context=SimpleNamespace(persist_accepted_group_response=AsyncMock()),
+        handlers=MagicMock(),
+        plugins=MagicMock(),
+    )
+    stage.config = {"provider_settings": {}}
+    if failure is asyncio.CancelledError:
+        with pytest.raises(failure):
+            await stage.process(event)
+    else:
+        await stage.process(event)
+    event.trace.record.assert_not_called()
+    assert streaming_response_event.get() is None
+
+
+@pytest.mark.asyncio
+async def test_streaming_outline_limit_does_not_truncate_delivery(astr_message_event):
+    """Bound diagnostic content without changing the outgoing stream."""
+    event = astr_message_event
+    event.trace = MagicMock()
+    fragment = "字" * 20000
+    delivered = []
+
+    async def stream():
+        yield MessageChain([Plain(fragment)])
+        yield MessageChain([Plain("End")])
+
+    async def deliver(generator, use_fallback):
+        async for chunk in generator:
+            delivered.append(chunk.chain[0].text)
+
+    event.send_streaming = AsyncMock(side_effect=deliver)
+    event.set_result(
+        MessageEventResult()
+        .set_result_content_type(ResultContentType.STREAMING_RESULT)
+        .set_async_stream(stream())
+    )
+    stage = RespondStage()
+    stage.ctx = SimpleNamespace(
+        astrbot_config={},
+        file_token_service=MagicMock(),
+        execution_context=SimpleNamespace(persist_accepted_group_response=AsyncMock()),
+        handlers=MagicMock(),
+        plugins=MagicMock(),
+    )
+    stage.config = {"provider_settings": {}}
+    await stage.process(event)
+    event.trace.record.assert_called_once()
+    fields = event.trace.record.call_args.kwargs
+    assert len(fields["message"].encode()) <= 4096
+    assert fields["truncated"] is True
+    assert delivered == [fragment, "End"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "result_type",
+    [
+        ResultContentType.GENERAL_RESULT,
+        ResultContentType.LLM_RESULT,
+        ResultContentType.STREAMING_RESULT,
+    ],
+)
+async def test_response_trace_omits_sending_owner(
+    astr_message_event, monkeypatch, result_type
+):
+    """Record delivered responses without attributing a sending owner."""
+    event = astr_message_event
+    event.trace = MagicMock()
+    monkeypatch.setattr(
+        "astrbot.core.pipeline.respond.stage.call_event_hook",
+        AsyncMock(return_value=False),
+    )
+
+    async def stream():
+        yield MessageChain([Plain("Reply")])
+
+    async def deliver(generator, use_fallback):
+        async for chunk in generator:
+            await event.send(chunk)
+
+    result = MessageEventResult().set_result_content_type(result_type)
+    if result_type == ResultContentType.STREAMING_RESULT:
+        result.set_async_stream(stream())
+        event.send_streaming = AsyncMock(side_effect=deliver)
+    else:
+        result.message("Reply")
+    event.set_result(result)
+    stage = RespondStage()
+    stage.ctx = SimpleNamespace(
+        astrbot_config={},
+        file_token_service=MagicMock(),
+        execution_context=SimpleNamespace(persist_accepted_group_response=AsyncMock()),
+        handlers=MagicMock(),
+        plugins=MagicMock(),
+    )
+    stage.config = {"provider_settings": {}}
+    stage.platform_settings = {"path_mapping": []}
+    stage.enable_seg = False
+    await stage.process(event)
+
+    sent = [
+        record
+        for record in event.trace.record.call_args_list
+        if record.args[0] == "response_sent"
+    ]
+    assert len(sent) == 1
+    assert "source" not in sent[0].kwargs
+    assert sent[0].kwargs["message"] == "Reply"
+
+
+def _trace_send_context(*, success: bool = True, raise_error: bool = False):
+    """Build the minimum execution context surface used by public sends."""
+    from astrbot.core.execution_context import CoreExecutionContext
+    from astrbot.core.platform.send_result import PlatformSendResult
+
+    context = object.__new__(CoreExecutionContext)
+    context.group_outbound_gate = None
+    if raise_error:
+        context._platform_manager = SimpleNamespace(
+            send_to_session=AsyncMock(side_effect=RuntimeError("send failed"))
+        )
+    else:
+        context._platform_manager = SimpleNamespace(
+            send_to_session=AsyncMock(
+                return_value=PlatformSendResult(
+                    platform_id="target",
+                    success=success,
+                    target="target:FriendMessage:other",
+                    message_count=1,
+                )
+            )
+        )
+    context._persist_accepted_group_send = AsyncMock()
+    return context
+
+
+@pytest.mark.asyncio
+async def test_public_context_send_records_only_successful_delivery(
+    astr_message_event,
+):
+    """Attach successful public sends to the active event without a source."""
+    event = astr_message_event
+    event.trace = MagicMock()
+    context = _trace_send_context()
+    with event_context(event):
+        assert current_message_event.get() is event
+        await context.send_message(
+            "target:FriendMessage:other", MessageChain([Plain("Hello")])
+        )
+    deliveries = [
+        call
+        for call in event.trace.record.call_args_list
+        if call.args[0] == "response_sent"
+    ]
+    assert len(deliveries) == 1
+    assert deliveries[0].kwargs["message"] == "Hello"
+    assert deliveries[0].kwargs["target_umo"] == "target:FriendMessage:other"
+    assert "source" not in deliveries[0].kwargs
+    assert current_message_event.get() is None
+
+
+@pytest.mark.asyncio
+async def test_public_context_send_skips_failed_delivery(astr_message_event):
+    """Do not record a send that never reached a matching platform."""
+    event = astr_message_event
+    event.trace = MagicMock()
+    context = _trace_send_context(success=False)
+    with event_context(event):
+        await context.send_message(
+            "target:FriendMessage:other", MessageChain([Plain("Hello")])
+        )
+    assert all(
+        call.args[0] != "response_sent" for call in event.trace.record.call_args_list
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scoped", [False, True])
+async def test_public_context_send_skips_unscoped_and_stream_chunk_records(
+    astr_message_event, scoped
+):
+    """Do not invent traces or duplicate streaming chunk delivery records."""
+    event = astr_message_event
+    event.trace = MagicMock()
+    context = _trace_send_context()
+    if scoped:
+        with event_context(event):
+            token = streaming_response_event.set(event)
+            try:
+                await context.send_message(
+                    "target:FriendMessage:other", MessageChain([Plain("Chunk")])
+                )
+            finally:
+                streaming_response_event.reset(token)
+    else:
+        await context.send_message(
+            "target:FriendMessage:other", MessageChain([Plain("Hello")])
+        )
+    assert all(
+        call.args[0] != "response_sent" for call in event.trace.record.call_args_list
+    )
+
+
+@pytest.mark.asyncio
+async def test_nested_event_forwarding_records_delivery_once(monkeypatch):
+    """Record nested public sends only once without duplicating event metrics."""
+    from astrbot.core.cron.events import CronMessageEvent
+    from astrbot.core.platform.message_session import MessageSession
+
+    context = _trace_send_context()
+    event = CronMessageEvent(
+        context=context,
+        session=MessageSession.from_str("target:FriendMessage:user"),
+        message="Scheduled",
+    )
+    event.trace = MagicMock()
+    with event_context(event):
+        await event.send(MessageChain([Plain("Hello")]))
+    deliveries = [
+        call
+        for call in event.trace.record.call_args_list
+        if call.args[0] == "response_sent"
+    ]
+    assert len(deliveries) == 1
+
+
+def test_retained_attachment_is_excluded_from_event_cleanup(
+    astr_message_event, tmp_path
+):
+    source = tmp_path / "source.jpg"
+    derived = tmp_path / "model_image.jpg"
+    source.write_bytes(b"original")
+    derived.write_bytes(b"prepared")
+    event = astr_message_event
+    event.track_temporary_local_file(str(source))
+    event.track_temporary_local_file(str(source))
+    event.track_temporary_local_file(str(derived))
+    event.untrack_temporary_local_file(str(source))
+    event.untrack_temporary_local_file(str(source))
+    event.untrack_temporary_local_file(str(tmp_path / "untracked"))
+    assert event._temporary_local_files == [str(derived)]
+    event.cleanup_temporary_local_files()
+    event.cleanup_temporary_local_files()
+    assert source.read_bytes() == b"original"
+    assert not derived.exists()
+    assert event._temporary_local_files == []
 
 
 class TestAstrMessageEventInit:

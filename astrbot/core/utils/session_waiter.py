@@ -158,6 +158,14 @@ class SessionWaiterRegistry:
         )
         await waiter.wait(handler, timeout_seconds)
 
+    def has_active_waiter(self, event: AstrMessageEvent) -> bool:
+        """Return whether an event matches a wait that can still consume it."""
+        for session_filter in tuple(self._filters):
+            waiter = self._sessions.get(session_filter.filter(event))
+            if waiter is not None and not waiter.session_controller.future.done():
+                return True
+        return False
+
     async def dispatch(self, event: AstrMessageEvent) -> bool:
         """Deliver an event to all matching waits and report whether any matched."""
         handled = False

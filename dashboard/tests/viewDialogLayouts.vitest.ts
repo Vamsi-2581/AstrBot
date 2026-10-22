@@ -155,6 +155,15 @@ vi.mock('@/components/shared/UmoDisplay.vue', () => ({
   },
 }));
 
+function warningText(arg: unknown): string {
+  if (typeof arg === 'string') return arg;
+  try {
+    return JSON.stringify(arg) ?? '';
+  } catch {
+    return '';
+  }
+}
+
 function hasCriticalRuntimeWarning(calls: unknown[][]) {
   const blockedWarnings = [
     'Extraneous non-props attributes',
@@ -165,7 +174,7 @@ function hasCriticalRuntimeWarning(calls: unknown[][]) {
 
   return calls.some((args) =>
     args.some((arg) =>
-      blockedWarnings.some((warning) => String(arg).includes(warning)),
+      blockedWarnings.some((warning) => warningText(arg).includes(warning)),
     ),
   );
 }

@@ -121,4 +121,30 @@ describe('TemplateListEditor smoke', () => {
       ),
     ).toBe(false);
   });
+
+  it('initializes dict fields with an empty object when no default is set', async () => {
+    const wrapper = mountWithVuetify(TemplateListEditor, {
+      props: {
+        configPath: 'provider.tools',
+        templates: {
+          assistant: {
+            name: 'Assistant Template',
+            display_item: 'name',
+            items: {
+              name: { type: 'string', description: 'Template Name' },
+              settings: { type: 'dict', description: 'Settings' },
+            },
+          },
+        },
+        modelValue: [{ __template_key: 'assistant', name: 'Agent Alpha' }],
+      },
+    });
+
+    await flushPromises();
+
+    const emitted = wrapper.emitted('update:modelValue');
+    expect(emitted).toBeTruthy();
+    const next = emitted!.at(-1)?.[0] as Array<Record<string, unknown>>;
+    expect(next[0]?.settings).toEqual({});
+  });
 });

@@ -384,9 +384,9 @@ DEFAULT_CONFIG = {
     "temp_dir_max_size": 1024,
     "trace": {
         "enable": False,
-        "log_enable": False,
-        "log_path": "logs/astrbot.trace.log",
-        "log_max_mb": 20,
+        "db_path": "logs/traces.db",
+        "db_max_mb": 80,
+        "retention_days": 7,
     },
     "observability": {
         "enable": False,
@@ -3464,9 +3464,10 @@ CONFIG_METADATA_2 = {
             "trace": {
                 "type": "object",
                 "items": {
-                    "log_enable": {"type": "bool"},
-                    "log_path": {"type": "string"},
-                    "log_max_mb": {"type": "int"},
+                    "enable": {"type": "bool"},
+                    "db_path": {"type": "string"},
+                    "db_max_mb": {"type": "int"},
+                    "retention_days": {"type": "int"},
                 },
             },
             "pip_install_arg": {
@@ -3825,7 +3826,7 @@ CONFIG_METADATA_3 = {
                         "description": "图片转述模型",
                         "type": "string",
                         "_special": "select_provider",
-                        "hint": "留空代表不使用，可用于非多模态模型",
+                        "hint": "当对话模型不支持图片输入时，调用图片转述模型来获得图片描述。留空代表不使用。",
                     },
                     "provider_stt_settings.enable": {
                         "description": "语音识别",
@@ -3836,7 +3837,7 @@ CONFIG_METADATA_3 = {
                     "provider_stt_settings.provider_id": {
                         "description": "默认语音转文本模型",
                         "type": "string",
-                        "hint": "用户也可使用 /provider 指令单独选择会话的 STT 模型。",
+                        "hint": "也可使用 /provider 指令单独选择会话的模型。",
                         "_special": "select_provider_stt",
                         "condition": {
                             "provider_stt_settings.enable": True,
@@ -3850,6 +3851,7 @@ CONFIG_METADATA_3 = {
                     },
                     "provider_tts_settings.provider_id": {
                         "description": "默认文本转语音模型",
+                        "hint": "也可使用 /provider 指令单独选择会话的模型。",
                         "type": "string",
                         "_special": "select_provider_tts",
                         "condition": {
@@ -3858,6 +3860,7 @@ CONFIG_METADATA_3 = {
                     },
                     "provider_tts_settings.trigger_probability": {
                         "description": "TTS 触发概率",
+                        "hint": "采用随机概率触发语音回复。",
                         "type": "float",
                         "slider": {"min": 0, "max": 1, "step": 0.05},
                         "condition": {
@@ -3866,6 +3869,7 @@ CONFIG_METADATA_3 = {
                     },
                     "provider_settings.image_caption_prompt": {
                         "description": "图片转述提示词",
+                        "hint": "用于图片转述模型的提示词。",
                         "type": "text",
                         "collapsed": True,
                     },
@@ -4387,6 +4391,7 @@ CONFIG_METADATA_3 = {
                 "items": {
                     "provider_settings.display_reasoning_text": {
                         "description": "显示思考内容",
+                        "hint": "显示模型的思维链信息到最终回复中。",
                         "type": "bool",
                         "condition": {
                             "agent_runner.runner_type": "local",
@@ -4394,6 +4399,7 @@ CONFIG_METADATA_3 = {
                     },
                     "provider_settings.streaming_response": {
                         "description": "流式输出",
+                        "hint": "在受支持的聊天平台中以打字机的形式输出响应。",
                         "type": "bool",
                     },
                     "provider_settings.unsupported_streaming_strategy": {
@@ -4409,12 +4415,12 @@ CONFIG_METADATA_3 = {
                     "provider_settings.identifier": {
                         "description": "用户识别",
                         "type": "bool",
-                        "hint": "启用后，会在提示词前包含用户 ID 信息。",
+                        "hint": "在用户提示词前带上用户 ID 信息。",
                     },
                     "provider_settings.group_name_display": {
                         "description": "显示群名称",
                         "type": "bool",
-                        "hint": "启用后，在支持的平台(OneBot v11)上会在提示词前包含群名称信息。",
+                        "hint": "在受支持的消息平台的群聊中的用户提示词前带上群名称信息。",
                     },
                     "provider_settings.datetime_system_prompt": {
                         "description": "现实世界时间感知",
@@ -4426,6 +4432,7 @@ CONFIG_METADATA_3 = {
                     },
                     "provider_settings.show_tool_use_status": {
                         "description": "输出工具调用信息",
+                        "hint": "有工具调用时，同时发送带有工具调用名字的消息。",
                         "type": "bool",
                         "condition": {
                             "agent_runner.runner_type": "local",
@@ -4638,22 +4645,27 @@ CONFIG_METADATA_3 = {
                     },
                     "platform_settings.reply_prefix": {
                         "description": "回复时的文本前缀",
+                        "hint": "回复中附带的文本前缀。",
                         "type": "string",
                     },
                     "platform_settings.reply_with_mention": {
                         "description": "回复时 @ 发送人",
+                        "hint": "回复时提及发送人。",
                         "type": "bool",
                     },
                     "platform_settings.reply_with_quote": {
                         "description": "回复时引用发送人消息",
+                        "hint": "回复时引用发送人的对应消息。",
                         "type": "bool",
                     },
                     "platform_settings.forward_threshold": {
                         "description": "转发消息的字数阈值",
+                        "hint": "在受支持的平台上，当回复消息过长时，采用 “合并消息转发” 的方式发送消息。",
                         "type": "int",
                     },
                     "platform_settings.empty_mention_waiting": {
                         "description": "只打指令前缀是否触发等待",
+                        "hint": "当发送一条只有指令前缀的消息时，是否在接下来的 1 分钟内保持唤醒状态等待用户的第二条消息。",
                         "type": "bool",
                     },
                     "platform_settings.onebot_forward.expand_on_ingress": {
@@ -4766,6 +4778,7 @@ CONFIG_METADATA_3 = {
                 "items": {
                     "t2i.enable": {
                         "description": "文本转图像输出",
+                        "hint": "将模型回复转换成图片后再发送，防止刷屏。",
                         "type": "bool",
                     },
                     "t2i.word_threshold": {
@@ -4863,23 +4876,31 @@ CONFIG_METADATA_3 = {
                 "items": {
                     "platform_settings.segmented_reply.enable": {
                         "description": "启用分段回复",
+                        "hint": "以分段输出的方式发送回复消息。",
                         "type": "bool",
                     },
                     "platform_settings.segmented_reply.only_llm_result": {
                         "description": "仅对 LLM 结果分段",
                         "type": "bool",
+                        "condition": {
+                            "platform_settings.segmented_reply.enable": True,
+                        },
                     },
                     "platform_settings.segmented_reply.interval_method": {
                         "description": "间隔方法。",
                         "hint": "random 为随机时间，log 为根据消息长度计算，$y=log_<log_base>(x)$，x为字数，y的单位为秒。",
                         "type": "string",
                         "options": ["random", "log"],
+                        "condition": {
+                            "platform_settings.segmented_reply.enable": True,
+                        },
                     },
                     "platform_settings.segmented_reply.interval": {
                         "description": "随机间隔时间",
                         "type": "string",
                         "hint": "格式：最小值,最大值（如：1.5,3.5）",
                         "condition": {
+                            "platform_settings.segmented_reply.enable": True,
                             "platform_settings.segmented_reply.interval_method": "random",
                         },
                     },
@@ -4888,6 +4909,7 @@ CONFIG_METADATA_3 = {
                         "type": "float",
                         "hint": "对数间隔的底数，默认为 2.6。取值范围为 1.0-10.0。",
                         "condition": {
+                            "platform_settings.segmented_reply.enable": True,
                             "platform_settings.segmented_reply.interval_method": "log",
                         },
                     },
@@ -4895,18 +4917,25 @@ CONFIG_METADATA_3 = {
                         "description": "分段回复字数阈值",
                         "hint": "分段回复的字数上限。只有字数小于此值的消息才会被分段，超过此值的长消息将直接发送（不分段）。默认为 150",
                         "type": "int",
+                        "condition": {
+                            "platform_settings.segmented_reply.enable": True,
+                        },
                     },
                     "platform_settings.segmented_reply.split_mode": {
                         "description": "分段模式",
                         "type": "string",
                         "options": ["regex", "words"],
                         "labels": ["正则表达式", "分段词列表"],
+                        "condition": {
+                            "platform_settings.segmented_reply.enable": True,
+                        },
                     },
                     "platform_settings.segmented_reply.regex": {
                         "description": "分段正则表达式",
                         "hint": "用于分隔一段消息。默认情况下会根据句号、问号等标点符号分隔。如填写 `[。？！]` 将移除所有的句号、问号、感叹号。re.findall(r'<regex>', text)",
                         "type": "string",
                         "condition": {
+                            "platform_settings.segmented_reply.enable": True,
                             "platform_settings.segmented_reply.split_mode": "regex",
                         },
                     },
@@ -4915,6 +4944,7 @@ CONFIG_METADATA_3 = {
                         "type": "list",
                         "hint": "检测到列表中的任意词时进行分段，如：。、？、！等",
                         "condition": {
+                            "platform_settings.segmented_reply.enable": True,
                             "platform_settings.segmented_reply.split_mode": "words",
                         },
                     },
@@ -4922,6 +4952,9 @@ CONFIG_METADATA_3 = {
                         "description": "内容过滤正则表达式",
                         "type": "string",
                         "hint": "移除分段后内容中的指定内容。如填写 `[。？！]` 将移除所有的句号、问号、感叹号。",
+                        "condition": {
+                            "platform_settings.segmented_reply.enable": True,
+                        },
                     },
                 },
             },
@@ -4932,24 +4965,34 @@ CONFIG_METADATA_3 = {
                 "items": {
                     "provider_ltm_settings.group_icl_enable": {
                         "description": "启用群聊上下文感知",
+                        "hint": "是否记录群聊非唤醒机器人的消息，并在唤醒机器人时将消息传给模型。",
                         "type": "bool",
                     },
                     "provider_ltm_settings.group_message_max_cnt": {
                         "description": "最大消息数量",
+                        "hint": "传给模型的消息的最大数量。",
                         "type": "int",
                     },
                     "provider_ltm_settings.group_message_history_enable": {
                         "description": "持久化群消息历史",
+                        "hint": "将群内的所有消息都持久化保存，并允许模型通过工具来查询群内消息。",
                         "type": "bool",
                     },
                     "provider_ltm_settings.group_message_history_max_cnt": {
                         "description": "持久化群消息历史保留数量",
+                        "hint": "持久化保存的消息的最大数量，超过后抛弃旧的消息。",
                         "type": "int",
+                        "condition": {
+                            "provider_ltm_settings.group_message_history_enable": True,
+                        },
                     },
                     "provider_ltm_settings.image_caption": {
                         "description": "自动理解图片",
                         "type": "bool",
-                        "hint": "需要设置群聊图片转述模型。",
+                        "hint": "对非唤醒机器人的图片消息启用图片转述，转换成图片描述文本。对于图片消息频繁的群聊，此功能可能造成较大的开销，请慎用。",
+                        "condition": {
+                            "provider_ltm_settings.group_icl_enable": True,
+                        },
                     },
                     "provider_ltm_settings.image_caption_provider_id": {
                         "description": "群聊图片转述模型",
@@ -5302,20 +5345,25 @@ CONFIG_METADATA_3_SYSTEM = {
                         "type": "int",
                         "hint": "用于限制 data/temp 目录总大小，单位为 MB。系统每 10 分钟检查一次，超限时按文件修改时间从旧到新删除，释放约 30% 当前体积。",
                     },
-                    "trace.log_enable": {
-                        "description": "启用 Trace 文件日志",
+                    "trace.enable": {
+                        "description": "启用追踪记录",
                         "type": "bool",
-                        "hint": "将 Trace 事件写入独立文件（不影响控制台输出）。",
+                        "hint": "追踪用户的每次指令和 AI 调用。",
                     },
-                    "trace.log_path": {
-                        "description": "Trace 日志文件路径",
+                    "trace.db_path": {
+                        "description": "追踪数据库路径",
                         "type": "string",
-                        "hint": "相对路径以 data 目录为基准，例如 logs/astrbot.trace.log；支持绝对路径。",
+                        "hint": "相对路径以 data 目录为基准，例如 logs/traces.db；支持绝对路径。",
                     },
-                    "trace.log_max_mb": {
-                        "description": "Trace 日志大小上限 (MB)",
+                    "trace.db_max_mb": {
+                        "description": "追踪数据库容量预算 (MB)",
                         "type": "int",
-                        "hint": "超过大小后自动轮转，默认 20MB。",
+                        "hint": "默认 80 MB，最小 32 MB，低于最小值时按 32 MB 生效。超出后自动清除旧数据。",
+                    },
+                    "trace.retention_days": {
+                        "description": "追踪保留天数",
+                        "type": "int",
+                        "hint": "默认 7 天，期限或容量先达到者触发清理。",
                     },
                     "observability.enable": {
                         "description": "启用运行指标与追踪",

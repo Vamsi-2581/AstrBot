@@ -493,7 +493,7 @@ class TraceSettingsRequest(BaseModel):
 
 
 class StorageCleanupRequest(BaseModel):
-    target: str = "all"
+    target: Literal["logs", "cache", "traces", "all"] = "all"
 
 
 class GhProxyTestRequest(BaseModel):

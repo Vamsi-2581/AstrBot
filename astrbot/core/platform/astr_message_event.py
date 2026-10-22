@@ -4,7 +4,9 @@ import hashlib
 import os
 import re
 import uuid
-from collections.abc import AsyncGenerator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
 from time import time
 from typing import Any
@@ -68,6 +70,46 @@ class _LazyExtraValue:
             self._value = self._resolver()
             self._resolved = True
         return self._value
+
+
+streaming_response_event: ContextVar[AstrMessageEvent | None] = ContextVar(
+    "streaming_response_event", default=None
+)
+current_message_event: ContextVar[AstrMessageEvent | None] = ContextVar(
+    "current_message_event", default=None
+)
+
+
+@contextmanager
+def event_context(event: AstrMessageEvent) -> Iterator[None]:
+    """Bind the current event for event-scoped context lookups.
+
+    The event keeps ownership of registration and background tasks, while this
+    scope releases temporary local files created by the event. Nested scopes do
+    not clean up early.
+
+    Args:
+        event: Event to expose through ``current_message_event``.
+
+    Yields:
+        Control while the event is the current message event.
+    """
+    if getattr(event, "_execution_active", False):
+        yield
+        return
+    event._execution_active = True
+    event_token = current_message_event.set(event)
+    try:
+        yield
+    finally:
+        try:
+            if not event.get_extra("btw_detached_work"):
+                cleanup = getattr(event, "cleanup_temporary_local_files", None)
+                if cleanup is not None:
+                    cleanup()
+        finally:
+            event._execution_active = False
+            current_message_event.reset(event_token)
 
 
 class AstrMessageEvent(abc.ABC):
@@ -162,6 +204,14 @@ class AstrMessageEvent(abc.ABC):
         """用于记录事件处理的 TraceSpan 对象"""
         self.span = self.trace
         """事件级 TraceSpan(别名: span)"""
+        self.trace.record(
+            "event_received",
+            kind="message",
+            platform_id=platform_meta.id,
+            platform_name=platform_meta.name,
+            message_type=self.get_message_type().value,
+            message=self.get_message_outline(),
+        )
 
         self._has_send_oper = False
         """在此次事件中是否有过至少一次发送消息的操作"""
@@ -176,6 +226,8 @@ class AstrMessageEvent(abc.ABC):
 
         self.plugins_name: list[str] | None = None
         """该事件启用的插件名称列表。None 表示所有插件都启用。空列表表示没有启用任何插件。"""
+
+        self._execution_active = False
 
     @property
     def unified_msg_origin(self) -> str:
@@ -902,6 +954,21 @@ class AstrMessageEvent(abc.ABC):
             message (MessageChain): 消息链，具体使用方式请参考文档。
 
         """
+        trace = getattr(self, "trace", None)
+        if (
+            message is not None
+            and message.chain
+            and streaming_response_event.get() is not self
+            and trace is not None
+        ):
+            trace.record(
+                "response_sent",
+                kind="response",
+                message=self._outline_chain(message.chain),
+                component_types=[str(component.type) for component in message.chain],
+                component_count=len(message.chain),
+                message_type=message.type,
+            )
         from astrbot.core.group_sender_concurrency import (
             current_concurrent_turn,
         )
@@ -913,7 +980,6 @@ class AstrMessageEvent(abc.ABC):
             await turn.gate.hold_turn(turn.umo, turn.event)
         elif gate is not None and umo:
             await gate.hold_turn(umo, self)
-
         # Leverage BLAKE2 hash function to generate a non-reversible hash of the sender ID for privacy.
         hash_obj = hashlib.blake2b(self.get_sender_id().encode("utf-8"), digest_size=16)
         sid = str(uuid.UUID(bytes=hash_obj.digest()))

@@ -9,7 +9,7 @@ value survives the rename.
 
 from __future__ import annotations
 
-CONFIG_SCHEMA_REVISION = 3
+CONFIG_SCHEMA_REVISION = 4
 
 
 class ConfigMigrationError(RuntimeError):
@@ -93,6 +93,28 @@ def _migrate_retired_gemini_embedding_model(conf: dict) -> bool:
     return changed
 
 
+def _migrate_trace_storage(conf: dict) -> bool:
+    """Move trace file settings to the bounded SQLite storage budget."""
+    trace = conf.get("trace")
+    if not isinstance(trace, dict):
+        return False
+    old_keys = ("log_enable", "log_path", "log_max_mb")
+    if not any(key in trace for key in old_keys):
+        return False
+    size = trace.get("log_max_mb")
+    if trace.get("db_max_mb") is None:
+        trace["db_max_mb"] = (
+            size * 4
+            if isinstance(size, int) and not isinstance(size, bool) and size > 0
+            else 80
+        )
+    trace.setdefault("db_path", "logs/traces.db")
+    trace.setdefault("retention_days", 7)
+    for key in old_keys:
+        trace.pop(key, None)
+    return True
+
+
 def migrate_config_dict(conf: dict) -> bool:
     """Bring a raw configuration document to the current revision.
 
@@ -131,6 +153,8 @@ def migrate_config_dict(conf: dict) -> bool:
             # member default ("none") is indistinguishable from an explicit
             # opt-out, so preserve the document as written.
             pass
+        elif revision == 3:
+            changed |= _migrate_trace_storage(conf)
         revision += 1
         changed = True
 

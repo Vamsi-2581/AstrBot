@@ -6,7 +6,10 @@ import astrbot.core.message.components as Comp
 from astrbot import logger
 from astrbot.core.assistant_history import make_projection
 from astrbot.core.message.message_event_result import MessageChain, ResultContentType
-from astrbot.core.platform.astr_message_event import AstrMessageEvent
+from astrbot.core.platform.astr_message_event import (
+    AstrMessageEvent,
+    streaming_response_event,
+)
 from astrbot.core.platform.send_result import (
     DeliveryAttempt,
     DeliveryReceipt,
@@ -15,6 +18,7 @@ from astrbot.core.platform.send_result import (
 from astrbot.core.star.star_handler import EventType
 from astrbot.core.utils.error_redaction import safe_error
 from astrbot.core.utils.path_util import path_Mapping
+from astrbot.core.utils.telemetry import bounded_text
 
 from ..context import PipelineContext, call_event_hook
 from ..stage import Stage
@@ -325,17 +329,48 @@ class RespondStage(Stage):
         )
         logger.info("应用流式输出(%s)", event.get_platform_id())
         streamed_text: list[str] = []
+        stream_outline: list[str] = []
+        outline_bytes = 0
+        outline_truncated = False
 
         async def tracked_stream():
-            async for chain in result.async_stream:
-                if isinstance(chain, MessageChain) and chain.type not in {
-                    "reasoning",
-                    "break",
-                    "tool_call",
-                }:
-                    streamed_text.append(self._chain_semantic_text(chain))
+            nonlocal outline_bytes, outline_truncated
+            iterator = result.async_stream.__aiter__()
+            while True:
+                # Tool/plugin sends during generation are independent responses.
+                generation_token = streaming_response_event.set(None)
+                try:
+                    chain = await iterator.__anext__()
+                except StopAsyncIteration:
+                    break
+                finally:
+                    streaming_response_event.reset(generation_token)
+                if isinstance(chain, MessageChain):
+                    if chain.type not in {
+                        "reasoning",
+                        "break",
+                        "tool_call",
+                    }:
+                        streamed_text.append(self._chain_semantic_text(chain))
+                    if chain.type not in {
+                        "break",
+                        "reasoning",
+                        "audio_chunk",
+                        "tool_call",
+                        "agent_stats",
+                    }:
+                        fragment = event._outline_chain(chain.chain)
+                        remaining = 4096 - outline_bytes
+                        if remaining >= 16:
+                            preview = bounded_text(fragment, remaining)
+                            stream_outline.append(preview)
+                            outline_bytes += len(preview.encode())
+                            outline_truncated |= preview != fragment
+                        elif fragment:
+                            outline_truncated = True
                 yield chain
 
+        stream_token = streaming_response_event.set(event)
         try:
             await self._stop_typing_before_send(event)
             send_result = await event.send_streaming(
@@ -354,6 +389,18 @@ class RespondStage(Stage):
                         error_summary="platform streaming outcome unknown",
                     )
                 ],
+            )
+        finally:
+            streaming_response_event.reset(stream_token)
+        outline = "".join(stream_outline)
+        trace = getattr(event, "trace", None)
+        if outline.strip() and trace is not None:
+            trace.record(
+                "response_sent",
+                kind="response",
+                message=outline,
+                streaming=True,
+                **({"truncated": True} if outline_truncated else {}),
             )
         if not isinstance(send_result, PlatformSendResult):
             return self._receipt_for_attempts(
@@ -526,7 +573,6 @@ class RespondStage(Stage):
         logger.info(
             f"Prepare to send - {event.get_sender_name()}/{event.get_sender_id()}: {event._outline_chain(result.chain)}",
         )
-
         if result.result_content_type == ResultContentType.STREAMING_RESULT:
             self._store_delivery_receipt(
                 event,

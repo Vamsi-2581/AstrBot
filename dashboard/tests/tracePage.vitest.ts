@@ -14,13 +14,12 @@ vi.mock('@/api/v1', () => ({
 
 vi.mock('@/components/shared/TraceDisplayer.vue', () => ({
   default: {
-    template: '<div data-testid="trace-displayer"></div>',
+    props: ['recordingEnabled', 'recordingBusy'],
+    emits: ['toggle-recording'],
+    template:
+      '<button data-testid="trace-displayer" :data-recording="String(recordingEnabled)" @click="$emit(\'toggle-recording\')">toggle</button>',
   },
 }));
-
-function traceToggle(wrapper: ReturnType<typeof mountWithVuetify>) {
-  return wrapper.get('input[type="checkbox"]');
-}
 
 describe('TracePage', () => {
   beforeEach(() => {
@@ -35,32 +34,28 @@ describe('TracePage', () => {
     await flushPromises();
 
     expect(api.getSettings).toHaveBeenCalledOnce();
-    expect(traceToggle(wrapper).element.checked).toBe(true);
-    expect(wrapper.find('[data-testid="trace-displayer"]').exists()).toBe(true);
+    expect(
+      wrapper
+        .find('[data-testid="trace-displayer"]')
+        .attributes('data-recording'),
+    ).toBe('true');
   });
 
-  it('rolls a failed trace-setting update back to the last confirmed value', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('submits the next recording state and keeps the previous value on failure', async () => {
     api.updateSettings.mockResolvedValue({
-      data: {
-        status: 'error',
-        message: 'Bearer trace-secret at http://internal.example/trace',
-      },
+      data: { status: 'error', message: 'rejected' },
     });
     const wrapper = mountWithVuetify(TracePage);
     await flushPromises();
 
-    await traceToggle(wrapper).setValue(false);
+    await wrapper.get('[data-testid="trace-displayer"]').trigger('click');
     await flushPromises();
 
     expect(api.updateSettings).toHaveBeenCalledWith({ enabled: false });
-    expect(traceToggle(wrapper).element.checked).toBe(true);
-    expect(wrapper.text()).toContain(
-      'Unable to update trace settings. Please try again.',
-    );
-    expect(wrapper.text()).not.toContain('trace-secret');
-    expect(wrapper.text()).not.toContain('internal.example');
-    expect(errorSpy).toHaveBeenCalledWith('Failed to update trace settings');
-    expect(errorSpy.mock.calls.flat().join(' ')).not.toContain('trace-secret');
+    expect(
+      wrapper
+        .find('[data-testid="trace-displayer"]')
+        .attributes('data-recording'),
+    ).toBe('true');
   });
 });

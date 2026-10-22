@@ -291,6 +291,9 @@ import type {
   GetT2iTemplateResponses,
   GetTokenFileData,
   GetTokenFileResponses,
+  GetTraceDetailData,
+  GetTraceDetailErrors,
+  GetTraceDetailResponses,
   GetTraceSettingsData,
   GetTraceSettingsResponses,
   GetVersionData,
@@ -450,6 +453,8 @@ import type {
   ListT2iTemplatesResponses,
   ListToolsData,
   ListToolsResponses,
+  ListTracesData,
+  ListTracesResponses,
   LoginData,
   LoginErrors,
   LoginResponses,
@@ -6229,6 +6234,8 @@ export const getT2iRuntimeStats = <ThrowOnError extends boolean = false>(
 
 /**
  * Get storage status
+ *
+ * Returns log, cache, and trace database usage (including trace sidecars), plus total bytes.
  */
 export const getStorageStatus = <ThrowOnError extends boolean = false>(
   options?: Options<GetStorageStatusData, ThrowOnError>,
@@ -6246,6 +6253,8 @@ export const getStorageStatus = <ThrowOnError extends boolean = false>(
 
 /**
  * Clean storage
+ *
+ * Clears logs, cache, finished trace history, or all three. Running traces are retained.
  */
 export const cleanupStorage = <ThrowOnError extends boolean = false>(
   options?: Options<CleanupStorageData, ThrowOnError>,
@@ -6694,6 +6703,36 @@ export const getLogHistory = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/logs/history',
+    ...options,
+  });
+
+/**
+ * List persisted trace summaries
+ */
+export const listTraces = <ThrowOnError extends boolean = false>(
+  options?: Options<ListTracesData, ThrowOnError>,
+): RequestResult<ListTracesResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<ListTracesResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/trace/history',
+    ...options,
+  });
+
+/**
+ * Get persisted trace spans and events
+ */
+export const getTraceDetail = <ThrowOnError extends boolean = false>(
+  options: Options<GetTraceDetailData, ThrowOnError>,
+): RequestResult<GetTraceDetailResponses, GetTraceDetailErrors, ThrowOnError> =>
+  (options.client ?? client).get<
+    GetTraceDetailResponses,
+    GetTraceDetailErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/trace/{trace_id}',
     ...options,
   });
 

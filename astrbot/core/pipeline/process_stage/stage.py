@@ -79,6 +79,13 @@ class ProcessStage(Stage):
         event: AstrMessageEvent,
     ) -> AsyncGenerator[None]:
         """处理事件"""
+        # Dispatch after access/safety checks and preprocessing, before plugins.
+        execution_context = getattr(self.ctx, "execution_context", None)
+        registry = getattr(execution_context, "session_waiter_registry", None)
+        if registry is not None and await registry.dispatch(event):
+            event.stop_event()
+            return
+
         activated_handlers: list[StarHandlerMetadata] = event.get_extra(
             "activated_handlers",
         )

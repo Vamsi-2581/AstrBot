@@ -407,7 +407,7 @@ Dashboard accounts have stable `account_id` values. Their TOTP secret, recovery-
 - No GitHub mirrors are provided by default. Plugin `download_url` values and prefix mirrors must be public HTTPS origins; private and non-HTTPS targets are rejected.
 - `platform_settings.segmented_reply` remains a UX feature and stays off by default. Telegram, Discord, and WeCom hard-limit splitting is handled by the send path.
 - `log.level` and `log.file_*` control the console Loguru sink, the root logger, plugin loggers without an override, and rotating file logs. `log.level` applies to terminal output, not only the file sink. File logs use the same redacting sink: recognized secret fields, Bearer tokens, URLs, and absolute paths are replaced before write. Cookies, private chat, and custom secrets are not guaranteed; review logs before sharing.
-- `trace.enable` is the Trace collection switch; `trace.log_*` controls its separate rotating file.
+- `trace.enable` is the Trace collection switch; `trace.db_path`, `trace.db_max_mb`, and `trace.retention_days` control its bounded SQLite history.
 - `temp_dir_max_size` limits `data/temp` in MiB and defaults to `1024`; a background task removes older files when the limit is exceeded.
 - `timezone` is an IANA timezone and defaults to `Asia/Shanghai`.
 - `callback_api_base` is the externally reachable base used to build callback and file URLs. It does not change the listening address.

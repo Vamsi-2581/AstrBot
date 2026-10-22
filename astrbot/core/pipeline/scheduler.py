@@ -5,7 +5,11 @@ from typing import Protocol, cast
 from astrbot import logger
 from astrbot.core.log import log_context
 from astrbot.core.message.message_event_result import MessageChain
-from astrbot.core.platform.astr_message_event import AstrMessageEvent
+from astrbot.core.platform.astr_message_event import (
+    AstrMessageEvent,
+    event_context,
+)
+from astrbot.core.utils.trace import trace_execution
 
 from .bootstrap import builtin_stage_classes
 from .context import PipelineContext
@@ -133,7 +137,11 @@ class PipelineScheduler:
         """
         self.ctx.execution_context.active_event_registry.register(event)
         started_at = time()
-        with log_context(event.get_platform_id(), event.get_platform_name()):
+        with (
+            log_context(event.get_platform_id(), event.get_platform_name()),
+            event_context(event),
+            trace_execution(event.trace),
+        ):
             try:
                 await self._process_stages(event)
 
@@ -162,7 +170,6 @@ class PipelineScheduler:
                     logger.debug("pipeline execution completed.")
             finally:
                 if not event.get_extra("btw_detached_work"):
-                    event.cleanup_temporary_local_files()
                     self.ctx.execution_context.active_event_registry.unregister(event)
                 # A work submission acknowledges its request before the work loop
                 # registers the background run.  Ending the event is the last chance

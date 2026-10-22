@@ -153,6 +153,7 @@ async function pipInstall(): Promise<void> {
     <v-dialog
       v-model="pipDialog"
       width="440"
+      attach="#console-wrapper"
       scrollable
       :aria-label="tm('pipInstall.dialogTitle')"
     >

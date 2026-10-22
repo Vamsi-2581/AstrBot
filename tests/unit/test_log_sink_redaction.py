@@ -270,7 +270,6 @@ def test_native_loguru_logger_redacts_file_sink(tmp_path) -> None:
             level=logging.DEBUG,
             max_mb=None,
             backup_count=0,
-            trace=False,
         )
         raw_loguru.bind(
             plugin_tag="[Core]",
@@ -278,7 +277,6 @@ def test_native_loguru_logger_redacts_file_sink(tmp_path) -> None:
             astrbot_version_tag="",
             source_file="test.log_sink",
             source_line=1,
-            is_trace=False,
         ).opt(exception=False).error(SENSITIVE_MESSAGE)
         LogManager._remove_sink(LogManager._file_sink_id)
         LogManager._file_sink_id = None
@@ -301,7 +299,6 @@ def test_file_sink_redacts_after_enqueue_flush(tmp_path) -> None:
             level=logging.DEBUG,
             max_mb=None,
             backup_count=0,
-            trace=False,
         )
         logger.error(SENSITIVE_MESSAGE)
         try:
@@ -330,7 +327,6 @@ def test_third_party_logger_redacts_console_and_file(tmp_path) -> None:
             level=logging.DEBUG,
             max_mb=None,
             backup_count=0,
-            trace=False,
         )
         with _capture_loguru() as buf:
             logging.getLogger("astrbot_test_third_party_lib").error(SENSITIVE_MESSAGE)
@@ -378,6 +374,7 @@ def test_log_queue_handler_emits_single_redacted_stack() -> None:
 
 def test_trace_span_record_redacts_nested_fields(monkeypatch) -> None:
     import astrbot.core.utils.trace as trace_mod
+    from astrbot.core.utils.trace import TraceSpan, trace_execution
 
     original_fields = {
         "nested": {
@@ -385,37 +382,25 @@ def test_trace_span_record_redacts_nested_fields(monkeypatch) -> None:
             "probe": f"api_key={MARKER}",
         }
     }
-    broker = LogBroker()
-    stream = io.StringIO()
-    handler = logging.StreamHandler(stream)
-    handler.setFormatter(logging.Formatter("%(message)s"))
-    trace_logger = logging.getLogger("astrbot.trace")
-    previous_level = trace_logger.level
-    previous_propagate = trace_logger.propagate
+    frames = []
+
+    class CaptureStore:
+        def append(self, payload, **kwargs):
+            frames.append(json.loads(json.dumps(payload)))
+            return True
+
     monkeypatch.setattr(trace_mod, "_config", {"trace": {"enable": True}})
-    monkeypatch.setattr(trace_mod, "_trace_logger", trace_logger)
-    monkeypatch.setattr(trace_mod, "_cached_log_broker", broker)
-    LogManager._ensure_logger_sanitize_filter(trace_logger)
-    trace_logger.addHandler(handler)
-    trace_logger.setLevel(logging.INFO)
-    trace_logger.propagate = False
-    try:
+    monkeypatch.setattr(trace_mod, "get_trace_store", lambda *_: CaptureStore())
+    monkeypatch.setattr(trace_mod, "_get_log_broker", lambda: None)
+    with trace_execution(TraceSpan("sink-redaction")):
         trace_mod.TraceSpan("sink-redaction").record("call", extra=original_fields)
-        assert original_fields["nested"]["url"] == URL
-        assert original_fields["nested"]["probe"] == f"api_key={MARKER}"
-        entry = broker.log_cache[-1]
-        dumped = stream.getvalue()
-        parsed = json.loads(dumped.strip().splitlines()[-1])
-    finally:
-        trace_logger.removeHandler(handler)
-        handler.close()
-        trace_logger.setLevel(previous_level)
-        trace_logger.propagate = previous_propagate
-    _assert_redacted(json.dumps(entry))
+
+    assert original_fields["nested"]["url"] == URL
+    assert original_fields["nested"]["probe"] == f"api_key={MARKER}"
+    dumped = json.dumps(frames)
     _assert_redacted(dumped)
-    assert parsed["fields"]["extra"]["nested"]["url"] == "[REDACTED_URL]"
-    assert parsed["fields"]["extra"]["nested"]["probe"] == "api_key=[REDACTED]"
-    assert entry["fields"]["extra"]["nested"]["url"] == "[REDACTED_URL]"
+    assert "[REDACTED_URL]" in dumped
+    assert "api_key=[REDACTED]" in dumped
 
 
 def test_configure_logger_replacement_console_sink_disables_diagnose() -> None:

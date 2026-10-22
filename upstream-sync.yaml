@@ -5,32 +5,27 @@ upstream:
   branch: master
 
 last_synced:
-  commit: dffe922773725e9c178392c423676ad65044748c
-  synced_at_utc: 2026-10-18T05:00:23Z
+  commit: f2404c191716a64daaa422be7f3c567cace50d39
+  synced_at_utc: 2026-10-20T10:42:33Z
   sync_method: adapt
   source_pr: >-
-    10584, 10599, 10580, 10588, 10591, 10601, 10602
+    10614, 10522, 10576, 10517, 10622, 10629, 10636, 10608, 10647
   note: >-
-    Reviewed de898afe7588e1f153beec06e24f03f6ddeae2e4..dffe922773725e9c178392c423676ad65044748c
-    (7 commits). Adapted all 7; no skips. #10584 adapted the Windows workspace
-    handle-relative file access (NtCreateFile with reparse/hardlink rejection),
-    unified Local permission defaults, tool-time fail-closed execution,
-    schema_revision 3, and the inactive-execution matrix UI onto the fork's
-    authorization-based role model; schema_revision 3 is intentionally a no-op
-    for saved policies because a legacy Windows member default is
-    indistinguishable from an explicit opt-out. The fork also added a required
-    Windows Local file-security job. The fork's already-refactored stat service
-    and booter-based GrepTool were left unchanged. #10599 added DeepSeek
-    as a routed search source plus deepseek_fetch_web_page using the fork's
-    proxy-aware HTTP session and key rotation. #10580 added a Chinese Code of
-    Conduct translated from the fork's existing document, using the fork
-    maintainers as the report path; the upstream Chinese issue-template links and
-    contact address were not adopted because the fork has no such templates.
-    #10588 removed the runtime Edge TTS WSS_HEADERS override. #10591 added OSError
-    isolation to the fork's split skill discovery/listing mixins and guarded the
-    prompt build. #10601 added SerpApi as a routed source plus key-gated
-    image/finance/scholar builtins, route labels/subtitles, and subtitles support
-    in configuration metadata. #10602 bumped the synchronized version to 4.29.1
-    and wrote a fork-specific bilingual changelog covering only absorbed changes;
-    upstream changelogs/unreleased.md was not recreated. Windows-only tests were
-    skipped on macOS; focused Python, Dashboard node, and i18n checks passed.
+    Reviewed dffe922773725e9c178392c423676ad65044748c..f2404c191716a64daaa422be7f3c567cace50d39
+    (9 commits). Adapted 6: #10614 added OpenTelemetry-backed tracing and bounded
+    SQLite history on the fork's grouped trace.* configuration, per-runtime
+    session-waiter registry, sanitized log broker, and MDI-only Dashboard, with
+    schema_revision 4 and five review-driven fixes (cleanup warning, waiter
+    admission before route.stop, docs placement, persistent-history hints, and
+    equal-timestamp terminal-state protection); #10522 preserved fetched model
+    metadata; #10517 added the dict template default and its regression test;
+    #10636 updated the pinned CodeQL action to v4.39.0; #10608 attached the pip
+    dialog to the console fullscreen element and kept it readable; #10647 applied
+    grouped configuration hints and conditional segmented-reply options while
+    preserving fork-only keys and zh/en-only metadata. Skipped 3: #10576 targets
+    an absent dynamic plugin sidebar; #10622 targets an absent desktop updater
+    notice; #10629's installer/mirror feature was intentionally removed from this
+    fork, and its equal-timestamp trace guard was already absorbed by #10614's
+    follow-up. Upstream legacy files (star/context.py, migra_helper.py,
+    changelogs/unreleased.md, api/v1.ts, monolithic dashboard test, ja-JP/ru-RU
+    catalogs) remain deleted or remapped.

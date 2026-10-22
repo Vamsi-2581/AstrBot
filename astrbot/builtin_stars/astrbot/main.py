@@ -27,12 +27,6 @@ class Main(star.Star):
         except Exception as e:
             logger.error(f"group chat context init failed: {e}")
 
-    @filter.event_message_type(filter.EventMessageType.ALL, priority=maxsize)
-    async def handle_session_control_agent(self, event: AstrMessageEvent) -> None:
-        """会话控制代理"""
-        if await self.context.messages.dispatch_waiter(event):
-            event.stop_event()
-
     @filter.event_message_type(filter.EventMessageType.ALL, priority=maxsize - 1)
     async def handle_empty_mention(self, event: AstrMessageEvent):
         """Wait for the next message when the user sent only a command prefix."""

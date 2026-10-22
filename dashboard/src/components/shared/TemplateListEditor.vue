@@ -327,6 +327,7 @@ const defaultValueMap: Record<string, unknown> = {
   list: [],
   file: [],
   object: {},
+  dict: {},
   template_list: [],
 };
 
