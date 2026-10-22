@@ -1,14 +1,19 @@
+import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from astrbot.dashboard.services import chunked_upload_service as chunked_module
 from astrbot.dashboard.services.chat_service import (
     MAX_UPLOAD_FILE_SIZE_BYTES,
     ChatService,
     ChatServiceError,
 )
-from astrbot.dashboard.services.chunked_upload_service import ChunkedUploadService
+from astrbot.dashboard.services.chunked_upload_service import (
+    ChunkedUploadError,
+    ChunkedUploadService,
+)
 from astrbot.dashboard.upload_utils import UploadLimitError
 
 CHUNK_SIZE = 1024 * 1024
@@ -191,3 +196,37 @@ class TestChatChunkedUpload:
             service.upload_status({"upload_id": upload_id}, owner="alice")
         assert not list(service.chunked_uploads.chunks_root.iterdir())
         await service.upload_abort({"upload_id": upload_id}, owner="alice")
+
+
+@pytest.mark.asyncio
+async def test_assemble_offloads_merge_and_preserves_destination_on_failure(
+    service, tmp_path, monkeypatch
+):
+    uploads = service.chunked_uploads
+    session = uploads.init_session(
+        owner="alice",
+        purpose="backup",
+        filename="backup.zip",
+        original_filename="backup.zip",
+        total_size=10,
+    )
+    (session.chunk_dir / "0.part").write_bytes(b"short")
+    session.received_chunks.add(0)
+    destination = tmp_path / "backup.zip"
+    destination.write_bytes(b"previous")
+
+    calls = []
+    original_to_thread = asyncio.to_thread
+
+    async def tracking_to_thread(function, *args, **kwargs):
+        calls.append(function)
+        return await original_to_thread(function, *args, **kwargs)
+
+    monkeypatch.setattr(chunked_module.asyncio, "to_thread", tracking_to_thread)
+
+    with pytest.raises(ChunkedUploadError, match="Merged size"):
+        await uploads.assemble(session.id, destination)
+
+    assert calls
+    assert destination.read_bytes() == b"previous"
+    assert not list(tmp_path.glob(".backup.zip.*"))

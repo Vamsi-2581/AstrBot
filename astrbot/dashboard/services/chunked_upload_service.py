@@ -253,23 +253,30 @@ class ChunkedUploadService:
             raise ChunkedUploadError(f"Chunks incomplete, missing: {missing[:10]}...")
 
         dest_path = Path(dest)
+        size = await asyncio.to_thread(self._assemble_sync, session, dest_path)
+
+        await self.cleanup_session(upload_id)
+        return size
+
+    @staticmethod
+    def _assemble_sync(session: UploadSession, dest_path: Path) -> int:
+        temp_path = dest_path.parent / f".{dest_path.name}.{uuid.uuid4().hex}.tmp"
         try:
-            with dest_path.open("wb") as outfile:
+            with temp_path.open("wb") as outfile:
                 for i in range(session.total_chunks):
                     with (session.chunk_dir / f"{i}.part").open("rb") as part:
                         shutil.copyfileobj(part, outfile)
-            size = dest_path.stat().st_size
+            size = temp_path.stat().st_size
             if size != session.total_size:
                 raise ChunkedUploadError(
                     f"Merged size ({size}) does not match the declared size "
                     f"({session.total_size})"
                 )
+            os.replace(temp_path, dest_path)
+            return size
         except BaseException:
-            dest_path.unlink(missing_ok=True)
+            temp_path.unlink(missing_ok=True)
             raise
-
-        await self.cleanup_session(upload_id)
-        return size
 
     async def abort(self, upload_id: str, *, owner: str | None = None) -> bool:
         """Abort and clean up a session. Unknown sessions abort silently.
