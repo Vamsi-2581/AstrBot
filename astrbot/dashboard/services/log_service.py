@@ -102,6 +102,8 @@ class LogService:
         queue = None
         try:
             queue = self.log_broker.register()
+            # Flush response headers through gzip before waiting for log events.
+            yield ": connected\n\n"
             if last_event_id:
                 async for event in self.replay_cached_logs(last_event_id):
                     payload = json.loads(event.split("data: ", 1)[1])

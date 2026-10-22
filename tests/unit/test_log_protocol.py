@@ -147,8 +147,8 @@ async def test_log_stream_filters_live_events_and_unregisters():
         categories={"security"},
         privacy={"internal"},
     )
-    pending = asyncio.create_task(stream.__anext__())
-    await asyncio.sleep(0)
+    greeting = await asyncio.wait_for(stream.__anext__(), timeout=1)
+    assert greeting == ": connected\n\n"
     assert len(broker.subscribers) == 1
 
     broker.publish(
@@ -173,7 +173,7 @@ async def test_log_stream_filters_live_events_and_unregisters():
             "data": "allowed",
         }
     )
-    event = await asyncio.wait_for(pending, timeout=1)
+    event = await asyncio.wait_for(stream.__anext__(), timeout=1)
     payload = json.loads(event.split("data: ", 1)[1])
     assert payload["event_id"] == "security-event"
     assert payload["type"] == "log"
@@ -188,6 +188,8 @@ async def test_log_stream_reraises_cancellation():
     broker = LogBroker()
     service = LogService(broker, object())
     stream = service.stream_log_events(None)
+    greeting = await asyncio.wait_for(stream.__anext__(), timeout=1)
+    assert greeting == ": connected\n\n"
     task = asyncio.create_task(stream.__anext__())
     await asyncio.sleep(0)
     task.cancel()
