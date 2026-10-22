@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from starlette.datastructures import UploadFile as StarletteUploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.formparsers import MultiPartException
 
@@ -22,6 +23,7 @@ from astrbot.dashboard.schemas import (
     reject_forbidden_keys,
 )
 from astrbot.dashboard.services.config_service import (
+    MAX_FILE_BYTES,
     ConfigDisplayService,
     ConfigFileService,
 )
@@ -37,7 +39,9 @@ from .auth import AuthContext, require_scope
 router = APIRouter(tags=["Plugins"])
 _MAX_CONFIG_UPLOAD_FILES = 32
 _MAX_CONFIG_FORM_FIELDS = 100
-_MAX_CONFIG_FORM_PART_BYTES = 8 * 1024 * 1024
+# Match the per-file limit enforced by ConfigFileService and the Dashboard
+# upload picker. The server body limit still caps the whole request.
+_MAX_CONFIG_FORM_PART_BYTES = MAX_FILE_BYTES
 
 
 def _multipart_error_status(detail: str) -> int:
@@ -436,7 +440,9 @@ async def upload_plugin_config_files(
             max_part_size=_MAX_CONFIG_FORM_PART_BYTES,
         )
         files = [
-            value for _, value in form.multi_items() if isinstance(value, UploadFile)
+            value
+            for _, value in form.multi_items()
+            if isinstance(value, StarletteUploadFile)
         ]
         return ok(
             await service.upload_config_file(

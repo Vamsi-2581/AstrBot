@@ -1026,6 +1026,41 @@ async def test_v1_plugin_config_upload_rejects_too_many_files(
 
 
 @pytest.mark.asyncio
+async def test_v1_plugin_config_upload_accepts_parts_up_to_the_service_limit(
+    asgi_client: httpx.AsyncClient,
+    asgi_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    captured: dict[str, list[int]] = {}
+
+    async def fake_upload_config_file(
+        *,
+        scope: str,
+        name: str,
+        key_path: str,
+        files: list,
+    ):
+        captured["sizes"] = [len(await file.read()) for file in files]
+        return {"uploaded": [], "errors": []}
+
+    monkeypatch.setattr(
+        asgi_app.state.services.config_files,
+        "upload_config_file",
+        fake_upload_config_file,
+    )
+
+    payload = b"x" * (9 * 1024 * 1024)
+    response = await asgi_client.post(
+        "/api/v1/plugins/astrbot_plugin_demo/config-files/assets",
+        files=[("files", ("large.bin", payload, "application/octet-stream"))],
+        headers=_jwt_headers(),
+    )
+
+    assert response.status_code == 200
+    assert captured["sizes"] == [len(payload)]
+
+
+@pytest.mark.asyncio
 async def test_v1_plugin_source_mutations_reject_demo_mode_with_envelope(
     asgi_client: httpx.AsyncClient,
     asgi_app: FastAPI,
