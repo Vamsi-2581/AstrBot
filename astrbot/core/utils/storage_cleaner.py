@@ -213,12 +213,16 @@ class StorageCleaner:
                 or path.name.endswith(("-wal", "-shm", "-journal"))
             ):
                 continue
-            if path.is_symlink() or path.resolve() != path:
+            if path.is_symlink():
+                # Only the link itself is removed; its target is never opened.
                 candidates.add(path)
                 continue
             try:
                 # Protect custom database names, including an old active path
                 # after a configuration edit that has not restarted the core.
+                # A symlinked parent (for example data/logs mounted elsewhere)
+                # must not skip this signature check: the file itself is still
+                # removed by cleanup, so a non-.db database name stays protected.
                 flags = (
                     os.O_RDONLY
                     | getattr(os, "O_NOFOLLOW", 0)

@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from astrbot.core.utils.storage_cleaner import StorageCleaner
 
 
@@ -78,3 +80,29 @@ def test_storage_cleaner_cleanup_truncates_active_log_and_removes_cache(tmp_path
     assert not (temp_dir / "nested").exists()
     assert result["status"]["logs"]["size_bytes"] == 0
     assert result["status"]["cache"]["size_bytes"] == 0
+
+
+def test_storage_cleaner_protects_custom_database_under_symlinked_logs_root(tmp_path):
+    data_dir = tmp_path / "data"
+    mounted_logs = tmp_path / "mounted-logs"
+    data_dir.mkdir()
+    _write_bytes(mounted_logs / "astrbot.log", 64)
+    custom_db = mounted_logs / "custom-trace-store"
+    custom_db.write_bytes(b"SQLite format 3\x00" + b"\x00" * 64)
+    try:
+        (data_dir / "logs").symlink_to(mounted_logs, target_is_directory=True)
+    except OSError:
+        pytest.skip("symbolic links are unavailable")
+
+    cleaner = StorageCleaner(
+        {"log": {"file_enable": True, "file_path": "logs/astrbot.log"}},
+        data_dir=data_dir,
+        temp_dir=data_dir / "temp",
+    )
+
+    collected = cleaner.collect_log_files()
+
+    assert data_dir / "logs" / "astrbot.log" in collected
+    assert all(path.name != "custom-trace-store" for path in collected)
+    cleaner.cleanup("logs")
+    assert custom_db.read_bytes().startswith(b"SQLite format 3\x00")
