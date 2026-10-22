@@ -114,6 +114,44 @@ def test_session_admission_key_from_umo_unwraps_unique_session_and_group_id():
     assert session_admission_key_from_umo("not-a-umo") is None
 
 
+def test_private_session_key_matches_umo_for_webchat_conversations():
+    event = make_real_event(
+        message_type=MessageType.FRIEND_MESSAGE,
+        group_id="",
+        session_id="webchat!alice!conversation-1",
+        platform_id="webchat",
+    )
+
+    session_key = session_admission_key_from_event(event)
+    umo_key = session_admission_key_from_umo(
+        "webchat:FriendMessage:webchat!alice!conversation-1"
+    )
+
+    assert session_key == umo_key
+    assert session_key == (
+        "session:webchat:private:b64-d2ViY2hhdCFhbGljZSFjb252ZXJzYXRpb24tMQ"
+    )
+
+
+@pytest.mark.parametrize(
+    ("umo", "expected"),
+    [
+        ("misskey:GroupMessage:room%123_user1", "session:misskey:group:123"),
+        (
+            "matrix:GroupMessage:!abc_def:server",
+            "session:matrix:group:b64-IWFiY19kZWY6c2VydmVy",
+        ),
+        (
+            "matrix:GroupMessage:user_!abc_def:server",
+            "session:matrix:group:b64-IWFiY19kZWY6c2VydmVy",
+        ),
+        ("lark:GroupMessage:user%room-a", "session:lark:group:room-a"),
+    ],
+)
+def test_group_umo_keys_match_runtime_group_ids(umo, expected):
+    assert session_admission_key_from_umo(umo) == expected
+
+
 def test_private_session_key_matches_subject_im_peer():
     event = make_real_event(
         message_type=MessageType.FRIEND_MESSAGE,
