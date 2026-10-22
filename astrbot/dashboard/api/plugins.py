@@ -23,7 +23,6 @@ from astrbot.dashboard.schemas import (
     reject_forbidden_keys,
 )
 from astrbot.dashboard.services.config_service import (
-    MAX_FILE_BYTES,
     ConfigDisplayService,
     ConfigFileService,
 )
@@ -39,9 +38,11 @@ from .auth import AuthContext, require_scope
 router = APIRouter(tags=["Plugins"])
 _MAX_CONFIG_UPLOAD_FILES = 32
 _MAX_CONFIG_FORM_FIELDS = 100
-# Match the per-file limit enforced by ConfigFileService and the Dashboard
-# upload picker. The server body limit still caps the whole request.
-_MAX_CONFIG_FORM_PART_BYTES = MAX_FILE_BYTES
+# Starlette applies ``max_part_size`` only to non-file parts. File parts are
+# bounded by ConfigFileService's per-file limit and the request body
+# middleware, so keep metadata fields small instead of letting one buffer a
+# large request body in memory.
+_MAX_CONFIG_FORM_FIELD_BYTES = 1024 * 1024
 
 
 def _multipart_error_status(detail: str) -> int:
@@ -437,7 +438,7 @@ async def upload_plugin_config_files(
         form = await request.form(
             max_files=_MAX_CONFIG_UPLOAD_FILES,
             max_fields=_MAX_CONFIG_FORM_FIELDS,
-            max_part_size=_MAX_CONFIG_FORM_PART_BYTES,
+            max_part_size=_MAX_CONFIG_FORM_FIELD_BYTES,
         )
         files = [
             value

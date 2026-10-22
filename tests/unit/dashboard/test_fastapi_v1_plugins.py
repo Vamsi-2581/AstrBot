@@ -1026,6 +1026,23 @@ async def test_v1_plugin_config_upload_rejects_too_many_files(
 
 
 @pytest.mark.asyncio
+async def test_v1_plugin_config_upload_rejects_oversized_form_fields(
+    asgi_client: httpx.AsyncClient,
+):
+    response = await asgi_client.post(
+        "/api/v1/plugins/astrbot_plugin_demo/config-files/assets",
+        data={"metadata": "x" * (2 * 1024 * 1024)},
+        files=[("files", ("file.txt", b"data", "text/plain"))],
+        headers=_jwt_headers(),
+    )
+
+    assert response.status_code == 413
+    data = response.json()
+    assert data["status"] == "error"
+    assert data["message"] == "Invalid upload request"
+
+
+@pytest.mark.asyncio
 async def test_v1_plugin_config_upload_accepts_parts_up_to_the_service_limit(
     asgi_client: httpx.AsyncClient,
     asgi_app: FastAPI,
