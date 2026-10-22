@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 
-from astrbot.core.auth.models import Resource
+from astrbot.core.auth.models import AuthorizationValueError, Resource
 from astrbot.dashboard.responses import ApiError, ok
 from astrbot.dashboard.schemas import (
     ConfigContentRequest,
@@ -72,6 +72,14 @@ async def _authorize_config_route_collection(
     )
 
 
+def _validate_config_route_ids(config_ids: set[str]) -> None:
+    for config_id in config_ids:
+        try:
+            Resource.instance(config_id)
+        except AuthorizationValueError as exc:
+            raise ApiError("Invalid config id", status_code=400) from exc
+
+
 async def _can_read_config(
     request: Request,
     auth: AuthContext,
@@ -83,6 +91,10 @@ async def _can_read_config(
         if exc.status_code == 403:
             return False
         raise
+    except AuthorizationValueError:
+        # Persisted routing data predates route-id validation; do not let one
+        # malformed entry break the whole listing endpoint.
+        return False
     return True
 
 
@@ -316,6 +328,7 @@ async def replace_config_routes(
     service: ConfigRoutingService = Depends(get_routing_service),
 ):
     await _authorize_config_route_collection(request, auth, write=True)
+    _validate_config_route_ids(set(payload.routing.values()))
     await service.replace_route_mapping(payload.routing)
     return ok(message="更新成功")
 
@@ -329,6 +342,7 @@ async def upsert_config_route(
     service: ConfigRoutingService = Depends(get_routing_service),
 ):
     await _authorize_config_route_collection(request, auth, write=True)
+    _validate_config_route_ids({payload.config_id})
     await service.set_route(umo, payload.config_id)
     return ok(message="更新成功")
 

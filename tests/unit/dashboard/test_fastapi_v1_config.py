@@ -804,3 +804,44 @@ async def test_v1_default_operator_can_replace_and_clear_config_routes(
     )
     assert cleared.status_code == 200
     assert fake_core_lifecycle.umop_config_router.umop_to_conf_id == {}
+
+
+@pytest.mark.asyncio
+async def test_v1_config_route_mutations_reject_invalid_config_ids(
+    asgi_client: httpx.AsyncClient,
+    fake_core_lifecycle,
+):
+    headers = _jwt_headers()
+    invalid_routing = {"webchat-main:private:*": "bad id"}
+
+    replaced = await asgi_client.put(
+        "/api/v1/config-routes",
+        headers=headers,
+        json={"routing": invalid_routing},
+    )
+    assert replaced.status_code == 400
+    assert fake_core_lifecycle.umop_config_router.umop_to_conf_id == {}
+
+    upserted = await asgi_client.put(
+        "/api/v1/config-routes/webchat-main:private:*",
+        headers=headers,
+        json={"config_id": "bad id"},
+    )
+    assert upserted.status_code == 400
+    assert fake_core_lifecycle.umop_config_router.umop_to_conf_id == {}
+
+
+@pytest.mark.asyncio
+async def test_v1_config_route_list_ignores_malformed_persisted_ids(
+    asgi_client: httpx.AsyncClient,
+    fake_core_lifecycle,
+):
+    fake_core_lifecycle.umop_config_router.umop_to_conf_id = {
+        "webchat-main:private:*": "bad id",
+        "webchat-main:group:demo": "default",
+    }
+
+    response = await asgi_client.get("/api/v1/config-routes", headers=_jwt_headers())
+
+    assert response.status_code == 200
+    assert response.json()["data"]["routing"] == {"webchat-main:group:demo": "default"}
