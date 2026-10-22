@@ -769,6 +769,7 @@ class AuthService:
         return AuthServiceResult(
             data={
                 "recovery_code": recovery_code,
+                "recovery_code_hash": recovery_code_hash,
             }
         )
 

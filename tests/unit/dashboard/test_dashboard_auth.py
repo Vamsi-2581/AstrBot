@@ -731,6 +731,20 @@ async def test_auth_totp_setup_with_valid_code_returns_recovery_code(
     assert data["data"]["recovery_code"]
     assert data["data"]["recovery_code_hash"]
 
+    rotated = await test_client.post(
+        "/api/v1/auth/totp/recovery",
+        headers=authenticated_header,
+    )
+    rotated_data = await rotated.get_json()
+    assert rotated.status_code == 200
+    assert rotated_data["status"] == "ok"
+    assert rotated_data["data"]["recovery_code"]
+    assert rotated_data["data"]["recovery_code_hash"]
+    assert rotated_data["data"]["recovery_code"] != data["data"]["recovery_code"]
+    assert (
+        rotated_data["data"]["recovery_code_hash"] != data["data"]["recovery_code_hash"]
+    )
+
 
 @pytest.mark.asyncio
 async def test_totp_rotation_is_scoped_to_the_authenticated_dashboard_session(
