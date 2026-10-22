@@ -879,3 +879,45 @@ def test_wecom_create_event_does_not_promote_roles():
     event = adapter.create_event(message)
     assert event.platform_member_role == "member"
     assert event.platform_role_source == "none"
+
+
+def test_wecom_kf_sync_uses_next_cursor_until_done():
+    adapter = _adapter()
+    responses = [
+        {"has_more": 1, "next_cursor": "cursor-1", "msg_list": [{"msgid": "a"}]},
+        {"has_more": 1, "next_cursor": "cursor-2", "msg_list": [{"msgid": "b"}]},
+        {"has_more": 0, "next_cursor": "", "msg_list": [{"msgid": "c"}]},
+    ]
+    calls: list[str] = []
+    adapter.wechat_kf_api = SimpleNamespace(
+        sync_msg=lambda token, kfid, cursor="": (
+            calls.append(cursor) or responses[len(calls) - 1]
+        )
+    )
+
+    latest = adapter._latest_wechat_kf_message("token", "kf")
+
+    assert latest == {"msgid": "c"}
+    assert calls == ["", "cursor-1", "cursor-2"]
+
+
+def test_wecom_kf_sync_tolerates_error_responses_and_stops_on_repeated_cursor():
+    adapter = _adapter()
+    adapter.wechat_kf_api = SimpleNamespace(
+        sync_msg=lambda *args: {"errcode": 40000, "errmsg": "invalid"}
+    )
+    assert adapter._latest_wechat_kf_message("token", "kf") is None
+
+    responses = [
+        {"has_more": 1, "next_cursor": "same", "msg_list": [{"msgid": "a"}]},
+        {"has_more": 1, "next_cursor": "same", "msg_list": [{"msgid": "b"}]},
+    ]
+    calls: list[str] = []
+    adapter.wechat_kf_api = SimpleNamespace(
+        sync_msg=lambda token, kfid, cursor="": (
+            calls.append(cursor) or responses[len(calls) - 1]
+        )
+    )
+
+    assert adapter._latest_wechat_kf_message("token", "kf") == {"msgid": "b"}
+    assert calls == ["", "same"]
