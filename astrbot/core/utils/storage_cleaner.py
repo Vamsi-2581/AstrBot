@@ -229,7 +229,7 @@ class StorageCleaner:
                     | getattr(os, "O_NONBLOCK", 0)
                     | getattr(os, "O_BINARY", 0)
                 )
-                with open(os.open(path, flags), "rb") as stream:
+                with os.fdopen(os.open(path, flags), "rb") as stream:
                     if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                         continue
                     if stream.read(16) == b"SQLite format 3\x00":

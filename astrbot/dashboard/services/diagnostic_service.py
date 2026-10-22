@@ -280,6 +280,8 @@ class DiagnosticRedactor:
                             elif "start_time_unix_nano" in record:
                                 timestamp = int(record["start_time_unix_nano"]) / 1e9
                 except ValueError, TypeError, OverflowError, OSError:
+                    # Undated or malformed records inherit the preceding
+                    # record's selection instead of aborting the export.
                     pass
                 if dated_record:
                     include_record = (
@@ -403,6 +405,7 @@ def collect_diagnostics(
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         ).stdout.strip()
     except OSError, subprocess.SubprocessError:
+        # A missing checkout or git failure only omits the commit identifier.
         pass
     sections["environment.json"] = {
         "astrbot_version": __version__,

@@ -350,7 +350,7 @@ class LogService:
                                 {"name": arcname, "reason": "export size limit"}
                             )
                             continue
-                        with open(os.open(path, flags), "rb") as source:
+                        with os.fdopen(os.open(path, flags), "rb") as source:
                             info = os.fstat(source.fileno())
                             if not stat.S_ISREG(info.st_mode) or not os.path.samestat(
                                 info, path.lstat()
