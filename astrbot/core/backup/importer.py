@@ -18,9 +18,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import delete
+from sqlmodel import col
 
 from astrbot import logger
+from astrbot.core.auth.models import persist_capability_config_id
+from astrbot.core.auth.registry import dashboard_api_capability_specs
 from astrbot.core.config.default import VERSION
+from astrbot.core.db.po import ApiKey, AuthCapability
 from astrbot.core.db.protocols import DatabaseSessionStore
 from astrbot.core.utils.astrbot_path import (
     get_astrbot_data_path,
@@ -531,6 +535,13 @@ class AstrBotImporter:
                         raise
                     except Exception as exc:
                         raise DatabaseClearError("清空主数据库失败") from exc
+                # API key capabilities are derived from ``ApiKey.scopes`` and
+                # target rows are replaced below, so stale grants must go too.
+                await session.execute(
+                    delete(AuthCapability).where(
+                        col(AuthCapability.subject_id).startswith("api-key:")
+                    )
+                )
 
     async def _clear_kb_data(self) -> None:
         """清空知识库数据"""
@@ -558,6 +569,8 @@ class AstrBotImporter:
                             row = self._convert_datetime_fields(row, model_class)
                             obj = model_class(**row)
                             session.add(obj)
+                            if isinstance(obj, ApiKey):
+                                self._restore_api_key_capabilities(session, obj)
                             count += 1
                         except asyncio.CancelledError:
                             raise
@@ -572,6 +585,35 @@ class AstrBotImporter:
                     logger.debug(f"导入表 {table_name}: {count} 条记录")
 
         return imported
+
+    @staticmethod
+    def _restore_api_key_capabilities(session: Any, key: ApiKey) -> None:
+        """Rebuild the capability rows derived from a restored API key's scopes.
+
+        The fork stores API-key grants in ``auth_capabilities`` instead of
+        reading ``ApiKey.scopes`` during authorization, so restoring only the
+        key row leaves the key unable to perform any action.
+
+        Args:
+            session: Active import transaction.
+            key: Restored API key row.
+        """
+        scopes = [scope for scope in (key.scopes or []) if isinstance(scope, str)]
+        for action, resource_type, resource_id in dashboard_api_capability_specs(
+            scopes
+        ):
+            session.add(
+                AuthCapability(
+                    subject_id=f"api-key:{key.key_id}",
+                    action=action,
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    config_id=persist_capability_config_id(None),
+                    created_by=key.created_by,
+                    expires_at=key.expires_at,
+                    revoked_at=key.revoked_at,
+                )
+            )
 
     def _preprocess_main_table_rows(
         self, table_name: str, rows: list[dict[str, Any]]

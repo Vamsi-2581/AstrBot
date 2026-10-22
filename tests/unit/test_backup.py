@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlmodel import SQLModel, select
 
+from astrbot.core.auth.registry import dashboard_api_capability_specs
 from astrbot.core.backup import (
     BACKUP_MANIFEST_VERSION,
     KB_METADATA_MODELS,
@@ -33,6 +34,7 @@ from astrbot.core.config.default import VERSION
 from astrbot.core.db import po
 from astrbot.core.db.po import (
     ApiKey,
+    AuthCapability,
     ConversationV2,
     DashboardAccount,
     DashboardTrustedDevice,
@@ -1190,6 +1192,36 @@ class TestBackupIntegration:
             if model is ApiKey:
                 active = await target.get_active_api_key_by_hash(data["key_hash"])
                 assert (active is None) == (data.get("revoked_at") is not None)
+                async with target.get_db() as session:
+                    capabilities = (
+                        (
+                            await session.execute(
+                                select(AuthCapability).where(
+                                    AuthCapability.subject_id
+                                    == f"api-key:{data['key_id']}"
+                                )
+                            )
+                        )
+                        .scalars()
+                        .all()
+                    )
+                restored_specs = {
+                    (
+                        capability.action,
+                        capability.resource_type,
+                        capability.resource_id,
+                    )
+                    for capability in capabilities
+                }
+                expected_specs = set(
+                    dashboard_api_capability_specs(data.get("scopes") or [])
+                )
+                assert restored_specs == expected_specs
+                assert all(
+                    (capability.revoked_at is not None)
+                    == (data.get("revoked_at") is not None)
+                    for capability in capabilities
+                )
         finally:
             await source.engine.dispose()
             await target.engine.dispose()
