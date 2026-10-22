@@ -980,7 +980,6 @@ class FunctionToolExecutor(BaseFunctionToolExecutor[AstrAgentContext]):
                                     logger.error(
                                         "Tool direct send failed: %s",
                                         safe_error("", e),
-                                        exc_info=True,
                                     )
                         if not direct_result_sent:
                             yield mcp.types.CallToolResult(
