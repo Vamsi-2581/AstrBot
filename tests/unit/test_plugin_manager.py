@@ -3441,3 +3441,56 @@ async def test_turn_on_plugin_after_deactivated_reload_reactivates_tools(
     finally:
         tool_manager.func_list = original_func_list
         _clear_plugin_runtime_state(plugin_manager_pm.catalog.runtime_catalogs)
+
+
+@pytest.mark.asyncio
+async def test_reload_rollback_cancels_only_staged_background_tasks(
+    plugin_manager_pm: PluginManager,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed promotion must not cancel process-wide live background tasks."""
+    _clear_plugin_runtime_state(plugin_manager_pm.catalog.runtime_catalogs)
+    plugin_name = "reload_task_ownership"
+    module_path = f"data.plugins.{plugin_name}.main"
+    current = StarMetadata(
+        name=plugin_name,
+        root_dir_name=plugin_name,
+        module_path=module_path,
+    )
+    plugin_manager_pm.catalog.plugins.publish(current)
+    _replacement, staged, _handler, _tool = _make_staged_generation(plugin_name)
+    live_context = plugin_manager_pm.loader._execution_context
+    live_task = asyncio.create_task(asyncio.Event().wait())
+    staged_task = asyncio.create_task(asyncio.Event().wait())
+    live_context.background_tasks = {live_task}
+    staged.execution_context.background_tasks = {staged_task}
+
+    async def stage_generation(_current: StarMetadata):
+        return staged, None
+
+    monkeypatch.setattr(
+        plugin_manager_pm.lifecycle,
+        "_stage_reload_generation",
+        stage_generation,
+    )
+    monkeypatch.setattr(
+        plugin_manager_pm.lifecycle,
+        "_refresh_command_surfaces",
+        AsyncMock(side_effect=[RuntimeError("command refresh failed"), None]),
+    )
+    monkeypatch.setattr(
+        plugin_manager_pm.lifecycle,
+        "terminate_plugin",
+        AsyncMock(),
+    )
+    try:
+        success, error = await plugin_manager_pm.lifecycle.reload(plugin_name)
+        assert success is False
+        assert error == "command refresh failed"
+        assert staged_task.done()
+        assert not live_task.done()
+    finally:
+        for task in (staged_task, live_task):
+            task.cancel()
+        await asyncio.gather(staged_task, live_task, return_exceptions=True)
+        _clear_plugin_runtime_state(plugin_manager_pm.catalog.runtime_catalogs)

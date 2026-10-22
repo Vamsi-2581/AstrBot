@@ -743,7 +743,9 @@ class PluginLifecycle:
         live_tasks = getattr(live_execution_context, "background_tasks", None)
         if isinstance(staged_tasks, set) and isinstance(live_tasks, set):
             live_tasks.update(staged_tasks)
-            staged.execution_context.background_tasks = live_tasks
+            # Keep staging ownership separate: a later rollback must cancel
+            # only the staged generation's tasks, never the process-wide set.
+            staged.execution_context.background_tasks = staged_tasks
         self._close_staged_registered_tasks(staged.execution_context)
         staged.execution_context.catalogs = self._catalog.runtime_catalogs
         staged.execution_context.dashboard_extension_registry = (
