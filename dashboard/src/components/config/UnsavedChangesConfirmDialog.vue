@@ -57,9 +57,17 @@ const cancelHint = ref('');
 const closeHint = ref('');
 let resolvePromise: ((value: UnsavedChangesDialogResult) => void) | null = null;
 
+const settle = (result: UnsavedChangesDialogResult) => {
+  const resolve = resolvePromise;
+  resolvePromise = null;
+  isOpen.value = false;
+  resolve?.(result);
+};
+
 const open = (
   options: UnsavedChangesDialogOptions,
 ): Promise<UnsavedChangesDialogResult> => {
+  settle('close');
   title.value = options.title || t('core.common.dialog.confirmTitle');
   message.value = options.message || t('core.common.dialog.confirmMessage');
   confirmHint.value = options.confirmHint || '';
@@ -73,18 +81,15 @@ const open = (
 };
 
 const handleConfirm = () => {
-  isOpen.value = false;
-  if (resolvePromise) resolvePromise(true);
+  settle(true);
 };
 
 const handleCancel = () => {
-  isOpen.value = false;
-  if (resolvePromise) resolvePromise(false);
+  settle(false);
 };
 
 const handleClose = () => {
-  isOpen.value = false;
-  if (resolvePromise) resolvePromise('close');
+  settle('close');
 };
 
 defineExpose({ open });
