@@ -75,7 +75,7 @@ async def _serve_token_file(file_token: str, service: FileService):
             if owned
             else None
         )
-        return _file_response(
+        return attachment_file_response(
             file_path,
             mimetypes.guess_type(file_path)[0],
             background=background,
@@ -100,7 +100,7 @@ def _attachment_media_type(mimetype: str | None) -> str:
     return candidate if candidate in _SAFE_MEDIA_TYPES else "application/octet-stream"
 
 
-def _file_response(
+def attachment_file_response(
     file_path: str,
     mimetype: str | None = None,
     *,
@@ -240,7 +240,7 @@ async def get_file_by_name(
     if isinstance(result, dict) and result.get("status") == "error":
         return result
     file_path, mimetype = result
-    return _file_response(file_path, mimetype)
+    return attachment_file_response(file_path, mimetype)
 
 
 @router.get("/files/{attachment_id}", responses=_BINARY_FILE_RESPONSE)
@@ -254,7 +254,7 @@ async def get_file(
     if isinstance(result, dict) and result.get("status") == "error":
         return result
     file_path, mimetype = result
-    return _file_response(file_path, mimetype)
+    return attachment_file_response(file_path, mimetype)
 
 
 @router.delete("/files/{attachment_id}")

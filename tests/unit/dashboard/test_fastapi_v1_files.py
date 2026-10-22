@@ -83,3 +83,48 @@ async def test_v1_token_file_is_forced_to_attachment(
     assert png_response.status_code == 200
     assert png_response.headers["content-type"].startswith("image/png")
     assert png_response.headers["content-disposition"].startswith("attachment;")
+
+
+@pytest.mark.asyncio
+async def test_open_api_file_download_is_forced_to_attachment(
+    asgi_client: httpx.AsyncClient,
+    asgi_app: FastAPI,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    html_file = tmp_path / "attachment.html"
+    html_file.write_text("<script>alert(1)</script>", encoding="utf-8")
+    png_file = tmp_path / "attachment.png"
+    png_file.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+    resolved = {
+        "html-attachment": (str(html_file), "text/html"),
+        "png-attachment": (str(png_file), "image/png"),
+    }
+
+    async def fake_resolve(attachment_id: str):
+        return resolved[attachment_id]
+
+    monkeypatch.setattr(
+        asgi_app.state.services.chat,
+        "resolve_attachment_file",
+        fake_resolve,
+    )
+
+    html_response = await asgi_client.get(
+        "/api/v1/file?attachment_id=html-attachment",
+        headers=_jwt_headers(),
+    )
+    assert html_response.status_code == 200
+    assert html_response.headers["content-type"].startswith("application/octet-stream")
+    assert html_response.headers["x-content-type-options"] == "nosniff"
+    assert html_response.headers["content-disposition"].startswith("attachment;")
+
+    png_response = await asgi_client.get(
+        "/api/v1/file?attachment_id=png-attachment",
+        headers=_jwt_headers(),
+    )
+    assert png_response.status_code == 200
+    assert png_response.headers["content-type"].startswith("image/png")
+    assert png_response.headers["x-content-type-options"] == "nosniff"
+    assert png_response.headers["content-disposition"].startswith("attachment;")

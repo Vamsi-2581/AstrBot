@@ -1,7 +1,7 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile, WebSocket
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from astrbot.core.auth.models import WEBCHAT_INSTANCE_TOOL_ACTIONS, Resource
 from astrbot.dashboard.responses import ApiError, error, ok
@@ -28,6 +28,7 @@ from .auth import (
     require_scope,
 )
 from .error_handling import safe_service_message, service_error_response
+from .files import attachment_file_response
 
 router = APIRouter(tags=["Open API"])
 _SSE_RESPONSE: dict[int | str, dict[str, Any]] = {
@@ -378,7 +379,7 @@ async def get_open_api_file(
 ):
     try:
         file_path, mimetype = await chat_service.resolve_attachment_file(attachment_id)
-        return FileResponse(file_path, media_type=mimetype)
+        return attachment_file_response(file_path, mimetype)
     except ChatServiceError as exc:
         return _open_api_error(str(exc))
     except FileNotFoundError, OSError:
