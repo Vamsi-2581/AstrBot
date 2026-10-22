@@ -749,10 +749,13 @@ def _set_nested_value(data: dict, path: tuple[str, ...], value: Any) -> None:
 
 
 def _protected_2fa_config_changed(old_config: dict, new_config: dict) -> bool:
-    return any(
-        _get_nested_value(old_config, path) != _get_nested_value(new_config, path)
-        for path in PROTECTED_2FA_CONFIG_PATHS
-    )
+    for path in PROTECTED_2FA_CONFIG_PATHS:
+        posted = _get_nested_value(new_config, path)
+        if posted == REDACTED_SECRET_PLACEHOLDER:
+            continue
+        if posted != _get_nested_value(old_config, path):
+            return True
+    return False
 
 
 async def _validate_neo_connectivity(post_config: dict) -> str | None:

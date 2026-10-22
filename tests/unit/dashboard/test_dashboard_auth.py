@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from astrbot.dashboard.services.config_service import REDACTED_SECRET_PLACEHOLDER
 from astrbot.dashboard.static_encoding import MAX_GZIP_BYTES
 from tests.unit.dashboard.dashboard_lifecycle_support import *  # noqa: F403
 
@@ -568,6 +569,57 @@ async def test_auth_login_skips_totp_when_trusted_cookie_valid(
             core_lifecycle_td,
             original_dashboard_config,
         )
+
+
+@pytest.mark.asyncio
+async def test_config_save_with_redacted_totp_fields_does_not_require_2fa(
+    app: FastAPI,
+    authenticated_header: dict,
+    core_lifecycle_td: AstrBotCoreLifecycle,
+):
+    original_dashboard_config = copy.deepcopy(
+        core_lifecycle_td.astrbot_config["dashboard"]
+    )
+    test_client = DashboardTestClient(app)
+    _, recovery_code_hash = generate_recovery_code()
+    secret = pyotp.random_base32()
+
+    try:
+        core_lifecycle_td.astrbot_config["dashboard"]["totp"] = {
+            "enable": True,
+            "secret": secret,
+            "recovery_code_hash": recovery_code_hash,
+        }
+        current = await test_client.get(
+            "/api/v1/system-config", headers=authenticated_header
+        )
+        current_data = await current.get_json()
+        assert current.status_code == 200
+        assert (
+            current_data["data"]["config"]["dashboard"]["totp"]["secret"]
+            == REDACTED_SECRET_PLACEHOLDER
+        )
+
+        response = await test_client.put(
+            "/api/v1/system-config",
+            headers=authenticated_header,
+            json=current_data["data"]["config"],
+        )
+        data = await response.get_json()
+
+        assert response.status_code == 200
+        assert data["status"] == "ok"
+        assert core_lifecycle_td.astrbot_config["dashboard"]["totp"] == {
+            "enable": True,
+            "secret": secret,
+            "recovery_code_hash": recovery_code_hash,
+        }
+    finally:
+        await _restore_dashboard_password_state(
+            core_lifecycle_td,
+            original_dashboard_config,
+        )
+        await test_client.aclose()
 
 
 @pytest.mark.asyncio
