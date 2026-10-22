@@ -68,6 +68,8 @@ DASHBOARD_SESSION_TOKEN_TYPE = "dashboard_session"  # noqa: S105  # constant/nam
 DASHBOARD_SESSION_AUDIENCE = "astrbot-dashboard"
 DASHBOARD_SESSION_ISSUER_PURPOSE = b"dashboard-session-issuer-v1"
 SKIP_DEFAULT_PASSWORD_AUTH_ENV = "ASTRBOT_DASHBOARD_SKIP_DEFAULT_PASSWORD_AUTH"  # noqa: S105  # constant/name, not a credential
+_DASHBOARD_USERNAME_MAX_LENGTH = 64
+_OIDC_USERNAME_MAX_ATTEMPTS = 1000
 LOCAL_DASHBOARD_HOSTS = {"127.0.0.1", "localhost", "::1"}
 DEFAULT_PASSWORD_LOGIN_FAILURE_MESSAGE = (
     "Login failed. If this is your first time using AstrBot, the old default "
@@ -1319,16 +1321,39 @@ class AuthService:
         async with self.db.get_db() as session:
             async with session.begin():
                 username = base
-                suffix = 1
-                while (
-                    await session.execute(
-                        select(DashboardAccount).where(
-                            col(DashboardAccount.username) == username
+                for attempt in range(_OIDC_USERNAME_MAX_ATTEMPTS):
+                    existing = (
+                        await session.execute(
+                            select(DashboardAccount).where(
+                                col(DashboardAccount.username) == username
+                            )
                         )
+                    ).scalar_one_or_none()
+                    if existing is None:
+                        break
+                    suffix_text = f"-{attempt + 2}"
+                    username = (
+                        base[: _DASHBOARD_USERNAME_MAX_LENGTH - len(suffix_text)]
+                        + suffix_text
                     )
-                ).scalar_one_or_none() is not None:
-                    suffix += 1
-                    username = f"{base}-{suffix}"[:64]
+                else:
+                    # A 64-character seed and an exhausted suffix space still
+                    # need a different candidate; fall back to a bounded random
+                    # namespace instead of spinning while holding the
+                    # transaction.
+                    for _ in range(10):
+                        candidate = f"oidc-{secrets.token_hex(12)}"
+                        if (
+                            await session.execute(
+                                select(DashboardAccount).where(
+                                    col(DashboardAccount.username) == candidate
+                                )
+                            )
+                        ).scalar_one_or_none() is None:
+                            username = candidate
+                            break
+                    else:
+                        return None
                 account = DashboardAccount(
                     username=username,
                     password_hash=hash_dashboard_password(secrets.token_urlsafe(32)),

@@ -316,3 +316,28 @@ async def test_oidc_verify_id_token_validates_authorized_party(monkeypatch) -> N
         "nonce-1",
     )
     assert claims["azp"] == "cid"
+
+
+@pytest.mark.asyncio
+async def test_oidc_username_retry_changes_a_64_character_seed(
+    temp_db: SQLiteDatabase,
+) -> None:
+    base = "a" * 64
+    async with temp_db.get_db() as session:
+        async with session.begin():
+            session.add(
+                DashboardAccount(
+                    account_id="existing-account",
+                    username=base,
+                    password_hash="hash",
+                )
+            )
+    service = _service(temp_db, enable=True, issuer="https://idp", client_id="cid")
+
+    account = await service._create_external_account(
+        {"preferred_username": base}, "subject-123"
+    )
+
+    assert account is not None
+    assert account.username != base
+    assert len(account.username) <= 64
