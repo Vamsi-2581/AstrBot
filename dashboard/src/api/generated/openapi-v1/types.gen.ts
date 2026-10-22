@@ -3916,6 +3916,10 @@ export type DeleteAttachmentErrors = {
    * Standard AstrBot error response
    */
   404: ErrorEnvelope;
+  /**
+   * Standard AstrBot error response
+   */
+  500: ErrorEnvelope;
 };
 
 export type DeleteAttachmentError =

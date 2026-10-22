@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from astrbot.dashboard.services.chat_service import ChatService, ChatServiceError
+from astrbot.dashboard.services.chat_service import ChatService
 
 
 class _AttachmentDb:
@@ -18,6 +18,12 @@ class _AttachmentDb:
         ):
             return []
         return [self.attachment]
+
+    async def is_attachment_path_referenced(
+        self, path: str, *, exclude_attachment_id: str = ""
+    ) -> bool:
+        _ = path, exclude_attachment_id
+        return False
 
     async def delete_attachment(self, attachment_id: str) -> bool:
         self.deleted.append(attachment_id)
@@ -56,7 +62,7 @@ async def test_delete_attachment_returns_false_when_absent(tmp_path: Path) -> No
 
 
 @pytest.mark.asyncio
-async def test_delete_attachment_keeps_record_when_file_removal_fails(
+async def test_delete_attachment_removes_the_record_even_if_unlink_fails(
     tmp_path: Path,
 ) -> None:
     attachment = SimpleNamespace(
@@ -66,6 +72,29 @@ async def test_delete_attachment_keeps_record_when_file_removal_fails(
     )
     db = _AttachmentDb(attachment)
 
-    with pytest.raises(ChatServiceError, match="File access error"):
-        await _service(db).delete_attachment("att-1")
-    assert db.deleted == []
+    assert await _service(db).delete_attachment("att-1") is True
+    assert db.deleted == ["att-1"]
+
+
+@pytest.mark.asyncio
+async def test_delete_attachment_keeps_shared_file_for_other_records(
+    tmp_path: Path,
+) -> None:
+    shared = tmp_path / "shared.bin"
+    shared.write_bytes(b"payload")
+    attachment = SimpleNamespace(
+        attachment_id="att-1",
+        path=str(shared),
+        mime_type="application/octet-stream",
+    )
+    db = _AttachmentDb(attachment)
+
+    async def referenced(path: str, *, exclude_attachment_id: str = "") -> bool:
+        _ = path, exclude_attachment_id
+        return True
+
+    db.is_attachment_path_referenced = referenced
+
+    assert await _service(db).delete_attachment("att-1") is True
+    assert shared.exists()
+    assert db.deleted == ["att-1"]

@@ -1565,13 +1565,21 @@ class ChatService:
         attachments = await self.db.get_attachments([attachment_id])
         if not attachments:
             return False
+        if not await self.db.delete_attachment(attachment_id):
+            return False
         for attachment in attachments:
             path = Path(attachment.path)
+            if await self.db.is_attachment_path_referenced(
+                str(path), exclude_attachment_id=attachment_id
+            ):
+                continue
             try:
                 await asyncio.to_thread(path.unlink, missing_ok=True)
             except OSError as exc:
-                raise ChatServiceError("File access error") from exc
-        return bool(await self.db.delete_attachment(attachment_id))
+                logger.warning(
+                    "Failed to delete attachment file: %s", safe_error("", exc)
+                )
+        return True
 
     async def delete_attachments(self, attachment_ids: list[str]) -> None:
         try:

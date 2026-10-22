@@ -2204,6 +2204,8 @@ paths:
           $ref: '#/components/responses/Ok'
         '404':
           $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
 
   /api/v1/files/{attachment_id}/content:
     get:
