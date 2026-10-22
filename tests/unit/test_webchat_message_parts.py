@@ -277,3 +277,22 @@ async def test_webchat_reply_history_is_scoped_to_the_current_conversation():
     )
     assert isinstance(same_components[0], Reply)
     assert same_components[0].message_str == "other secret"
+
+    # Thread conversations keep their own history namespace while sharing the
+    # WebChat conversation id check.
+    histories[2].platform_id = "webchat_thread"
+    thread_components, _ = await adapter._parse_message_parts(
+        [reply_part],
+        "current-conversation",
+    )
+    assert isinstance(thread_components[0], Reply)
+    assert thread_components[0].message_str == "other secret"
+
+    # A foreign platform reusing the same id must not resolve.
+    histories[2].platform_id = "napcat"
+    foreign_components, _ = await adapter._parse_message_parts(
+        [reply_part],
+        "current-conversation",
+    )
+    assert foreign_components[0].message_str == ""
+    assert foreign_components[0].chain == []

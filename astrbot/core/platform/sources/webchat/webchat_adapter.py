@@ -39,6 +39,10 @@ def _extract_conversation_id(session_id: str) -> str:
     return session_id
 
 
+_WEBCHAT_HISTORY_PLATFORM_IDS = frozenset({"webchat", "webchat_thread"})
+"""Platform history namespaces owned by the WebChat conversation UI."""
+
+
 class QueueListener:
     def __init__(
         self,
@@ -197,7 +201,7 @@ class WebChatAdapter(Platform):
             if (
                 not history
                 or not history.content
-                or history.platform_id != "webchat"
+                or history.platform_id not in _WEBCHAT_HISTORY_PLATFORM_IDS
                 or history.user_id != conversation_id
             ):
                 return None
