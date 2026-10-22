@@ -45,16 +45,33 @@ def _is_draft_content_bad_request(error: BadRequest) -> bool:
     return "parse entities" in message or "message is too long" in message
 
 
+def normalize_telegram_thread_id[ThreadId: (str, int)](
+    message_thread_id: ThreadId | None,
+    *,
+    is_forum: bool = False,
+) -> ThreadId | None:
+    """Return the durable topic id, collapsing the forum General topic."""
+    if message_thread_id is None:
+        return None
+    if is_forum and str(message_thread_id) == "1":
+        return None
+    return message_thread_id
+
+
 def format_telegram_target(
     chat_id: str | int,
     message_thread_id: str | int | None,
     business_connection_id: str | None = None,
+    *,
+    is_forum: bool = False,
 ) -> str:
     """Keep chat, topic and Business namespace in a durable AstrBot target."""
     target = str(chat_id)
     if business_connection_id:
         target = f"business:{quote(business_connection_id, safe='')}:{target}"
-    if message_thread_id is not None:
+    if message_thread_id is not None and not (
+        is_forum and str(message_thread_id) == "1"
+    ):
         target = f"{target}#{message_thread_id}"
     return target
 

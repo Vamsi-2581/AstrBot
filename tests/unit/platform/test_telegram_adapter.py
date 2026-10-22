@@ -4096,12 +4096,22 @@ def _interaction_adapter():
     return adapter
 
 
-def _callback_update(token: str, *, update_id: int = 10, user_id: int = 99):
+def _callback_update(
+    token: str,
+    *,
+    update_id: int = 10,
+    user_id: int = 99,
+    chat_id: int = 99,
+    chat_type: str = "private",
+    is_forum: bool = False,
+    message_thread_id: int | None = None,
+    is_topic_message: bool = False,
+):
     message = SimpleNamespace(
         message_id=44,
-        chat=SimpleNamespace(id=99, type="private"),
-        message_thread_id=None,
-        is_topic_message=False,
+        chat=SimpleNamespace(id=chat_id, type=chat_type, is_forum=is_forum),
+        message_thread_id=message_thread_id,
+        is_topic_message=is_topic_message,
         business_connection_id=None,
     )
     query = SimpleNamespace(
@@ -4141,6 +4151,38 @@ async def test_telegram_interactive_send_binds_tokens_and_callback_is_one_shot()
     )
     assert adapter.client.answer_callback_query.await_count == 2
     assert adapter._event_queue.empty()
+
+
+@pytest.mark.asyncio
+async def test_telegram_general_topic_callback_matches_message_target():
+    adapter = _interaction_adapter()
+    await adapter.invoke_capability(
+        TELEGRAM_CAPABILITY_NAME,
+        "send_interactive",
+        target="-10001",
+        text="Continue?",
+        buttons=[[{"text": "Yes", "value": "confirm"}]],
+    )
+    token = next(iter(adapter._callback_bindings))
+
+    await adapter.callback_query_handler(
+        _callback_update(
+            token,
+            chat_id=-10001,
+            chat_type="supergroup",
+            is_forum=True,
+            message_thread_id=1,
+            is_topic_message=True,
+        ),
+        _build_context(),
+    )
+
+    event = await adapter._event_queue.get()
+    callback = event.get_extra("telegram_callback")
+    assert isinstance(callback, TelegramCallbackEvent)
+    assert callback.data == "confirm"
+    assert event.get_session_id() == "-10001"
+    assert event.get_group_id() == "-10001"
 
 
 @pytest.mark.asyncio
