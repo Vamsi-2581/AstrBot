@@ -297,6 +297,31 @@ async def test_v1_log_export_skips_files_that_are_not_regular(
 
 
 @pytest.mark.asyncio
+async def test_v1_log_export_reads_logs_under_a_symlinked_log_root(
+    monkeypatch, tmp_path: Path, asgi_client: httpx.AsyncClient
+):
+    """A mounted log root stays exportable; only the file itself must not be a link."""
+    monkeypatch.setenv("ASTRBOT_ROOT", str(tmp_path))
+    mounted_logs = tmp_path / "mounted-logs"
+    mounted_logs.mkdir()
+    (mounted_logs / "astrbot.log").write_text("mounted", encoding="utf-8")
+    (tmp_path / "data").mkdir()
+    try:
+        (tmp_path / "data" / "logs").symlink_to(mounted_logs, target_is_directory=True)
+    except OSError:
+        pytest.skip("symbolic links are unavailable")
+
+    response = await asgi_client.get("/api/v1/logs/export", headers=_jwt_headers())
+
+    assert response.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+        assert archive.read("logs/astrbot.log") == b"mounted"
+        manifest = json.loads(archive.read("manifest.json"))
+    assert manifest["files"] == ["logs/astrbot.log"]
+    assert manifest["skipped"] == []
+
+
+@pytest.mark.asyncio
 async def test_v1_log_export_keeps_archive_names_unique(
     monkeypatch, tmp_path: Path, asgi_app, asgi_client: httpx.AsyncClient
 ):

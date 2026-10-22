@@ -336,10 +336,11 @@ class LogService:
                         index += 1
                     used_names.add(arcname)
                     try:
-                        if (
-                            not stat.S_ISREG(path.lstat().st_mode)
-                            or path.resolve() != path
-                        ):
+                        # Only the final path component must be a regular file.
+                        # A symlinked parent (for example data/logs mounted
+                        # elsewhere) is a supported log root, so it must stay
+                        # exportable; lstat and O_NOFOLLOW reject file links.
+                        if not stat.S_ISREG(path.lstat().st_mode):
                             manifest["skipped"].append(
                                 {"name": arcname, "reason": "not a regular file"}
                             )
@@ -351,10 +352,8 @@ class LogService:
                             continue
                         with open(os.open(path, flags), "rb") as source:
                             info = os.fstat(source.fileno())
-                            if (
-                                not stat.S_ISREG(info.st_mode)
-                                or path.resolve() != path
-                                or not os.path.samestat(info, path.lstat())
+                            if not stat.S_ISREG(info.st_mode) or not os.path.samestat(
+                                info, path.lstat()
                             ):
                                 manifest["skipped"].append(
                                     {
