@@ -42,15 +42,16 @@ class ContentSafetyCheckStage(Stage):
 
         ok, info = await self.strategy_selector.check("\n".join(texts))
         if not ok:
-            if event.get_extra("should_run_command") or event.get_extra(
-                "should_run_llm"
-            ):
-                event.set_result(
-                    MessageEventResult().message(
-                        "你的消息或者大模型的响应中包含不适当的内容，已被屏蔽。",
-                    ),
-                )
-                yield
+            result = MessageEventResult().message(
+                "你的消息或者大模型的响应中包含不适当的内容，已被屏蔽。",
+            )
+            event.set_result(result)
             event.stop_event()
+            # Respond is skipped once the event is stopped, so deliver the
+            # notice here and clear the result to avoid a second send when
+            # ResultDecorate reuses this stage for model output.
+            await event.send(result)
+            event.clear_result()
             logger.info(f"内容安全检查不通过，原因：{info}")
+            yield
             return
