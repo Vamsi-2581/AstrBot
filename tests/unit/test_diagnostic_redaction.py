@@ -185,6 +185,25 @@ def test_stream_drops_oversized_lines_without_leaking_suffixes(monkeypatch):
     assert output.getvalue() == b"normal log\n"
 
 
+def test_stream_hides_key_body_after_oversized_begin_line(monkeypatch):
+    """A BEGIN marker inside a skipped oversized line still hides its body."""
+    monkeypatch.setattr(
+        "astrbot.dashboard.services.diagnostic_service.MAX_LOG_LINE_BYTES", 32
+    )
+    content = (
+        b"a" * 100
+        + b" -----BEGIN PRIVATE KEY-----\n"
+        + b"private-key-body\n"
+        + b"-----END PRIVATE KEY-----\n"
+        + b"normal log\n"
+    )
+    output = io.BytesIO()
+    assert (
+        DiagnosticRedactor().copy_log(io.BytesIO(content), output, len(content)) is True
+    )
+    assert output.getvalue() == b"normal log\n"
+
+
 def test_stream_redacts_private_key_blocks_and_keeps_unterminated_final_line():
     content = b"normal\n-----BEGIN PRIVATE KEY-----\nsecret-body\n-----END PRIVATE KEY-----\nlast line"
     output = io.BytesIO()

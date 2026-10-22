@@ -254,6 +254,7 @@ class DiagnosticRedactor:
         truncated = False
         oversized = False
         private_key = False
+        marker_tail = b""
         pending: list[str] = []
         pending_bytes = 0
         remaining = limit
@@ -299,6 +300,20 @@ class DiagnosticRedactor:
             if oversized or not complete:
                 oversized = not line.endswith(b"\n")
                 if self.enabled:
+                    # An oversized line is skipped, but its armor markers still
+                    # determine whether later lines are key material. Track them
+                    # so a BEGIN inside a skipped line never exposes its body.
+                    haystack = marker_tail + line
+                    marker_tail = haystack[-64:]
+                    if b"PRIVATE KEY" in haystack:
+                        marker_text = haystack.decode("utf-8", errors="replace")
+                        if private_key:
+                            if _PRIVATE_KEY_END.search(marker_text):
+                                private_key = False
+                        elif _PRIVATE_KEY_BEGIN.search(marker_text):
+                            private_key = not _PRIVATE_KEY_END.search(marker_text)
+                    if complete:
+                        marker_tail = b""
                     truncated = True
                     continue
             # Never emit a fragment cut at the export boundary: it could be a token.
@@ -309,6 +324,7 @@ class DiagnosticRedactor:
                 if include_record:
                     target.write(line)
                 continue
+            marker_tail = b""
             text = line.decode("utf-8", errors="replace")
             if (
                 "-----BEGIN " in text
