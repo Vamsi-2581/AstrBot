@@ -941,3 +941,38 @@ async def test_sender_rule_routes_skip_session_resource_authorization(
     assert deleted.json()["status"] == "ok"
     assert session_denied.status_code == 403
     assert preferences.sender_values == {}
+
+
+@pytest.mark.asyncio
+async def test_clear_all_session_rules_preserves_unrelated_umo_preferences(
+    session_service,
+):
+    service, preferences, _providers = session_service
+    umo = "napcat:GroupMessage:user-1_room-a"
+    canonical = session_admission_key_from_umo(umo)
+    assert canonical
+    preferences.session_values.update(
+        {
+            (umo, "session_service_config"): {"llm_enabled": False},
+            (umo, "session_plugin_config"): {umo: {"plugin": True}},
+            (umo, "sel_conv_id"): "conversation-1",
+            (umo, "sel_conv_id:work"): "conversation-2",
+            (umo, "streaming_override"): True,
+            (umo, "builtin_command:help"): True,
+            (umo, "dify_conversation_id"): "dify-1",
+            (canonical, "session_service_config"): {"llm_enabled": False},
+        }
+    )
+
+    await service.delete_session_rule({"umo": umo})
+
+    assert (umo, "session_service_config") not in preferences.session_values
+    assert (umo, "session_plugin_config") not in preferences.session_values
+    assert (canonical, "session_service_config") not in preferences.session_values
+    assert preferences.session_values[(umo, "sel_conv_id")] == "conversation-1"
+    assert preferences.session_values[(umo, "sel_conv_id:work")] == "conversation-2"
+    assert preferences.session_values[(umo, "streaming_override")] is True
+    assert preferences.session_values[(umo, "builtin_command:help")] is True
+    assert preferences.session_values[(umo, "dify_conversation_id")] == "dify-1"
+
+

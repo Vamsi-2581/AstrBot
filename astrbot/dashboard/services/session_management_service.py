@@ -270,10 +270,11 @@ class SessionManagementService:
             await self.preferences.session_remove(canonical, SESSION_SERVICE_CONFIG_KEY)
 
     async def _clear_session_rules(self, umo: str) -> None:
-        await self.preferences.clear_async("umo", umo)
-        canonical = self._canonical_session_key(umo)
-        if canonical is not None:
-            await self.preferences.session_remove(canonical, SESSION_SERVICE_CONFIG_KEY)
+        for rule_key in AVAILABLE_SESSION_RULE_KEYS:
+            if rule_key == SESSION_SERVICE_CONFIG_KEY:
+                await self._remove_session_service_config(umo)
+            else:
+                await self.preferences.session_remove(umo, rule_key)
 
     @staticmethod
     def _session_config_enabled(config: dict, key: str, *, scope_id: str) -> bool:
