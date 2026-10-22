@@ -981,9 +981,12 @@ class KBHelper:
             staging_blob.unlink()
 
         media_paths: list[Path] = []
+        chunks_text: list[str] = []
+        saved_media: list[KBMedia] = []
         swapped_blob = False
         retired_live = False
         relabeled = False
+        finalized = False
         try:
             await self._write_blob(staging_blob, blob_bytes)
             chunks_text, saved_media, _file_size = await self._ingest_chunks_for_doc_id(
@@ -1008,8 +1011,8 @@ class KBHelper:
                 live_doc_id=live_doc_id,
                 saved_media=saved_media,
             )
-            await self._commit_replaced_media(saved_media)
             relabeled = True
+            await self._commit_replaced_media(saved_media)
             doc = await self._update_live_document_metadata(
                 live_doc_id=live_doc_id,
                 file_name=file_name,
@@ -1022,6 +1025,7 @@ class KBHelper:
                 source_kind=source_kind,
                 source_url=source_url,
             )
+            finalized = True
             bak_blob.unlink(missing_ok=True)
             await self._refresh_uploaded_document_state(
                 doc_id=live_doc_id,
@@ -1044,6 +1048,19 @@ class KBHelper:
                 swapped_blob=swapped_blob,
                 retired_live=retired_live,
                 relabeled=relabeled,
+                finalized=finalized,
+                saved_media=saved_media,
+                replacement_metadata={
+                    "file_name": file_name,
+                    "file_type": file_type,
+                    "file_size": len(blob_bytes),
+                    "chunk_count": len(chunks_text),
+                    "media_count": len(saved_media),
+                    "identity_key": identity_key,
+                    "content_hash": content_hash,
+                    "source_kind": source_kind,
+                    "source_url": source_url,
+                },
                 live_blob=live_blob,
                 staging_blob=staging_blob,
                 bak_blob=bak_blob,
@@ -1152,6 +1169,9 @@ class KBHelper:
         swapped_blob: bool,
         retired_live: bool,
         relabeled: bool,
+        finalized: bool,
+        saved_media: list[KBMedia],
+        replacement_metadata: dict[str, Any],
         live_blob: Path,
         staging_blob: Path,
         bak_blob: Path,
@@ -1167,18 +1187,103 @@ class KBHelper:
             staging_blob.unlink(missing_ok=True)
             return
 
+        if relabeled and not finalized:
+            await self._rollback_relabeled_replace(
+                live_doc_id=live_doc_id,
+                live_blob=live_blob,
+                staging_blob=staging_blob,
+                bak_blob=bak_blob,
+                replacement_metadata=replacement_metadata,
+            )
+            return
+
         if not relabeled:
             restored = await self._try_relabel_staging(staging_id, live_doc_id)
-            if not restored:
-                await self._cleanup_failed_upload(
-                    doc_id=staging_id,
-                    media_paths=media_paths,
+            if restored:
+                await self._rollback_relabeled_replace(
+                    live_doc_id=live_doc_id,
+                    live_blob=live_blob,
+                    staging_blob=staging_blob,
+                    bak_blob=bak_blob,
+                    replacement_metadata=replacement_metadata,
                 )
-                restore_blob = bak_blob if bak_blob.exists() else live_blob
-                await self._reembed_from_stored_blob(live_doc_id, restore_blob)
+                return
+            await self._cleanup_failed_upload(
+                doc_id=staging_id,
+                media_paths=media_paths,
+            )
+            if bak_blob.exists():
+                await self._retire_live_chunks(live_doc_id)
+                await self._reembed_from_stored_blob(live_doc_id, bak_blob)
+                live_blob.unlink(missing_ok=True)
+                bak_blob.replace(live_blob)
+            else:
+                await self._roll_forward_replacement(
+                    live_doc_id=live_doc_id,
+                    live_blob=live_blob,
+                    replacement_metadata=replacement_metadata,
+                )
         staging_blob.unlink(missing_ok=True)
 
+    async def _rollback_relabeled_replace(
+        self,
+        *,
+        live_doc_id: str,
+        live_blob: Path,
+        staging_blob: Path,
+        bak_blob: Path,
+        replacement_metadata: dict[str, Any],
+    ) -> None:
+        """Remove a half-committed replacement and restore a consistent generation."""
+        if not bak_blob.exists():
+            # The previous generation had no stored source. Rolling back would
+            # re-embed the incoming body under stale metadata, so finish the
+            # incoming generation instead.
+            await self._roll_forward_replacement(
+                live_doc_id=live_doc_id,
+                live_blob=live_blob,
+                replacement_metadata=replacement_metadata,
+            )
+            staging_blob.unlink(missing_ok=True)
+            return
+        await self._retire_live_chunks(live_doc_id)
+        await self._reembed_from_stored_blob(live_doc_id, bak_blob)
+        live_blob.unlink(missing_ok=True)
+        bak_blob.replace(live_blob)
+        staging_blob.unlink(missing_ok=True)
+
+    async def _roll_forward_replacement(
+        self,
+        *,
+        live_doc_id: str,
+        live_blob: Path,
+        replacement_metadata: dict[str, Any],
+    ) -> None:
+        """Finalize the incoming generation when the previous source is gone."""
+        await self._retire_live_chunks(live_doc_id)
+        restored = await self._reembed_from_stored_blob(live_doc_id, live_blob)
+        metadata = dict(replacement_metadata)
+        if restored is not None:
+            chunks_text, saved_media = restored
+            metadata["chunk_count"] = len(chunks_text)
+            metadata["media_count"] = len(saved_media)
+        await self._update_live_document_metadata(
+            live_doc_id=live_doc_id,
+            **metadata,
+        )
+
     async def _try_relabel_staging(self, staging_id: str, live_doc_id: str) -> bool:
+        try:
+            vec_db = await self._ensure_vec_db()
+            staged_count = await vec_db.count_documents(
+                metadata_filter={"kb_doc_id": staging_id}
+            )
+        except Exception:
+            staged_count = 1
+        if staged_count == 0:
+            # A previous attempt already moved the vectors; re-running relabel
+            # would be a no-op and hide an incomplete media/metadata commit.
+            return False
         try:
             await self._relabel_staging_generation(
                 staging_id=staging_id,
@@ -1196,12 +1301,12 @@ class KBHelper:
 
     async def _reembed_from_stored_blob(
         self, live_doc_id: str, blob_path: Path
-    ) -> None:
+    ) -> tuple[list[str], list[KBMedia]] | None:
         if not blob_path.is_file():
             logger.warning(
                 "Cannot restore document %s; stored source is missing", live_doc_id
             )
-            return
+            return None
         doc = await self.get_document(live_doc_id)
         file_name = doc.doc_name if doc is not None else "restored"
         file_type = doc.file_type if doc is not None else "txt"
@@ -1222,7 +1327,7 @@ class KBHelper:
                     ),
                 )
                 file_content = None
-            await self._ingest_chunks_for_doc_id(
+            chunks_text, saved_media, _file_size = await self._ingest_chunks_for_doc_id(
                 doc_id=live_doc_id,
                 file_name=file_name,
                 file_content=file_content,
@@ -1236,12 +1341,27 @@ class KBHelper:
                 progress_callback=None,
                 pre_chunked_text=pre_chunked_text,
             )
+            await self._commit_replaced_media(saved_media)
+            from sqlalchemy import update
+            from sqlmodel import col
+
+            async with self.kb_db.get_db() as session, session.begin():
+                await session.execute(
+                    update(KBDocument)
+                    .where(col(KBDocument.doc_id) == live_doc_id)
+                    .values(
+                        chunk_count=len(chunks_text),
+                        media_count=len(saved_media),
+                    )
+                )
+            return chunks_text, saved_media
         except Exception as exc:
             logger.warning(
                 "Failed to restore document %s from stored source: %s",
                 live_doc_id,
                 exc,
             )
+            return None
 
     async def _recover_interrupted_replace(self) -> None:
         """Drop orphan staging vectors and rebuild live docs that lost chunks."""
