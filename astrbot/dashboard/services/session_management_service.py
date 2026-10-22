@@ -233,8 +233,8 @@ class SessionManagementService:
         return stored
 
     @staticmethod
-    def _canonical_session_key(umo: str, *, group_id: str | None = None) -> str | None:
-        key = session_admission_key_from_umo(umo, group_id=group_id)
+    def _canonical_session_key(umo: str) -> str | None:
+        key = session_admission_key_from_umo(umo)
         if key and key != umo:
             return key
         return None
@@ -243,11 +243,9 @@ class SessionManagementService:
         self,
         umo: str,
         config: dict[str, Any],
-        *,
-        group_id: str | None = None,
     ) -> None:
         await self.preferences.session_put(umo, SESSION_SERVICE_CONFIG_KEY, config)
-        canonical = self._canonical_session_key(umo, group_id=group_id)
+        canonical = self._canonical_session_key(umo)
         if canonical is None:
             return
         raw = await self.preferences.session_get(
@@ -261,11 +259,9 @@ class SessionManagementService:
             canonical, SESSION_SERVICE_CONFIG_KEY, listed
         )
 
-    async def _remove_session_service_config(
-        self, umo: str, *, group_id: str | None = None
-    ) -> None:
+    async def _remove_session_service_config(self, umo: str) -> None:
         await self.preferences.session_remove(umo, SESSION_SERVICE_CONFIG_KEY)
-        canonical = self._canonical_session_key(umo, group_id=group_id)
+        canonical = self._canonical_session_key(umo)
         if canonical is not None:
             await self.preferences.session_remove(canonical, SESSION_SERVICE_CONFIG_KEY)
 
@@ -746,9 +742,7 @@ class SessionManagementService:
                             provider_type,
                         )
                     elif rule_key == SESSION_SERVICE_CONFIG_KEY:
-                        await self._remove_session_service_config(
-                            umo, group_id=group_id or None
-                        )
+                        await self._remove_session_service_config(umo)
                     else:
                         await self.preferences.session_remove(umo, rule_key)
                 else:
@@ -933,9 +927,7 @@ class SessionManagementService:
                 if session_blocked is not None:
                     session_config["session_blocked"] = session_blocked
 
-                await self._put_session_service_config(
-                    umo, session_config, group_id=group_id or None
-                )
+                await self._put_session_service_config(umo, session_config)
                 success_count += 1
             except Exception as exc:
                 logger.error("更新会话服务状态失败: %s", safe_error("", exc))

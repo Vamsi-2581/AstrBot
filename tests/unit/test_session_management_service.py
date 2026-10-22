@@ -976,3 +976,34 @@ async def test_clear_all_session_rules_preserves_unrelated_umo_preferences(
     assert preferences.session_values[(umo, "dify_conversation_id")] == "dify-1"
 
 
+@pytest.mark.asyncio
+async def test_batch_updates_ignore_dashboard_group_ids_for_admission_keys(
+    session_service,
+):
+    service, preferences, _providers = session_service
+    umo = "napcat:GroupMessage:user-1_room-a"
+    dashboard_group_id = "ab12cd34"
+    canonical = session_admission_key_from_umo(umo)
+    assert canonical == "session:napcat:group:room-a"
+
+    await service.batch_update_service(
+        {
+            "umos": [umo],
+            "group_id": dashboard_group_id,
+            "llm_enabled": False,
+        }
+    )
+
+    assert preferences.session_values[(canonical, "session_service_config")] == {
+        "llm_enabled": False
+    }
+    assert (
+        f"session:napcat:group:{dashboard_group_id}",
+        "session_service_config",
+    ) not in preferences.session_values
+
+    await service.batch_delete_session_rule(
+        {"umos": [umo], "group_id": dashboard_group_id}
+    )
+
+    assert (canonical, "session_service_config") not in preferences.session_values
