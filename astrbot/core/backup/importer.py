@@ -54,6 +54,7 @@ from ._importer_versioning import (
 
 # 从共享常量模块导入
 from .constants import (
+    EXCLUDED_MAIN_DB_MODELS,
     KB_VECTOR_INDEX_FILENAMES,
     MAIN_DB_MODELS,
 )
@@ -271,18 +272,30 @@ class AstrBotImporter:
             result.add_internal_warning("导入知识库失败", exc)
 
     def _import_config_stage(self, zf: zipfile.ZipFile, result: ImportResult) -> None:
-        if "config/cmd_config.json" not in zf.namelist():
-            return
+        if "config/cmd_config.json" in zf.namelist():
+            try:
+                config_content = zf.read("config/cmd_config.json")
+                if os.path.exists(self.config_path):
+                    shutil.copy2(self.config_path, f"{self.config_path}.bak")
+                with open(self.config_path, "wb") as f:
+                    f.write(config_content)
+                result.imported_files["config"] = 1
+            except Exception as exc:
+                result.add_internal_warning("导入配置文件失败", exc)
 
-        try:
-            config_content = zf.read("config/cmd_config.json")
-            if os.path.exists(self.config_path):
-                shutil.copy2(self.config_path, f"{self.config_path}.bak")
-            with open(self.config_path, "wb") as f:
-                f.write(config_content)
-            result.imported_files["config"] = 1
-        except Exception as exc:
-            result.add_internal_warning("导入配置文件失败", exc)
+        if "config/mcp_server.json" in zf.namelist():
+            try:
+                mcp_config_path = Path(get_astrbot_data_path()) / "mcp_server.json"
+                mcp_config_path.parent.mkdir(parents=True, exist_ok=True)
+                if mcp_config_path.exists():
+                    shutil.copy2(
+                        mcp_config_path,
+                        mcp_config_path.with_suffix(".json.bak"),
+                    )
+                mcp_config_path.write_bytes(zf.read("config/mcp_server.json"))
+                result.imported_files["mcp_config"] = 1
+            except Exception as exc:
+                result.add_internal_warning("Failed to restore MCP configuration", exc)
 
     async def _import_attachments_stage(
         self,
@@ -507,7 +520,10 @@ class AstrBotImporter:
         """清空主数据库所有表"""
         async with self.main_db.get_db() as session:
             async with session.begin():
-                for table_name, model_class in MAIN_DB_MODELS.items():
+                # Replace restores also invalidate device trust on the target instance.
+                for table_name, model_class in (
+                    MAIN_DB_MODELS | EXCLUDED_MAIN_DB_MODELS
+                ).items():
                     try:
                         await session.execute(delete(model_class))
                         logger.debug(f"已清空表 {table_name}")
