@@ -330,7 +330,13 @@ class WakingCheckStage(Stage):
                 and principal_username == event.get_sender_id()
             ):
                 principal_auth_strength = dashboard_principal.get("auth_strength")
-                if principal_auth_strength in {"none", "password", "totp", "step_up"}:
+                if principal_auth_strength in {
+                    "none",
+                    "password",
+                    "totp",
+                    "step_up",
+                    "oidc",
+                }:
                     auth_strength = principal_auth_strength
                 subject = Subject.dashboard_account(account_id, principal_username)
                 authenticated = True

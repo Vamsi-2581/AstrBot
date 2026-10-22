@@ -9,6 +9,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 from sqlmodel import select
 
+from astrbot.core.auth.models import AuthContext, Subject
 from astrbot.core.db.po import DashboardAccount, DashboardExternalIdentity
 from astrbot.core.db.sqlite import SQLiteDatabase
 from astrbot.core.utils.totp import TotpRuntimeState
@@ -214,6 +215,17 @@ async def test_oidc_flow_creates_and_reuses_account(
     first = await service.oidc_callback("code", "state-1")
     assert first.jwt_token
     assert first.data["username"] == "alice"
+    principal = service.token_validator.validate(first.jwt_token)
+    assert principal.auth_strength == "oidc"
+    context = AuthContext(
+        subject=Subject.dashboard_account(
+            principal.account_id or "", principal.username
+        ),
+        source="dashboard",
+        authenticated=True,
+        auth_strength=principal.auth_strength,
+    )
+    assert context.auth_strength == "oidc"
 
     async with temp_db.get_db() as session:
         identities = (

@@ -207,7 +207,7 @@ class DashboardTokenValidator:
             not isinstance(account_id, str) or not account_id
         ):
             raise jwt.InvalidTokenError("Invalid Dashboard account claim")
-        if auth_strength not in {"password", "totp", "step_up"}:
+        if auth_strength not in {"password", "totp", "step_up", "oidc"}:
             raise jwt.InvalidTokenError("Invalid Dashboard auth strength")
         issued = (
             datetime.datetime.fromtimestamp(float(payload["iat"]), datetime.UTC)
