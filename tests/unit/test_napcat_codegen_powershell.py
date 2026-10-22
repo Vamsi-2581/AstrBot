@@ -122,3 +122,17 @@ def test_generate_models_validates_the_temporary_output_path() -> None:
 
     assert "Get-Content -LiteralPath $temporaryOutputPath -Raw" in script
     assert "Get-Content -LiteralPath $OutputPath -Raw" not in script
+
+
+def test_generate_schema_scopes_git_commands_to_the_clone_directory() -> None:
+    script = (REPO_ROOT / "scripts/napcat/generate_ob11_event_schema.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    assert "git -C $parent clone" in script
+    assert "git -C $Path fetch" in script
+    assert "git -C $Path checkout" in script
+    assert "git -C $cloneDir rev-parse HEAD" in script
+    assert "git -C $cloneDir fetch" in script
+    assert "git -C $cloneDir checkout" in script
+    assert script.count("$LASTEXITCODE") >= 6

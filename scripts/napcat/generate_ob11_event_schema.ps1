@@ -102,13 +102,20 @@ function Ensure-NapCatRepo {
         return
     }
 
-    Ensure-Directory -Path (Split-Path -Parent $Path)
-    git clone --depth 1 --filter=blob:none $RepoUrl $Path
+    $parent = Split-Path -Parent $Path
+    Ensure-Directory -Path $parent
+    git -C $parent clone --depth 1 --filter=blob:none $RepoUrl $Path
     if ($LASTEXITCODE -ne 0) {
         throw "git clone failed: $RepoUrl"
     }
-    git fetch --depth 1 origin $PinnedRevision
-    git checkout --detach $PinnedRevision
+    git -C $Path fetch --depth 1 origin $PinnedRevision
+    if ($LASTEXITCODE -ne 0) {
+        throw "git fetch failed for revision $PinnedRevision in $Path"
+    }
+    git -C $Path checkout --detach $PinnedRevision
+    if ($LASTEXITCODE -ne 0) {
+        throw "git checkout failed for revision $PinnedRevision in $Path"
+    }
 }
 
 Require-Command -Name "git"
@@ -133,9 +140,19 @@ $cloneDir = [System.IO.Path]::GetFullPath($CloneDir)
 $outputDir = [System.IO.Path]::GetFullPath($OutputDir)
 
 Ensure-NapCatRepo -RepoUrl $NapCatRepoUrl -Path $cloneDir -ResetClone:$ForceClone.IsPresent -PinnedRevision $Revision
-if ((git -C $cloneDir rev-parse HEAD).Trim() -ne $Revision) {
+$currentRevision = git -C $cloneDir rev-parse HEAD
+if ($LASTEXITCODE -ne 0) {
+    throw "git rev-parse failed in $cloneDir"
+}
+if ($currentRevision.Trim() -ne $Revision) {
     git -C $cloneDir fetch --depth 1 origin $Revision
+    if ($LASTEXITCODE -ne 0) {
+        throw "git fetch failed for revision $Revision in $cloneDir"
+    }
     git -C $cloneDir checkout --detach $Revision
+    if ($LASTEXITCODE -ne 0) {
+        throw "git checkout failed for revision $Revision in $cloneDir"
+    }
 }
 Ensure-Directory -Path $outputDir
 
