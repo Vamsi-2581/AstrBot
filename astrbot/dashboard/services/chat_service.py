@@ -1549,6 +1549,30 @@ class ChatService:
             raise ChatServiceError("Missing or invalid key: session_ids")
         return await self.batch_delete_sessions(username, session_ids, delete_session)
 
+    async def delete_attachment(self, attachment_id: str) -> bool:
+        """Delete one attachment file and its database record.
+
+        Args:
+            attachment_id: Attachment identifier to remove.
+
+        Returns:
+            True when the record existed and was deleted, False when absent.
+
+        Raises:
+            ChatServiceError: The stored file could not be removed.
+        """
+
+        attachments = await self.db.get_attachments([attachment_id])
+        if not attachments:
+            return False
+        for attachment in attachments:
+            path = Path(attachment.path)
+            try:
+                await asyncio.to_thread(path.unlink, missing_ok=True)
+            except OSError as exc:
+                raise ChatServiceError("File access error") from exc
+        return bool(await self.db.delete_attachment(attachment_id))
+
     async def delete_attachments(self, attachment_ids: list[str]) -> None:
         try:
             attachments = await self.db.get_attachments(attachment_ids)

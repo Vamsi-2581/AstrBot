@@ -93,6 +93,7 @@ import type {
   DeleteAppearanceWallpaperErrors,
   DeleteAppearanceWallpaperResponses,
   DeleteAttachmentData,
+  DeleteAttachmentErrors,
   DeleteAttachmentResponses,
   DeleteBackupData,
   DeleteBackupResponses,
@@ -3375,10 +3376,14 @@ export const getTokenFile = <ThrowOnError extends boolean = false>(
  */
 export const deleteAttachment = <ThrowOnError extends boolean = false>(
   options: Options<DeleteAttachmentData, ThrowOnError>,
-): RequestResult<DeleteAttachmentResponses, unknown, ThrowOnError> =>
+): RequestResult<
+  DeleteAttachmentResponses,
+  DeleteAttachmentErrors,
+  ThrowOnError
+> =>
   (options.client ?? client).delete<
     DeleteAttachmentResponses,
-    unknown,
+    DeleteAttachmentErrors,
     ThrowOnError
   >({
     responseType: 'json',

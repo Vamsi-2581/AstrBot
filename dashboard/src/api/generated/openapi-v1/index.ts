@@ -535,6 +535,8 @@ export type {
   DeleteAppearanceWallpaperResponse,
   DeleteAppearanceWallpaperResponses,
   DeleteAttachmentData,
+  DeleteAttachmentError,
+  DeleteAttachmentErrors,
   DeleteAttachmentResponse,
   DeleteAttachmentResponses,
   DeleteBackupData,

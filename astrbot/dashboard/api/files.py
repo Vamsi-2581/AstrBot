@@ -12,7 +12,7 @@ from fastapi import (
     Request,
     UploadFile,
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.background import BackgroundTask
 
 from astrbot.core.auth.models import Resource
@@ -261,5 +261,12 @@ async def get_file(
 async def delete_file(
     attachment_id: str,
     _auth: AuthContext = Depends(require_file_scope),
+    service: ChatService = Depends(get_chat_service),
 ):
+    try:
+        deleted = await service.delete_attachment(attachment_id)
+    except ChatServiceError:
+        return JSONResponse(error("File access error"), status_code=500)
+    if not deleted:
+        return JSONResponse(error("Attachment not found"), status_code=404)
     return ok({"attachment_id": attachment_id})

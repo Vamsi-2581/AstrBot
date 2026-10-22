@@ -2275,6 +2275,9 @@
         "responses": {
           "200": {
             "$ref": "#/components/responses/Ok"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
           }
         }
       }
