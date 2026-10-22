@@ -7486,6 +7486,27 @@ export type GetLogHistoryResponses = {
 export type GetLogHistoryResponse =
   GetLogHistoryResponses[keyof GetLogHistoryResponses];
 
+export type ExportLogsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Mask recognized credentials. Disable only for private diagnosis.
+     */
+    redact?: boolean;
+  };
+  url: '/api/v1/logs/export';
+};
+
+export type ExportLogsResponses = {
+  /**
+   * Diagnostic ZIP. With redact=false it contains original sensitive values; personal data may remain in either mode.
+   */
+  200: Blob | File;
+};
+
+export type ExportLogsResponse = ExportLogsResponses[keyof ExportLogsResponses];
+
 export type ListTracesData = {
   body?: never;
   path?: never;

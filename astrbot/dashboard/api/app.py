@@ -319,7 +319,7 @@ def create_dashboard_asgi_app(
             token_validator=dashboard_token_validator,
             auth_service=auth_service,
         ),
-        logs=LogService(runtime.log_broker, runtime.astrbot_config),
+        logs=LogService(runtime.log_broker, runtime.astrbot_config, core=runtime),
         bots=BotConfigService(
             runtime.astrbot_config,
             runtime.catalogs.platforms,

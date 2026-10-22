@@ -2,6 +2,7 @@
 import { reactive, ref, watch } from 'vue';
 import { updatesApi } from '@/api/v1';
 import ConsoleDisplayer from '@/components/shared/ConsoleDisplayer.vue';
+import LogExportButton from '@/components/shared/LogExportButton.vue';
 import DashboardStepUpDialog from '@/components/shared/DashboardStepUpDialog.vue';
 import { useDashboardStepUp } from '@/composables/useDashboardStepUp';
 import { useModuleI18n } from '@/i18n/composables';
@@ -87,6 +88,7 @@ async function pipInstall(): Promise<void> {
     >
       <template #header-actions>
         <div class="console-header-actions">
+          <LogExportButton />
           <div
             class="console-font-controls"
             role="group"

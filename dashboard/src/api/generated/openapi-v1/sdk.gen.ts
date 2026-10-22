@@ -164,6 +164,8 @@ import type {
   EvaluateNeoSkillCandidateResponses,
   ExportConversationsData,
   ExportConversationsResponses,
+  ExportLogsData,
+  ExportLogsResponses,
   GetActiveT2iTemplateData,
   GetActiveT2iTemplateResponses,
   GetAppearanceSettingsData,
@@ -6703,6 +6705,32 @@ export const getLogHistory = <ThrowOnError extends boolean = false>(
     responseType: 'json',
     security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/logs/history',
+    ...options,
+  });
+
+/**
+ * Export a diagnostic bundle
+ *
+ * Requires a dashboard administrator session. Developer API keys are not accepted. Includes available disk and memory logs, trace history, configuration, plugin status and environment details. Credentials are masked by default; setting redact=false exports original sensitive values.
+ */
+export const exportLogs = <ThrowOnError extends boolean = false>(
+  options?: Options<ExportLogsData, ThrowOnError>,
+): RequestResult<ExportLogsResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<ExportLogsResponses, unknown, ThrowOnError>({
+    responseType: 'blob',
+    security: [
+      {
+        key: 'DashboardBearerAuth',
+        scheme: 'bearer',
+        type: 'http',
+      },
+      {
+        in: 'cookie',
+        name: 'astrbot_dashboard_jwt',
+        type: 'apiKey',
+      },
+    ],
+    url: '/api/v1/logs/export',
     ...options,
   });
 

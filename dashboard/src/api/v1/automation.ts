@@ -8,7 +8,7 @@ import type {
   ModelScopeSyncRequest,
   T2iTemplateRequest,
 } from './shared';
-import type { AxiosRequestConfig } from './shared';
+import type { AxiosRequestConfig, AxiosResponse } from './shared';
 import type {
   CommandListData,
   CronJobListParams,
@@ -296,6 +296,12 @@ export const logApi = {
     return typed<{ logs?: OpenConfig[] }>(
       openApiV1.getLogHistory({ query: filters }),
     );
+  },
+  exportArchive(redact = true) {
+    return openApiV1.exportLogs({
+      query: { redact },
+      responseType: 'blob',
+    }) as Promise<AxiosResponse<Blob>>;
   },
   liveUrl(filters?: { category?: string[]; privacy?: string[] }) {
     const params = new URLSearchParams();
