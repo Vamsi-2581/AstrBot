@@ -292,8 +292,9 @@ def _extract_repaired_chunks(llm_output: str) -> list[str] | None:
         re.DOTALL,
     )
     if matches:
-        return [match.strip() for match in matches if match.strip()]
-    return []
+        stripped = [match.strip() for match in matches if match.strip()]
+        return stripped or None
+    return None
 
 
 def _merge_repaired_chunks(
