@@ -113,3 +113,12 @@ def test_generate_ob11_event_models_rejects_invalid_json(tmp_path: Path) -> None
     output = _normalize_powershell_output(proc.stderr or proc.stdout)
     assert "Schema file is not valid JSON:" in output
     assert str(schema_path) in _compact_for_path_match(output)
+
+
+def test_generate_models_validates_the_temporary_output_path() -> None:
+    script = (REPO_ROOT / "scripts/napcat/generate_ob11_event_models.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    assert "Get-Content -LiteralPath $temporaryOutputPath -Raw" in script
+    assert "Get-Content -LiteralPath $OutputPath -Raw" not in script

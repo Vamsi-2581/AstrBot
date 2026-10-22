@@ -80,10 +80,10 @@ if (-not (Test-Path -LiteralPath $temporaryOutputPath)) {
 }
 
 try {
-    $null = Get-Content -LiteralPath $OutputPath -Raw
+    $null = Get-Content -LiteralPath $temporaryOutputPath -Raw
 }
 catch {
-    throw "Generated Python models could not be read: $OutputPath"
+    throw "Generated Python models could not be read: $temporaryOutputPath"
 }
 
 & uv run ruff check --fix $temporaryOutputPath
