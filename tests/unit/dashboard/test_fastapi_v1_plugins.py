@@ -1023,3 +1023,38 @@ async def test_v1_plugin_config_upload_rejects_too_many_files(
     data = response.json()
     assert data["status"] == "error"
     assert data["message"] == "Invalid upload request"
+
+
+@pytest.mark.asyncio
+async def test_v1_plugin_source_mutations_reject_demo_mode_with_envelope(
+    asgi_client: httpx.AsyncClient,
+    asgi_app: FastAPI,
+):
+    service = asgi_app.state.services.plugins
+    original_demo_mode = service.demo_mode
+    service.demo_mode = True
+    try:
+        responses = [
+            await asgi_client.post(
+                "/api/v1/plugin-sources",
+                headers=_jwt_headers(),
+                json={"url": "https://example.com/source"},
+            ),
+            await asgi_client.put(
+                "/api/v1/plugin-sources",
+                headers=_jwt_headers(),
+                json={"sources": []},
+            ),
+            await asgi_client.delete(
+                "/api/v1/plugin-sources/source-id",
+                headers=_jwt_headers(),
+            ),
+        ]
+    finally:
+        service.demo_mode = original_demo_mode
+
+    for response in responses:
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "error"
+        assert "demo" in data["message"].lower()

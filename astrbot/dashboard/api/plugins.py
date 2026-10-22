@@ -131,6 +131,14 @@ async def _run_service(operation, *, log_label: str | None = None):
         }
 
 
+async def _run_plugin_sources(operation, *, log_label: str):
+    async def wrapped():
+        sources = await run_maybe_async(operation)
+        return {"sources": sources}, "保存成功"
+
+    return await _run_service(wrapped, log_label=log_label)
+
+
 @router.get("/plugins/failed")
 async def list_failed_plugins(
     _auth: AuthContext = Depends(require_plugin_scope),
@@ -265,9 +273,9 @@ async def create_plugin_source(
     _auth: AuthContext = Depends(require_plugin_scope),
     service: PluginService = Depends(get_service),
 ):
-    return ok(
-        {"sources": await service.create_custom_source(model_dict(payload))},
-        message="保存成功",
+    return await _run_plugin_sources(
+        lambda: service.create_custom_source(model_dict(payload)),
+        log_label="Create plugin source",
     )
 
 
@@ -277,9 +285,9 @@ async def replace_plugin_sources(
     _auth: AuthContext = Depends(require_plugin_scope),
     service: PluginService = Depends(get_service),
 ):
-    return ok(
-        {"sources": await service.replace_custom_sources(model_dict(payload))},
-        message="保存成功",
+    return await _run_plugin_sources(
+        lambda: service.replace_custom_sources(model_dict(payload)),
+        log_label="Replace plugin sources",
     )
 
 
@@ -289,9 +297,9 @@ async def delete_plugin_source(
     _auth: AuthContext = Depends(require_plugin_scope),
     service: PluginService = Depends(get_service),
 ):
-    return ok(
-        {"sources": await service.delete_custom_source(source_id)},
-        message="保存成功",
+    return await _run_plugin_sources(
+        lambda: service.delete_custom_source(source_id),
+        log_label="Delete plugin source",
     )
 
 
