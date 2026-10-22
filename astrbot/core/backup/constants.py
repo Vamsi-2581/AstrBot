@@ -11,6 +11,7 @@ from astrbot.core.db.po import (
     CommandConfig,
     CommandConflict,
     ConversationV2,
+    CronJob,
     PlatformMessageHistory,
     PlatformSession,
     PlatformStat,
@@ -44,6 +45,7 @@ from astrbot.core.utils.astrbot_path import (
 MAIN_DB_MODELS: dict[str, type[SQLModel]] = {
     "platform_stats": PlatformStat,
     "conversations": ConversationV2,
+    "cron_jobs": CronJob,
     "prompts": Prompt,
     "prompt_folders": PromptFolder,
     "preferences": Preference,

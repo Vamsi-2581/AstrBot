@@ -30,6 +30,7 @@ from astrbot.core.config.default import VERSION
 from astrbot.core.db.po import (
     ConversationV2,
 )
+from astrbot.core.db.sqlite import SQLiteDatabase
 from astrbot.dashboard.services.backup_service import (
     generate_unique_filename,
     secure_filename,
@@ -1043,6 +1044,38 @@ class TestModelMappings:
 
 class TestBackupIntegration:
     """备份集成测试"""
+
+    @pytest.mark.asyncio
+    async def test_cron_jobs_roundtrip(self, tmp_path):
+        """Preserve a scheduled task through backup export and import."""
+        source = SQLiteDatabase(str(tmp_path / "source.db"))
+        target = SQLiteDatabase(str(tmp_path / "target.db"))
+        try:
+            job = await source.create_cron_job(
+                name="Daily reminder",
+                job_type="active_agent",
+                cron_expression="0 9 * * *",
+                timezone="Asia/Taipei",
+                payload={"message": "Reminder"},
+            )
+            exporter = AstrBotExporter(
+                main_db=source, config_path=str(tmp_path / "missing-config.json")
+            )
+            with patch(
+                "astrbot.core.backup.exporter.get_backup_directories", return_value={}
+            ):
+                zip_path = await exporter.export_all(
+                    output_dir=str(tmp_path / "backups")
+                )
+
+            result = await AstrBotImporter(main_db=target).import_all(zip_path)
+            assert result.success, result.errors
+            restored = await target.list_cron_jobs()
+            assert len(restored) == 1
+            assert restored[0].model_dump() == job.model_dump()
+        finally:
+            await source.engine.dispose()
+            await target.engine.dispose()
 
     @pytest.mark.asyncio
     async def test_export_import_roundtrip(self, tmp_path):
