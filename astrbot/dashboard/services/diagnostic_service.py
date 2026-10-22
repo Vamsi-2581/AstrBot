@@ -26,7 +26,8 @@ _SECRET_KEY = re.compile(
 _ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 _AUTH = re.compile(r"\b(Bearer|Basic|ApiKey)\s+[^\s\"'<>]+", re.IGNORECASE)
 _COOKIE = re.compile(r"(\b(?:set-cookie|cookie)\s*:\s*)[^\r\n]+", re.IGNORECASE)
-_URL_AUTH = re.compile(r"(https?://)[^/\s@]+@", re.IGNORECASE)
+_AUTH_HEADER = re.compile(r"(\b(?:proxy-)?authorization\s*:\s*)[^\r\n]+", re.IGNORECASE)
+_URL_AUTH = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*://)[^/\s@]+@")
 _ASSIGNMENT = re.compile(r"(?<![\w.-])([\w.-]+)[\"']?\s*[:=]\s*")
 _ASSIGNMENT_KEY = re.compile(
     r"token|secret|password|passwd|api[_-]?key|access[_-]?key|aes[_-]?key|"
@@ -40,9 +41,12 @@ _TOKEN = re.compile(
     r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,})"
 )
 _PRIVATE_KEY = re.compile(
-    r"-----BEGIN [\w ]*PRIVATE KEY-----.*?(?:-----END [\w ]*PRIVATE KEY-----|\Z)",
+    r"-----BEGIN [\w ]*PRIVATE KEY(?: BLOCK)?-----.*?"
+    r"(?:-----END [\w ]*PRIVATE KEY(?: BLOCK)?-----|\Z)",
     re.DOTALL,
 )
+_PRIVATE_KEY_BEGIN = re.compile(r"-----BEGIN [\w ]*PRIVATE KEY(?: BLOCK)?-----")
+_PRIVATE_KEY_END = re.compile(r"-----END [\w ]*PRIVATE KEY(?: BLOCK)?-----")
 _IP_LITERAL = re.compile(
     r"(?<![\w.])(?:"
     r"\[[0-9a-fA-F:.]{2,45}(?:%[\w.-]{1,64})?\]|"
@@ -128,7 +132,7 @@ class DiagnosticRedactor:
             return value
         if "\x1b[" in value:
             value = _ANSI.sub("", value)
-        if "PRIVATE KEY-----" in value:
+        if "-----BEGIN " in value and "PRIVATE KEY" in value:
             value = _PRIVATE_KEY.sub(REDACTED, value)
         if self.secrets:
             if self._sorted_secrets is None:
@@ -140,6 +144,8 @@ class DiagnosticRedactor:
         # characters that lower() does not normalize to the ASCII hint.
         lowered = value.lower()
         ascii_only = value.isascii()
+        if not ascii_only or "authorization" in lowered:
+            value = _AUTH_HEADER.sub(lambda match: f"{match[1]}{REDACTED}", value)
         if not ascii_only or any(
             prefix in lowered for prefix in ("bearer", "basic", "apikey")
         ):
@@ -304,11 +310,15 @@ class DiagnosticRedactor:
                     target.write(line)
                 continue
             text = line.decode("utf-8", errors="replace")
-            if "-----BEGIN " in text and "PRIVATE KEY-----" in text:
-                private_key = not ("-----END " in text and "PRIVATE KEY-----" in text)
+            if (
+                "-----BEGIN " in text
+                and "PRIVATE KEY" in text
+                and _PRIVATE_KEY_BEGIN.search(text)
+            ):
+                private_key = not _PRIVATE_KEY_END.search(text)
                 text = REDACTED + "\n"
             elif private_key:
-                if "-----END " in text and "PRIVATE KEY-----" in text:
+                if _PRIVATE_KEY_END.search(text):
                     private_key = False
                 continue
             if not include_record:

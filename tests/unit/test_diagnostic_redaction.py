@@ -63,6 +63,35 @@ def test_redacts_known_escaped_and_unconfigured_credentials():
 
 
 @pytest.mark.parametrize(
+    "url",
+    [
+        "https://user:private-pass@example.com/v1",
+        "postgresql://user:private-pass@db.example.com:5432/app",
+        "redis://:private-pass@cache.example.com:6379/0",
+        "amqp://user:private-pass@broker:5672/",
+    ],
+)
+def test_url_userinfo_credentials_are_redacted_for_every_scheme(url):
+    result = DiagnosticRedactor().text(url)
+    assert "private-pass" not in result
+    assert "[REDACTED]" in result
+    assert url.split("://", 1)[0] + "://" in result
+
+
+def test_authorization_header_values_are_redacted_completely():
+    text = (
+        'Authorization: Digest username="user", nonce="nonce-value", '
+        'response="response-value"\n'
+        "Proxy-Authorization: Custom header-credential"
+    )
+    result = DiagnosticRedactor().text(text)
+    assert "response-value" not in result
+    assert "header-credential" not in result
+    assert "Authorization: [REDACTED]" in result
+    assert "Proxy-Authorization: [REDACTED]" in result
+
+
+@pytest.mark.parametrize(
     "key",
     ["api_key", "custom_token_value", "X-Authorization", "X-Cookie", "x.key", "key"],
 )
@@ -158,6 +187,34 @@ def test_stream_drops_oversized_lines_without_leaking_suffixes(monkeypatch):
 
 def test_stream_redacts_private_key_blocks_and_keeps_unterminated_final_line():
     content = b"normal\n-----BEGIN PRIVATE KEY-----\nsecret-body\n-----END PRIVATE KEY-----\nlast line"
+    output = io.BytesIO()
+    redactor = DiagnosticRedactor()
+    assert redactor.copy_log(io.BytesIO(content), output, len(content)) is False
+    assert output.getvalue() == b"normal\n[REDACTED]\nlast line"
+
+
+@pytest.mark.parametrize(
+    ("begin", "end"),
+    [
+        (
+            "-----BEGIN PGP PRIVATE KEY BLOCK-----",
+            "-----END PGP PRIVATE KEY BLOCK-----",
+        ),
+        (
+            "-----BEGIN SSH2 ENCRYPTED PRIVATE KEY-----",
+            "-----END SSH2 ENCRYPTED PRIVATE KEY-----",
+        ),
+        (
+            "-----BEGIN OPENSSH PRIVATE KEY-----",
+            "-----END OPENSSH PRIVATE KEY-----",
+        ),
+    ],
+)
+def test_armored_private_key_variants_are_redacted(begin, end):
+    block = f"{begin}\nsecret-body\n{end}"
+    assert DiagnosticRedactor().text(block) == "[REDACTED]"
+
+    content = f"normal\n{block}\nlast line".encode()
     output = io.BytesIO()
     redactor = DiagnosticRedactor()
     assert redactor.copy_log(io.BytesIO(content), output, len(content)) is False
