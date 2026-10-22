@@ -119,7 +119,7 @@ class WeChatKFMessage(BaseWeChatAPI):
             user_id,
             open_kfid,
             msgid,
-            msg={"msgtype": "news", "link": {"link": articles_data}},
+            msg={"msgtype": "link", "link": articles_data},
         )
 
     def send_msgmenu(
@@ -161,7 +161,7 @@ class WeChatKFMessage(BaseWeChatAPI):
             msgid,
             msg={
                 "msgtype": "location",
-                "msgmenu": {
+                "location": {
                     "name": name,
                     "address": address,
                     "latitude": latitude,
@@ -186,7 +186,7 @@ class WeChatKFMessage(BaseWeChatAPI):
             msgid,
             msg={
                 "msgtype": "miniprogram",
-                "msgmenu": {
+                "miniprogram": {
                     "appid": appid,
                     "title": title,
                     "thumb_media_id": thumb_media_id,
