@@ -30,6 +30,7 @@
             color="primary"
             prepend-icon="mdi-content-save"
             :loading="saving"
+            :disabled="saving || loading || !hasLoaded"
             @click="save"
           >
             {{ tm('actions.save') }}
@@ -480,6 +481,11 @@ function validateBeforeSave(): boolean {
 }
 
 async function save() {
+  if (saving.value || loading.value) return;
+  if (!hasLoaded.value) {
+    toast(tm('messages.loadConfigFailed'), 'error');
+    return;
+  }
   if (!validateBeforeSave()) return;
   saving.value = true;
   try {

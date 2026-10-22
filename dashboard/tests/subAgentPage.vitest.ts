@@ -98,6 +98,23 @@ describe('SubAgentPage', () => {
     );
   });
 
+  it('does not save an empty default list after the initial load fails', async () => {
+    api.getConfig.mockRejectedValue(new Error('offline'));
+    const wrapper = mountWithVuetify(SubAgentPage);
+    await flushPromises();
+
+    const saveButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Save');
+    expect(saveButton).toBeDefined();
+    expect(saveButton!.attributes('disabled')).toBeDefined();
+    await saveButton!.trigger('click');
+    await flushPromises();
+
+    expect(api.updateConfig).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
   it('requests the unload prompt with a truthy returnValue for legacy browsers', () => {
     expect(pageSource).toContain('event.returnValue = true');
   });
