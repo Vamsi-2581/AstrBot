@@ -26,7 +26,13 @@ from astrbot.dashboard.services.knowledge_base_service import (
     KnowledgeBaseServiceError,
 )
 
-from .auth import AuthContext, object_resource, require_resource_action, require_scope
+from .auth import (
+    AuthContext,
+    _request_config_id,
+    object_resource,
+    require_resource_action,
+    require_scope,
+)
 from .error_handling import internal_error_response, service_error_response
 
 KB_UPLOAD_MAX_FIELDS = 100
@@ -40,6 +46,7 @@ def get_service(request: Request) -> KnowledgeBaseService:
 
 async def require_kb_scope(request: Request) -> AuthContext:
     auth = await require_scope(request, "kb")
+    config_id = _request_config_id(request)
     path_params = request.path_params
     if chunk_id := path_params.get("chunk_id"):
         resource = object_resource(
@@ -49,15 +56,19 @@ async def require_kb_scope(request: Request) -> AuthContext:
             or request.query_params.get("doc_id")
             or "",
             chunk_id,
+            config_id=config_id,
         )
     elif document_id := path_params.get("document_id"):
         resource = object_resource(
-            "knowledge-base-document", path_params.get("kb_id", ""), document_id
+            "knowledge-base-document",
+            path_params.get("kb_id", ""),
+            document_id,
+            config_id=config_id,
         )
     elif kb_id := path_params.get("kb_id"):
-        resource = object_resource("knowledge-base", kb_id)
+        resource = object_resource("knowledge-base", kb_id, config_id=config_id)
     else:
-        resource = Resource.named("knowledge-base", "collection")
+        resource = Resource.named("knowledge-base", "collection", config_id=config_id)
     await require_resource_action(
         request,
         auth,
