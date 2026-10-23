@@ -183,7 +183,7 @@ class ChunkedUploadService:
             temp_path.unlink(missing_ok=True)
             if isinstance(exc, UploadLimitError):
                 raise ChunkedUploadError("Chunk exceeds the size limit") from exc
-            if isinstance(exc, OSError):
+            if isinstance(exc, FileNotFoundError):
                 raise ChunkedUploadError("Upload session not found or expired") from exc
             raise
 
