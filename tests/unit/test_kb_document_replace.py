@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+import uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -625,3 +626,125 @@ async def test_reembed_from_stored_blob_clears_stale_media(kb_helper):
     assert live is not None
     assert live.media_count == 0
     assert await _chunk_texts(helper, doc_id)
+
+
+async def _stage_crashed_replacement(
+    helper: KBHelper,
+    document,
+    incoming: bytes,
+    *,
+    finalize_metadata: bool,
+) -> tuple[str, dict[str, object]]:
+    """Leave the live state exactly where a crash can interrupt a replacement."""
+    live_id = document.doc_id
+    staging_id = str(uuid.uuid4())
+    staging_blob = helper._doc_blob_path(live_id, ".staging")
+    live_blob = helper._doc_blob_path(live_id)
+    bak_blob = helper._doc_blob_path(live_id, ".bak")
+    await helper._write_blob(staging_blob, incoming)
+    chunks, saved_media, _ = await helper._ingest_chunks_for_doc_id(
+        doc_id=staging_id,
+        file_name=document.doc_name,
+        file_content=incoming,
+        file_type=document.file_type,
+        media_paths=[],
+        chunk_size=helper.kb.chunk_size or 64,
+        chunk_overlap=helper.kb.chunk_overlap or 0,
+        batch_size=32,
+        tasks_limit=3,
+        max_retries=3,
+        progress_callback=None,
+        pre_chunked_text=None,
+    )
+    marker = {
+        "file_name": document.doc_name,
+        "file_type": document.file_type,
+        "file_size": len(incoming),
+        "chunk_count": len(chunks),
+        "media_count": len(saved_media),
+        "identity_key": document.identity_key,
+        "content_hash": hashlib.sha256(incoming).hexdigest(),
+        "source_kind": document.source_kind,
+        "source_url": document.source_url,
+    }
+    helper._swap_live_blob(live_blob, staging_blob, bak_blob)
+    await helper._write_replacement_marker(live_id, marker)
+    await helper._retire_live_chunks(live_id)
+    await helper._relabel_staging_generation(
+        staging_id=staging_id,
+        live_doc_id=live_id,
+        saved_media=saved_media,
+    )
+    await helper._commit_replaced_media(saved_media)
+    if finalize_metadata:
+        await helper._update_live_document_metadata(
+            live_doc_id=live_id,
+            file_name=document.doc_name,
+            file_type=document.file_type,
+            file_size=len(incoming),
+            chunk_count=len(chunks),
+            media_count=len(saved_media),
+            identity_key=document.identity_key,
+            content_hash=marker["content_hash"],
+            source_kind=document.source_kind,
+            source_url=document.source_url,
+        )
+    return live_id, marker
+
+
+@pytest.mark.asyncio
+async def test_startup_rolls_back_replacement_interrupted_before_metadata(
+    kb_helper,
+):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="interrupted.md",
+        file_content=b"previous generation before the interrupted replace",
+        file_type="md",
+    )
+    live_id, _marker = await _stage_crashed_replacement(
+        helper,
+        first.document,
+        b"incoming generation interrupted before metadata",
+        finalize_metadata=False,
+    )
+
+    await helper.initialize()
+
+    live = await helper.get_document(live_id)
+    assert live is not None
+    assert live.content_hash == first.document.content_hash
+    joined = "\n".join(await _chunk_texts(helper, live_id))
+    assert "previous generation before the interrupted replace" in joined
+    assert "incoming generation interrupted before metadata" not in joined
+    assert live.chunk_count == len(await _chunk_texts(helper, live_id))
+    assert not helper._doc_blob_path(live_id, ".bak").exists()
+    assert not helper._replacement_marker_path(live_id).exists()
+
+
+@pytest.mark.asyncio
+async def test_startup_keeps_replacement_interrupted_after_metadata(kb_helper):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="interrupted.md",
+        file_content=b"previous generation before the interrupted replace",
+        file_type="md",
+    )
+    live_id, marker = await _stage_crashed_replacement(
+        helper,
+        first.document,
+        b"incoming generation interrupted after metadata",
+        finalize_metadata=True,
+    )
+
+    await helper.initialize()
+
+    live = await helper.get_document(live_id)
+    assert live is not None
+    assert live.content_hash == marker["content_hash"]
+    joined = "\n".join(await _chunk_texts(helper, live_id))
+    assert "incoming generation interrupted after metadata" in joined
+    assert "previous generation before the interrupted replace" not in joined
+    assert live.chunk_count == len(await _chunk_texts(helper, live_id))
+    assert not helper._doc_blob_path(live_id, ".bak").exists()
+    assert not helper._replacement_marker_path(live_id).exists()
