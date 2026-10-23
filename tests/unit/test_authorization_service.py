@@ -2604,11 +2604,71 @@ async def test_data_manage_accepts_session_resources_for_instance_operators(
         metadata={"dashboard_session_id": "dashboard-session"},
     )
 
-    decision = await authorization.authorize(
-        subject,
-        "data.manage",
+    candidates = (
         resource,
+        object_resource(
+            "knowledge-base-document", "kb-1", "doc-1", config_id="default"
+        ),
+        object_resource(
+            "knowledge-base-chunk", "kb-1", "doc-1", "chunk-1", config_id="default"
+        ),
+    )
+    for candidate in candidates:
+        decision = await authorization.authorize(
+            subject,
+            "data.manage",
+            candidate,
+            context,
+        )
+        assert decision.allowed
+
+    denied = await authorization.authorize(
+        subject,
+        "session.read",
+        candidates[1],
         context,
     )
+    assert not denied.allowed
 
-    assert decision.allowed
+
+@pytest.mark.asyncio
+async def test_data_manage_accepts_knowledge_base_subresources_for_root(authorization):
+    account = DashboardAccount(
+        account_id="dashboard-root",
+        username="dashboard-root",
+        password_hash="hash",
+    )
+    async with authorization._db.get_db() as session:
+        async with session.begin():
+            session.add(account)
+    subject = Subject.dashboard_account(account.account_id, account.username)
+    await authorization.grant_binding(
+        actor=Subject.system("test"),
+        subject_id=subject.id,
+        role=Role.ROOT,
+        scope_type="global",
+        scope_id="global",
+        config_id=None,
+        enforce_actor=False,
+    )
+    context = AuthContext(
+        subject=subject,
+        source="dashboard",
+        config_id="default",
+        authenticated=True,
+        metadata={"dashboard_session_id": "dashboard-session"},
+    )
+
+    for candidate in (
+        Resource.session("default", "napcat:GroupMessage:room-a"),
+        object_resource(
+            "knowledge-base-document", "kb-1", "doc-1", config_id="default"
+        ),
+        object_resource(
+            "knowledge-base-chunk", "kb-1", "doc-1", "chunk-1", config_id="default"
+        ),
+    ):
+        decision = await authorization.authorize(
+            subject, "data.manage", candidate, context
+        )
+        assert decision.allowed

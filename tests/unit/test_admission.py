@@ -114,6 +114,74 @@ def test_session_admission_key_from_umo_unwraps_unique_session_and_group_id():
     assert session_admission_key_from_umo("not-a-umo") is None
 
 
+def test_private_session_key_matches_umo_for_webchat_conversations():
+    event = make_real_event(
+        message_type=MessageType.FRIEND_MESSAGE,
+        group_id="",
+        session_id="webchat!alice!conversation-1",
+        platform_id="webchat",
+    )
+
+    session_key = session_admission_key_from_event(event)
+    umo_key = session_admission_key_from_umo(
+        "webchat:FriendMessage:webchat!alice!conversation-1"
+    )
+
+    assert session_key == umo_key
+    assert session_key == (
+        "session:webchat:private:b64-d2ViY2hhdCFhbGljZSFjb252ZXJzYXRpb24tMQ"
+    )
+
+
+@pytest.mark.parametrize(
+    ("umo", "expected"),
+    [
+        ("misskey:GroupMessage:room%123_user1", "session:misskey:group:123"),
+        (
+            "matrix:GroupMessage:!abc_def:server",
+            "session:matrix:group:b64-IWFiY19kZWY6c2VydmVy",
+        ),
+        (
+            "matrix:GroupMessage:user_!abc_def:server",
+            "session:matrix:group:b64-IWFiY19kZWY6c2VydmVy",
+        ),
+        ("lark:GroupMessage:user%room-a", "session:lark:group:room-a"),
+    ],
+)
+def test_group_umo_keys_match_runtime_group_ids(umo, expected):
+    assert session_admission_key_from_umo(umo) == expected
+
+
+@pytest.mark.parametrize(
+    ("umo", "platform_instance", "group_id"),
+    [
+        (
+            "my-lark:GroupMessage:oc_0123456789abcdef",
+            "my-lark",
+            "oc_0123456789abcdef",
+        ),
+        ("my-lark:GroupMessage:ou_sender%oc_group", "my-lark", "oc_group"),
+        (
+            "my-matrix:GroupMessage:!abc_def:server",
+            "my-matrix",
+            "!abc_def:server",
+        ),
+        (
+            "my-matrix:GroupMessage:user_!abc_def:server",
+            "my-matrix",
+            "!abc_def:server",
+        ),
+        ("my-misskey:GroupMessage:room%123_user1", "my-misskey", "123"),
+    ],
+)
+def test_group_umo_keys_with_custom_instance_ids(umo, platform_instance, group_id):
+    assert session_admission_key_from_umo(umo) == session_admission_key(
+        platform_instance=platform_instance,
+        conversation_kind=ConversationKind.GROUP,
+        conversation_id=group_id,
+    )
+
+
 def test_private_session_key_matches_subject_im_peer():
     event = make_real_event(
         message_type=MessageType.FRIEND_MESSAGE,
