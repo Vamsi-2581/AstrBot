@@ -54,6 +54,13 @@ export const fileApi = {
   byNameUrl(filename: string) {
     return `/api/v1/files/content?filename=${encodeURIComponent(filename)}`;
   },
+  deleteAttachment(attachmentId: string) {
+    return typed<{ attachment_id: string }>(
+      openApiV1.deleteAttachment({
+        path: { attachment_id: attachmentId },
+      }),
+    );
+  },
   contentUrl(attachmentId: string) {
     return `/api/v1/files/${encodeURIComponent(attachmentId)}/content`;
   },

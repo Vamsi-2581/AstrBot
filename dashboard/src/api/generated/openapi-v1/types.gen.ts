@@ -3911,6 +3911,20 @@ export type DeleteAttachmentData = {
   url: '/api/v1/files/{attachment_id}';
 };
 
+export type DeleteAttachmentErrors = {
+  /**
+   * Standard AstrBot error response
+   */
+  404: ErrorEnvelope;
+  /**
+   * Standard AstrBot error response
+   */
+  500: ErrorEnvelope;
+};
+
+export type DeleteAttachmentError =
+  DeleteAttachmentErrors[keyof DeleteAttachmentErrors];
+
 export type DeleteAttachmentResponses = {
   /**
    * Standard AstrBot success response

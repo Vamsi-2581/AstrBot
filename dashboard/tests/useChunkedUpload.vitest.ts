@@ -207,6 +207,60 @@ describe('useChunkedUpload', () => {
     expect(result).toEqual({ filename: 'ok.bin' });
   });
 
+  it('does not resume an old upload after a new init fails', async () => {
+    const api = mockApi();
+    const uploader = useChunkedUpload(api);
+    await uploader.start(makeFile(10, 'first.bin'));
+    expect(uploader.status.value).toBe('done');
+
+    api.initUpload = vi.fn(() => fail('init failed'));
+    await uploader.start(makeFile(10, 'second.bin'));
+    expect(uploader.status.value).toBe('error');
+    expect(api.abortUpload).toHaveBeenCalledWith({ upload_id: 'u1' });
+
+    api.initUpload = vi.fn(() =>
+      ok({ upload_id: 'second-upload', chunk_size: 10, total_chunks: 1 }),
+    );
+    const statusUpload = vi.fn(() => ok({ received_chunks: [0, 1, 2] }));
+    api.statusUpload = statusUpload;
+    await uploader.resume();
+
+    expect(api.initUpload).toHaveBeenCalledWith({
+      filename: 'second.bin',
+      total_size: 10,
+    });
+    expect(statusUpload).not.toHaveBeenCalled();
+    expect(api.completeUpload).toHaveBeenLastCalledWith({
+      upload_id: 'second-upload',
+    });
+  });
+
+  it('rejects overlapping starts before they can mix upload state', async () => {
+    let resolveInit: ((value: unknown) => void) | undefined;
+    const api = mockApi({
+      initUpload: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveInit = resolve;
+          }),
+      ),
+    });
+    const uploader = useChunkedUpload(api);
+
+    const first = uploader.start(makeFile(10, 'first.bin'));
+    expect(await uploader.start(makeFile(10, 'second.bin'))).toBeUndefined();
+    expect(api.initUpload).toHaveBeenCalledTimes(1);
+
+    resolveInit?.({
+      data: {
+        status: 'ok',
+        data: { upload_id: 'u1', chunk_size: 10, total_chunks: 1 },
+      },
+    });
+    await first;
+    expect(uploader.status.value).toBe('done');
+  });
+
   it('rejects malformed init payloads', async () => {
     const api = mockApi({
       initUpload: vi.fn(() => ok({ upload_id: 1 })),

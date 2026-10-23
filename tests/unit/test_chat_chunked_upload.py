@@ -1,14 +1,22 @@
+import asyncio
+import os
+import stat
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from astrbot.dashboard.services import chunked_upload_service as chunked_module
 from astrbot.dashboard.services.chat_service import (
     MAX_UPLOAD_FILE_SIZE_BYTES,
     ChatService,
     ChatServiceError,
 )
-from astrbot.dashboard.services.chunked_upload_service import ChunkedUploadService
+from astrbot.dashboard.services.chunked_upload_service import (
+    ChunkedUploadError,
+    ChunkedUploadService,
+)
 from astrbot.dashboard.upload_utils import UploadLimitError
 
 CHUNK_SIZE = 1024 * 1024
@@ -191,3 +199,162 @@ class TestChatChunkedUpload:
             service.upload_status({"upload_id": upload_id}, owner="alice")
         assert not list(service.chunked_uploads.chunks_root.iterdir())
         await service.upload_abort({"upload_id": upload_id}, owner="alice")
+
+
+@pytest.mark.asyncio
+async def test_assemble_offloads_merge_and_preserves_destination_on_failure(
+    service, tmp_path, monkeypatch
+):
+    uploads = service.chunked_uploads
+    session = uploads.init_session(
+        owner="alice",
+        purpose="backup",
+        filename="backup.zip",
+        original_filename="backup.zip",
+        total_size=10,
+    )
+    (session.chunk_dir / "0.part").write_bytes(b"short")
+    session.received_chunks.add(0)
+    destination = tmp_path / "backup.zip"
+    destination.write_bytes(b"previous")
+
+    calls = []
+    original_to_thread = asyncio.to_thread
+
+    async def tracking_to_thread(function, *args, **kwargs):
+        calls.append(function)
+        return await original_to_thread(function, *args, **kwargs)
+
+    monkeypatch.setattr(chunked_module.asyncio, "to_thread", tracking_to_thread)
+
+    with pytest.raises(ChunkedUploadError, match="Merged size"):
+        await uploads.assemble(session.id, destination)
+
+    assert calls
+    assert destination.read_bytes() == b"previous"
+    assert not list(tmp_path.glob(".backup.zip.*"))
+
+
+def _complete_upload(uploads, data: bytes = b"0123456789"):
+    session = uploads.init_session(
+        owner="alice",
+        purpose="backup",
+        filename="backup.zip",
+        original_filename="backup.zip",
+        total_size=len(data),
+    )
+    (session.chunk_dir / "0.part").write_bytes(data)
+    session.received_chunks.add(0)
+    return session
+
+
+@pytest.mark.asyncio
+async def test_concurrent_assembly_claims_the_session_once(service, tmp_path):
+    uploads = service.chunked_uploads
+    session = _complete_upload(uploads)
+    destination = tmp_path / "backup.zip"
+
+    results = await asyncio.gather(
+        uploads.assemble(session.id, destination),
+        uploads.assemble(session.id, destination),
+        return_exceptions=True,
+    )
+
+    assert sorted(type(result).__name__ for result in results) == [
+        "ChunkedUploadError",
+        "int",
+    ]
+    assert session.id not in uploads.sessions
+    assert not list(tmp_path.glob(".backup.zip.*"))
+
+
+@pytest.mark.asyncio
+async def test_cancelled_assembly_finishes_worker_and_cleans_up(
+    service, tmp_path, monkeypatch
+):
+    uploads = service.chunked_uploads
+    session = _complete_upload(uploads)
+    destination = tmp_path / "backup.zip"
+    entered = threading.Event()
+    release = threading.Event()
+    original = uploads._assemble_sync
+
+    def slow_assemble(upload_session, dest_path):
+        entered.set()
+        assert release.wait(5)
+        return original(upload_session, dest_path)
+
+    monkeypatch.setattr(
+        type(uploads),
+        "_assemble_sync",
+        staticmethod(slow_assemble),
+    )
+    task = asyncio.create_task(uploads.assemble(session.id, destination))
+    assert await asyncio.to_thread(entered.wait, 2)
+    task.cancel()
+    release.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert session.id not in uploads.sessions
+    assert not session.chunk_dir.exists()
+    assert not list(tmp_path.glob(".backup.zip.*"))
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows does not model POSIX file modes")
+@pytest.mark.asyncio
+async def test_assembly_preserves_restrictive_destination_mode(service, tmp_path):
+    uploads = service.chunked_uploads
+    session = _complete_upload(uploads)
+    destination = tmp_path / "backup.zip"
+    destination.write_bytes(b"old")
+    destination.chmod(0o640)
+
+    previous_umask = os.umask(0o077)
+    try:
+        await uploads.assemble(session.id, destination)
+    finally:
+        os.umask(previous_umask)
+
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o640
+
+
+@pytest.mark.asyncio
+async def test_complete_rejects_path_traversal_without_deleting_foreign_files(service):
+    chunks_root = service.chunked_uploads.chunks_root
+    chunks_root.mkdir(parents=True, exist_ok=True)
+    victim = chunks_root.parent / "victim.merged"
+    victim.write_bytes(b"keep me")
+
+    with pytest.raises(ChatServiceError, match="not found or expired"):
+        await service.upload_complete({"upload_id": "../victim"}, owner="alice")
+
+    assert victim.read_bytes() == b"keep me"
+
+
+@pytest.mark.asyncio
+async def test_cleanup_cancellation_drops_the_session(service, monkeypatch):
+    uploads = service.chunked_uploads
+    session = _complete_upload(uploads)
+
+    def cancelled_rmtree(*args, **kwargs):
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(chunked_module.shutil, "rmtree", cancelled_rmtree)
+
+    with pytest.raises(asyncio.CancelledError):
+        await uploads.abort(session.id)
+
+    assert session.id not in uploads.sessions
+
+
+@pytest.mark.asyncio
+async def test_assemble_reports_missing_chunks_as_upload_errors(service, tmp_path):
+    uploads = service.chunked_uploads
+    session = _complete_upload(uploads)
+    (session.chunk_dir / "0.part").unlink()
+    destination = tmp_path / "backup.zip"
+
+    with pytest.raises(ChunkedUploadError, match="chunks are missing"):
+        await uploads.assemble(session.id, destination)
