@@ -705,7 +705,6 @@ class FunctionToolExecutor(BaseFunctionToolExecutor[AstrAgentContext]):
             ):
                 # collect results, currently we just collect the text results
                 if isinstance(r, mcp.types.CallToolResult):
-                    result_text = ""
                     for content in r.content:
                         if isinstance(content, mcp.types.TextContent):
                             result_text += content.text + "\n"

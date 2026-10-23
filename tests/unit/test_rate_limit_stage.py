@@ -105,3 +105,40 @@ async def test_stalled_concurrent_events_use_current_time_after_lock(monkeypatch
     assert sleep_durations == pytest.approx([expected_stall, expected_stall])
     timestamps = list(limiter.event_timestamps[FakeEvent.unified_msg_origin])
     assert timestamps == sorted(timestamps)
+
+
+def test_initialize_normalizes_invalid_strategy(caplog):
+    limiter = rate_limit_stage.RateLimitStage()
+    import types
+
+    ctx = types.SimpleNamespace(
+        astrbot_config={
+            "platform_settings": {
+                "rate_limit": {
+                    "count": 1,
+                    "time": 60,
+                    "strategy": "STALL",
+                    "max_sessions": 10,
+                }
+            }
+        }
+    )
+    asyncio.run(limiter.initialize(ctx))
+
+    assert limiter.rl_strategy == "stall"
+    assert "无效的限流策略" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_invalid_runtime_strategy_does_not_busy_loop():
+    limiter = rate_limit_stage.RateLimitStage()
+    limiter.rate_limit_count = 1
+    limiter.rate_limit_time = timedelta(seconds=60)
+    limiter.rl_strategy = "bogus"
+    limiter.max_sessions = 10
+    event = FakeEvent()
+    limiter.event_timestamps[event.unified_msg_origin].append(real_datetime.now())
+
+    await asyncio.wait_for(limiter.process(event), timeout=0.5)
+
+    assert event.stopped is False

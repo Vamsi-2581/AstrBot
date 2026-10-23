@@ -360,6 +360,10 @@ class PluginLifecycle:
                         entry.previous.metadata.name,
                         exc,
                     )
+            # The transaction can no longer roll back, so hand the promoted
+            # contexts the process-wide task registry. Until this point they
+            # must keep their staging set so a rollback cannot cancel live work.
+            self._adopt_promoted_background_tasks(promotion_journal)
             return True, None
         except asyncio.CancelledError:
             await self._rollback_promotions(promotion_journal)
@@ -736,6 +740,34 @@ class PluginLifecycle:
         if isinstance(registered_tasks, list):
             registered_tasks.clear()
 
+    def _adopt_promoted_background_tasks(
+        self,
+        promotion_journal: list[_PromotionJournalEntry],
+    ) -> None:
+        """Move promoted generations onto the process-wide task registry."""
+        live_tasks = getattr(
+            self._loader._execution_context,
+            "background_tasks",
+            None,
+        )
+        if not isinstance(live_tasks, set):
+            return
+        for entry in promotion_journal:
+            staged_tasks = getattr(
+                entry.staged.execution_context,
+                "background_tasks",
+                None,
+            )
+            if not isinstance(staged_tasks, set):
+                continue
+            for task in list(staged_tasks):
+                if task.done():
+                    staged_tasks.discard(task)
+                    continue
+                live_tasks.add(task)
+                task.add_done_callback(live_tasks.discard)
+            entry.staged.execution_context.background_tasks = live_tasks
+
     def _promote_staged_context(self, staged: _StagedPlugin) -> None:
         """Point retained plugin capability facades at the live runtime."""
         live_execution_context = self._loader._execution_context
@@ -743,7 +775,9 @@ class PluginLifecycle:
         live_tasks = getattr(live_execution_context, "background_tasks", None)
         if isinstance(staged_tasks, set) and isinstance(live_tasks, set):
             live_tasks.update(staged_tasks)
-            staged.execution_context.background_tasks = live_tasks
+            # Keep staging ownership separate: a later rollback must cancel
+            # only the staged generation's tasks, never the process-wide set.
+            staged.execution_context.background_tasks = staged_tasks
         self._close_staged_registered_tasks(staged.execution_context)
         staged.execution_context.catalogs = self._catalog.runtime_catalogs
         staged.execution_context.dashboard_extension_registry = (
