@@ -1104,8 +1104,10 @@ class KBHelper:
                 replacement_metadata,
                 phase="swapped",
             )
-            await self._retire_live_chunks(live_doc_id)
+            # Mark the generation retired before the call: a partially
+            # completed delete must still take the rollback path.
             retired_live = True
+            await self._retire_live_chunks(live_doc_id)
             await self._relabel_staging_generation(
                 staging_id=staging_id,
                 live_doc_id=live_doc_id,
