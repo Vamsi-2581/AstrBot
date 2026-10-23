@@ -748,3 +748,33 @@ async def test_startup_keeps_replacement_interrupted_after_metadata(kb_helper):
     assert live.chunk_count == len(await _chunk_texts(helper, live_id))
     assert not helper._doc_blob_path(live_id, ".bak").exists()
     assert not helper._replacement_marker_path(live_id).exists()
+
+
+@pytest.mark.asyncio
+async def test_startup_finishes_replacement_without_a_previous_source(kb_helper):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="no-backup-crash.md",
+        file_content=b"legacy generation without a stored source",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    helper._doc_blob_path(live_id).unlink()
+    live_id, marker = await _stage_crashed_replacement(
+        helper,
+        first.document,
+        b"incoming generation recovered after a crash",
+        finalize_metadata=False,
+    )
+
+    await helper.initialize()
+
+    live = await helper.get_document(live_id)
+    assert live is not None
+    assert live.content_hash == marker["content_hash"]
+    joined = "\n".join(await _chunk_texts(helper, live_id))
+    assert "incoming generation recovered after a crash" in joined
+    assert "legacy generation without a stored source" not in joined
+    assert live.chunk_count == len(await _chunk_texts(helper, live_id))
+    assert not helper._doc_blob_path(live_id, ".bak").exists()
+    assert not helper._replacement_marker_path(live_id).exists()
