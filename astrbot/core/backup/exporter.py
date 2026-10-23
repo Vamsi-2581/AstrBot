@@ -411,7 +411,9 @@ class AstrBotExporter:
                     rel_path = file_path.relative_to(files_dir)
                     if any(part == ".." for part in rel_path.parts):
                         continue
-                    if file_path.suffix in {".staging", ".bak"}:
+                    if file_path.suffix in {".staging", ".bak", ".replacing"}:
+                        continue
+                    if file_path.name.endswith(".replacing.tmp"):
                         continue
                     archive_path = f"files/kb_files/{kb_id}/{rel_path.as_posix()}"
                     zf.write(str(file_path), archive_path)

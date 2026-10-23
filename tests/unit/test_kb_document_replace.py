@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import uuid
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -777,4 +778,162 @@ async def test_startup_finishes_replacement_without_a_previous_source(kb_helper)
     assert "legacy generation without a stored source" not in joined
     assert live.chunk_count == len(await _chunk_texts(helper, live_id))
     assert not helper._doc_blob_path(live_id, ".bak").exists()
+    assert not helper._replacement_marker_path(live_id).exists()
+
+
+def _replacement_marker_for(document, incoming: bytes) -> dict[str, object]:
+    return {
+        "file_name": document.doc_name,
+        "file_type": document.file_type,
+        "file_size": len(incoming),
+        "chunk_count": 1,
+        "media_count": 0,
+        "identity_key": document.identity_key,
+        "content_hash": hashlib.sha256(incoming).hexdigest(),
+        "source_kind": document.source_kind,
+        "source_url": document.source_url,
+        "blob_sha256": hashlib.sha256(incoming).hexdigest(),
+    }
+
+
+@pytest.mark.asyncio
+async def test_startup_restores_backup_when_swap_stopped_after_live_rename(kb_helper):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="half-swap.md",
+        file_content=b"previous generation",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    live = helper._doc_blob_path(live_id)
+    bak = helper._doc_blob_path(live_id, ".bak")
+    staging = helper._doc_blob_path(live_id, ".staging")
+    live.replace(bak)
+    await helper._write_blob(staging, b"incoming generation")
+    await helper._write_replacement_marker(
+        live_id,
+        _replacement_marker_for(first.document, b"incoming generation"),
+        phase="prepared",
+    )
+
+    await helper.initialize()
+
+    assert live.read_bytes() == b"previous generation"
+    assert not bak.exists()
+    assert not staging.exists()
+    assert not helper._replacement_marker_path(live_id).exists()
+    assert "previous generation" in "\n".join(await _chunk_texts(helper, live_id))
+
+
+@pytest.mark.asyncio
+async def test_startup_rolls_back_when_swap_finished_before_phase_update(kb_helper):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="phase-lag.md",
+        file_content=b"previous generation",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    live = helper._doc_blob_path(live_id)
+    bak = helper._doc_blob_path(live_id, ".bak")
+    staging = helper._doc_blob_path(live_id, ".staging")
+    await helper._write_blob(staging, b"incoming generation")
+    await helper._write_replacement_marker(
+        live_id,
+        _replacement_marker_for(first.document, b"incoming generation"),
+        phase="prepared",
+    )
+    live.replace(bak)
+    staging.replace(live)
+
+    await helper.initialize()
+
+    assert live.read_bytes() == b"previous generation"
+    assert not bak.exists()
+    assert not helper._replacement_marker_path(live_id).exists()
+    assert "previous generation" in "\n".join(await _chunk_texts(helper, live_id))
+
+
+@pytest.mark.asyncio
+async def test_startup_keeps_old_generation_when_rollback_left_a_marker(kb_helper):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="late-marker.md",
+        file_content=b"previous generation",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    await helper._write_replacement_marker(
+        live_id,
+        _replacement_marker_for(first.document, b"incoming generation"),
+        phase="swapped",
+    )
+
+    await helper.initialize()
+
+    assert helper._doc_blob_path(live_id).read_bytes() == b"previous generation"
+    assert not helper._replacement_marker_path(live_id).exists()
+    assert "previous generation" in "\n".join(await _chunk_texts(helper, live_id))
+    current = await helper.get_document(live_id)
+    assert current is not None
+    assert current.content_hash == first.document.content_hash
+
+
+@pytest.mark.asyncio
+async def test_startup_restores_backup_for_an_unreadable_marker(kb_helper):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="torn-marker.md",
+        file_content=b"previous generation",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    live = helper._doc_blob_path(live_id)
+    bak = helper._doc_blob_path(live_id, ".bak")
+    live.replace(bak)
+    await helper._write_blob(live, b"incoming generation")
+    helper._replacement_marker_path(live_id).write_text("{not json", encoding="utf-8")
+
+    await helper.initialize()
+
+    assert live.read_bytes() == b"previous generation"
+    assert not bak.exists()
+    assert not helper._replacement_marker_path(live_id).exists()
+    assert "previous generation" in "\n".join(await _chunk_texts(helper, live_id))
+
+
+@pytest.mark.asyncio
+async def test_partial_blob_swap_failure_restores_the_previous_source(
+    kb_helper, monkeypatch
+):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="partial-swap.md",
+        file_content=b"previous generation",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    live = helper._doc_blob_path(live_id)
+    bak = helper._doc_blob_path(live_id, ".bak")
+    original_replace = Path.replace
+    calls = {"count": 0}
+
+    def flaky_replace(source: Path, target: Path) -> Path:
+        calls["count"] += 1
+        if calls["count"] == 2:
+            raise OSError("staging publish failed")
+        return original_replace(source, target)
+
+    monkeypatch.setattr(Path, "replace", flaky_replace)
+
+    with pytest.raises(OSError, match="staging publish failed"):
+        await helper.upload_document(
+            file_name="partial-swap.md",
+            file_content=b"incoming generation",
+            file_type="md",
+        )
+
+    assert live.read_bytes() == b"previous generation"
+    assert not bak.exists()
+    assert "previous generation" in "\n".join(await _chunk_texts(helper, live_id))
     assert not helper._replacement_marker_path(live_id).exists()

@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import importlib.util
 import json
+import os
 import shutil
 import uuid
 from dataclasses import dataclass
@@ -839,12 +840,22 @@ class KBHelper:
         self,
         doc_id: str,
         metadata: dict[str, Any],
+        *,
+        phase: str = "swapped",
     ) -> None:
-        """Persist the incoming generation's identity before live state moves."""
-        await self._write_blob(
-            self._replacement_marker_path(doc_id),
-            json.dumps(metadata, ensure_ascii=False).encode("utf-8"),
-        )
+        """Atomically persist the incoming generation and its swap phase."""
+        path = self._replacement_marker_path(doc_id)
+        temporary = path.with_name(f"{path.name}.tmp")
+        payload = dict(metadata)
+        payload["phase"] = phase
+        try:
+            await self._write_blob(
+                temporary,
+                json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            )
+            await asyncio.to_thread(os.replace, temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
 
     def _read_replacement_marker(self, doc_id: str) -> dict[str, Any] | None:
         path = self._replacement_marker_path(doc_id)
@@ -885,6 +896,14 @@ class KBHelper:
             "source_kind": marker.get("source_kind") or doc.source_kind,
             "source_url": marker.get("source_url", doc.source_url),
         }
+
+    @staticmethod
+    def _hash_blob(path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for block in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(block)
+        return digest.hexdigest()
 
     async def _ingest_chunks_for_doc_id(
         self,
@@ -1051,6 +1070,7 @@ class KBHelper:
             "content_hash": content_hash,
             "source_kind": source_kind,
             "source_url": source_url,
+            "blob_sha256": hashlib.sha256(blob_bytes).hexdigest(),
         }
         try:
             await self._write_blob(staging_blob, blob_bytes)
@@ -1070,12 +1090,20 @@ class KBHelper:
             )
             replacement_metadata["chunk_count"] = len(chunks_text)
             replacement_metadata["media_count"] = len(saved_media)
+            # Persist the replacement intent before the first rename. A crash
+            # during the two renames must be recoverable from the marker plus
+            # the actual blob layout.
+            await self._write_replacement_marker(
+                live_doc_id,
+                replacement_metadata,
+                phase="prepared",
+            )
             swapped_blob = self._swap_live_blob(live_blob, staging_blob, bak_blob)
-            # Persist the replacement intent before any live state is retired.
-            # A crash between here and metadata finalization would otherwise
-            # leave incoming vectors under the previous metadata, and startup
-            # would mistake them for a complete generation and drop the backup.
-            await self._write_replacement_marker(live_doc_id, replacement_metadata)
+            await self._write_replacement_marker(
+                live_doc_id,
+                replacement_metadata,
+                phase="swapped",
+            )
             await self._retire_live_chunks(live_doc_id)
             retired_live = True
             await self._relabel_staging_generation(
@@ -1247,7 +1275,7 @@ class KBHelper:
                 doc_id=staging_id,
                 media_paths=media_paths,
             )
-            if swapped_blob and bak_blob.exists():
+            if bak_blob.exists() and (swapped_blob or not live_blob.exists()):
                 live_blob.unlink(missing_ok=True)
                 bak_blob.replace(live_blob)
             staging_blob.unlink(missing_ok=True)
@@ -1329,6 +1357,8 @@ class KBHelper:
         await self._retire_live_chunks(live_doc_id)
         restored = await self._reembed_from_stored_blob(live_doc_id, live_blob)
         metadata = dict(replacement_metadata)
+        metadata.pop("blob_sha256", None)
+        metadata.pop("phase", None)
         if restored is not None:
             chunks_text, saved_media = restored
             metadata["chunk_count"] = len(chunks_text)
@@ -1437,6 +1467,14 @@ class KBHelper:
                 live_doc_id,
                 exc,
             )
+            try:
+                await self._retire_live_chunks(live_doc_id)
+            except Exception:
+                logger.warning(
+                    "Failed to discard the partial generation for %s",
+                    live_doc_id,
+                    exc_info=True,
+                )
             return None
 
     async def _recover_interrupted_replace(self) -> None:
@@ -1450,12 +1488,13 @@ class KBHelper:
         if orphans:
             self._invalidate_bm25_cache()
         for doc_id in live_ids:
-            self._doc_blob_path(doc_id, ".staging").unlink(missing_ok=True)
             chunk_count = await vec_db.count_documents(
                 metadata_filter={"kb_doc_id": doc_id},
             )
             bak_blob = self._doc_blob_path(doc_id, ".bak")
             live_blob = self._doc_blob_path(doc_id)
+            staging_blob = self._doc_blob_path(doc_id, ".staging")
+            marker_path = self._replacement_marker_path(doc_id)
             marker = self._read_replacement_marker(doc_id)
             if marker is not None:
                 try:
@@ -1477,9 +1516,32 @@ class KBHelper:
                     )
                     continue
                 if handled:
+                    staging_blob.unlink(missing_ok=True)
                     continue
+            elif marker_path.exists():
+                # The marker cannot be trusted, so do not let the live vector
+                # count decide whether the backup may be discarded. Restore the
+                # backup source and reindex it when one exists.
+                logger.warning(
+                    "Discarding an unreadable replacement marker for document %s",
+                    doc_id,
+                )
+                marker_path.unlink(missing_ok=True)
+                staging_blob.unlink(missing_ok=True)
+                if bak_blob.is_file():
+                    await self._retire_live_chunks(doc_id)
+                    await self._reembed_from_stored_blob(doc_id, bak_blob)
+                    live_blob.unlink(missing_ok=True)
+                    bak_blob.replace(live_blob)
+                elif chunk_count == 0 and live_blob.is_file():
+                    await self._reembed_from_stored_blob(doc_id, live_blob)
+                continue
+            staging_blob.unlink(missing_ok=True)
             if chunk_count:
-                bak_blob.unlink(missing_ok=True)
+                if not live_blob.is_file() and bak_blob.is_file():
+                    bak_blob.replace(live_blob)
+                else:
+                    bak_blob.unlink(missing_ok=True)
                 continue
             restore_blob = live_blob if live_blob.is_file() else bak_blob
             if not restore_blob.is_file():
@@ -1513,6 +1575,27 @@ class KBHelper:
             )
             self._clear_replacement_marker(doc_id)
             return False
+        phase = marker.get("phase")
+        staging_blob = self._doc_blob_path(doc_id, ".staging")
+        if phase == "prepared" and staging_blob.is_file():
+            # The staging blob still exists, so the live->bak rename may or may
+            # not have happened but the incoming blob was never published.
+            if not live_blob.is_file() and bak_blob.is_file():
+                bak_blob.replace(live_blob)
+            elif live_blob.is_file():
+                bak_blob.unlink(missing_ok=True)
+            self._clear_replacement_marker(doc_id)
+            return True
+        incoming_blob_hash = marker.get("blob_sha256")
+        live_is_incoming = True
+        if isinstance(incoming_blob_hash, str) and live_blob.is_file():
+            try:
+                live_is_incoming = (
+                    await asyncio.to_thread(self._hash_blob, live_blob)
+                    == incoming_blob_hash
+                )
+            except OSError:
+                live_is_incoming = False
         if doc.content_hash == incoming_hash:
             # Metadata was already committed, so the incoming generation is the
             # authoritative one even if cleanup did not finish.
@@ -1530,6 +1613,11 @@ class KBHelper:
                         live_blob,
                     ),
                 )
+            self._clear_replacement_marker(doc_id)
+            return True
+        if not live_is_incoming:
+            # A rollback restored the previous generation but the marker was
+            # not cleared. The live blob, chunks and metadata are consistent.
             self._clear_replacement_marker(doc_id)
             return True
         if bak_blob.is_file():
