@@ -15,7 +15,7 @@ from astrbot.core.knowledge_base.kb_db_sqlite import (
     posix_identity_input,
 )
 from astrbot.core.knowledge_base.kb_helper import KBHelper
-from astrbot.core.knowledge_base.models import KnowledgeBase
+from astrbot.core.knowledge_base.models import KBMedia, KnowledgeBase
 from astrbot.core.provider.provider import EmbeddingProvider
 from astrbot.dashboard.services.knowledge_base_service import KnowledgeBaseService
 
@@ -589,3 +589,39 @@ async def test_roll_forward_does_not_claim_chunks_when_rebuild_fails(
     assert live.chunk_count == 0
     assert live.media_count == 0
     assert await _chunk_texts(helper, live_id) == []
+
+
+@pytest.mark.asyncio
+async def test_reembed_from_stored_blob_clears_stale_media(kb_helper):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="stale-media.md",
+        file_content=b"body for the media rebuild",
+        file_type="md",
+    )
+    doc_id = first.document.doc_id
+    async with helper.kb_db.get_db() as session, session.begin():
+        session.add(
+            KBMedia(
+                media_id="stale-media",
+                doc_id=doc_id,
+                kb_id=helper.kb.kb_id,
+                media_type="image",
+                file_name="stale.png",
+                file_path=str(helper.kb_medias_dir / doc_id / "stale.png"),
+                file_size=1,
+                mime_type="image/png",
+            ),
+        )
+
+    rebuilt = await helper._reembed_from_stored_blob(
+        doc_id,
+        helper._doc_blob_path(doc_id),
+    )
+
+    assert rebuilt is not None
+    assert await helper.kb_db.list_media_by_doc(doc_id) == []
+    live = await helper.get_document(doc_id)
+    assert live is not None
+    assert live.media_count == 0
+    assert await _chunk_texts(helper, doc_id)

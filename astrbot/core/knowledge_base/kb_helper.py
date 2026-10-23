@@ -1333,6 +1333,10 @@ class KBHelper:
                     ),
                 )
                 file_content = None
+            # Rebuilding replaces the indexed generation. Clear any stale rows
+            # and media left by an interrupted retirement so the new generation
+            # is the only one attached to the document.
+            await self._retire_live_chunks(live_doc_id)
             chunks_text, saved_media, _file_size = await self._ingest_chunks_for_doc_id(
                 doc_id=live_doc_id,
                 file_name=file_name,
