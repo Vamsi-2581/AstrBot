@@ -33,6 +33,7 @@ export function useDashboardStepUp() {
     ((tokens: Record<string, string> | null) => void) | null = null;
   let webChatSessionId: string | null = null;
   let webChatExpiryTimer: number | undefined;
+  let generation = 0;
 
   function clearWebChatExpiry() {
     if (webChatExpiryTimer !== undefined) {
@@ -43,6 +44,7 @@ export function useDashboardStepUp() {
   }
 
   function finish(token: string | null) {
+    generation += 1;
     const resolve = resolvePending;
     resolvePending = null;
     const resolveWebChat = resolveWebChatPending;
@@ -75,16 +77,24 @@ export function useDashboardStepUp() {
   async function submitStepUp(credentials: StepUpCredentials) {
     const currentTarget = target.value;
     if (!currentTarget || loading.value) return;
+    const requestGeneration = ++generation;
+    const requestWebChatSessionId = webChatSessionId;
 
     loading.value = true;
     errorMessage.value = '';
     try {
-      if (webChatSessionId) {
+      if (requestWebChatSessionId) {
         const response = await authorizationApi.webChatStepUp({
-          session_id: webChatSessionId,
+          session_id: requestWebChatSessionId,
           password: credentials.password,
           code: credentials.code,
         });
+        if (
+          requestGeneration !== generation ||
+          webChatSessionId !== requestWebChatSessionId
+        ) {
+          return;
+        }
         const tokens = response.data?.data?.tokens;
         if (!tokens || typeof tokens !== 'object') {
           throw new Error('Unable to issue a reauthentication credential.');
@@ -112,6 +122,7 @@ export function useDashboardStepUp() {
             webChatExpiryTimer = undefined;
           }
         }, ttlSeconds * 1000);
+        generation += 1;
         const resolve = resolveWebChatPending;
         resolveWebChatPending = null;
         webChatSessionId = null;
@@ -130,12 +141,20 @@ export function useDashboardStepUp() {
         password: credentials.password,
         code: credentials.code,
       });
+      if (
+        requestGeneration !== generation ||
+        target.value !== currentTarget ||
+        webChatSessionId !== requestWebChatSessionId
+      ) {
+        return;
+      }
       const token = response.data?.data?.token;
       if (typeof token !== 'string' || !token) {
         throw new Error('Unable to issue a reauthentication credential.');
       }
       finish(token);
     } catch (error: unknown) {
+      if (requestGeneration !== generation) return;
       errorMessage.value = resolveErrorMessage(
         error,
         'Unable to verify your identity for this operation.',

@@ -215,12 +215,15 @@ export const useCommonStore = defineStore('common', {
             bufferedText = segments.pop() || '';
 
             segments.forEach((segment) => {
-              const line = segment.trim();
-              if (!line.startsWith('data: ')) {
+              const dataLines = segment
+                .split(/\r?\n/)
+                .filter((entry) => entry.startsWith('data:'))
+                .map((entry) => entry.slice(5).trimStart());
+              if (!dataLines.length) {
                 return;
               }
 
-              const logLine = line.replace('data: ', '').trim();
+              const logLine = dataLines.join('\n').trim();
               if (!logLine) {
                 return;
               }

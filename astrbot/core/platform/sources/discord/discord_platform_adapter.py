@@ -69,7 +69,8 @@ class DiscordPlatformAdapter(Platform):
         self.guild_id = self.config.get("discord_guild_id_for_debug", None)
         self.activity_name = self.config.get("discord_activity_name", None)
         self.shutdown_event = asyncio.Event()
-        self._polling_task = None
+        self.client: DiscordBotClient | None = None
+        self._polling_task: asyncio.Task[None] | None = None
         self._command_refresh_lock = asyncio.Lock()
         self._registered_application_commands: list[Any] = []
 
@@ -80,7 +81,8 @@ class DiscordPlatformAdapter(Platform):
         message_chain: MessageChain,
     ):
         """通过会话发送消息"""
-        if self.client.user is None:
+        client = self.client
+        if client is None or client.user is None:
             logger.error(
                 "[Discord] Client is not ready (self.client.user is None); message send skipped"
             )
@@ -103,7 +105,7 @@ class DiscordPlatformAdapter(Platform):
         channel = None
         try:
             channel_id = int(channel_id_str)
-            channel = self.client.get_channel(channel_id)
+            channel = client.get_channel(channel_id)
         except ValueError, TypeError:
             logger.warning(f"[Discord] Invalid channel ID format: {channel_id_str}")
 
@@ -124,7 +126,7 @@ class DiscordPlatformAdapter(Platform):
         message_obj.message_str = message_chain.get_plain_text()
         message_obj.sender = MessageMember(
             user_id=str(self.bot_self_id),
-            nickname=self.client.user.display_name,
+            nickname=client.user.display_name,
         )
         message_obj.self_id = cast(str, self.bot_self_id)
         message_obj.session_id = channel_id_str
@@ -159,7 +161,8 @@ class DiscordPlatformAdapter(Platform):
             await self.handle_msg(abm)
 
         # 初始化 Discord 客户端
-        token = str(self.config.get("discord_token"))
+        raw_token = self.config.get("discord_token")
+        token = raw_token.strip() if isinstance(raw_token, str) else ""
         if not token:
             logger.error(
                 "[Discord] Bot token is not configured. Please set a valid token in the config file."
@@ -170,15 +173,16 @@ class DiscordPlatformAdapter(Platform):
 
         route = resolve_proxy_route(local_config=self.config)
         allow_bot_messages = bool(self.config.get("discord_allow_bot_messages"))
-        self.client = DiscordBotClient(token, route.proxy_url, allow_bot_messages)
-        self.client.on_message_received = on_received
+        client = DiscordBotClient(token, route.proxy_url, allow_bot_messages)
+        self.client = client
+        client.on_message_received = on_received
 
         async def callback() -> None:
             try:
                 if self.enable_command_register:
                     await self._collect_and_register_commands()
                 if self.activity_name:
-                    await self.client.change_presence(
+                    await client.change_presence(
                         status=discord.Status.online,
                         activity=discord.CustomActivity(name=self.activity_name),
                     )
@@ -187,11 +191,21 @@ class DiscordPlatformAdapter(Platform):
                     f"[Discord] on_ready_once_callback err: {e}", exc_info=True
                 )
 
-        self.client.on_ready_once_callback = callback
+        client.on_ready_once_callback = callback
 
+        shutdown_task: asyncio.Task[bool] | None = None
         try:
-            self._polling_task = asyncio.create_task(self.client.start_polling())
-            await self.shutdown_event.wait()
+            self._polling_task = asyncio.create_task(client.start_polling())
+            shutdown_task = asyncio.create_task(self.shutdown_event.wait())
+            done, _pending = await asyncio.wait(
+                {self._polling_task, shutdown_task},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if self._polling_task in done:
+                await self._polling_task
+            else:
+                self._polling_task.cancel()
+                await asyncio.gather(self._polling_task, return_exceptions=True)
         except discord.errors.LoginFailure:
             logger.error(
                 "[Discord] Login failed. Please check whether the bot token is correct."
@@ -203,6 +217,10 @@ class DiscordPlatformAdapter(Platform):
                 f"[Discord] Unexpected error while adapter is running: {e}",
                 exc_info=True,
             )
+        finally:
+            if shutdown_task is not None:
+                shutdown_task.cancel()
+                await asyncio.gather(shutdown_task, return_exceptions=True)
 
     def _get_message_type(
         self,
@@ -367,12 +385,15 @@ class DiscordPlatformAdapter(Platform):
         Returns:
             Created Discord message event.
         """
+        client = self.client
+        if client is None:
+            raise RuntimeError("Discord client is not initialized")
         event = DiscordPlatformEvent(
             message_str=message.message_str,
             message_obj=message,
             platform_meta=self.meta(),
             session_id=message.session_id,
-            client=self.client,
+            client=client,
             interaction_followup_webhook=followup_webhook,
         )
         if not event.is_private_chat():
@@ -384,13 +405,12 @@ class DiscordPlatformAdapter(Platform):
 
     async def handle_msg(self, message: AstrBotMessage, followup_webhook=None) -> None:
         """处理消息"""
-        message_event = self.create_event(message, followup_webhook)
-
-        if self.client.user is None:
+        if self.client is None or self.client.user is None:
             logger.error(
                 "[Discord] Client is not ready (self.client.user is None); message handling skipped"
             )
             return
+        message_event = self.create_event(message, followup_webhook)
 
         is_slash_command = message_event.interaction_followup_webhook is not None
 
@@ -457,12 +477,15 @@ class DiscordPlatformAdapter(Platform):
 
     async def _collect_and_register_commands_unlocked(self) -> None:
         """Rebuild and synchronize Discord application commands."""
+        client = self.client
+        if client is None:
+            return
         logger.info("[Discord] Collecting and registering slash commands...")
         registered_commands: list[str] = []
         registered_names: set[str] = set()
 
         for command in self._registered_application_commands:
-            self.client.remove_application_command(command)
+            client.remove_application_command(command)
         self._registered_application_commands.clear()
 
         for handler_md in self.get_handler_registry().get_handlers_by_event_type(
@@ -486,7 +509,7 @@ class DiscordPlatformAdapter(Platform):
                         )
                         if group is None:
                             continue
-                        self.client.add_application_command(group)
+                        client.add_application_command(group)
                         self._registered_application_commands.append(group)
                         registered_names.add(group_name)
                         registered_commands.append(group_name)
@@ -521,7 +544,7 @@ class DiscordPlatformAdapter(Platform):
                         options=options,
                         guild_ids=[self.guild_id] if self.guild_id else None,
                     )
-                    self.client.add_application_command(slash_command)
+                    client.add_application_command(slash_command)
                     self._registered_application_commands.append(slash_command)
                     registered_names.add(registered_name)
                     registered_commands.append(registered_name)
@@ -536,7 +559,7 @@ class DiscordPlatformAdapter(Platform):
         # 使用 Pycord 的方法同步指令
         # 注意：这可能需要一些时间，并且有频率限制
         try:
-            await self.client.sync_commands()
+            await client.sync_commands()
             logger.info("[Discord] Command synchronization completed.")
         except discord.HTTPException as e:
             if self._is_daily_command_quota_error(e):

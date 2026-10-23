@@ -360,13 +360,14 @@ class ConversationStoreMixin(DatabaseStoreMixin):
         async with store_session(self) as session:
             session: AsyncSession
             offset = (page - 1) * page_size
+            conversation_id: T.Any = col(Preference.value)["val"].as_string()
 
             base_query = (
-                select(
+                # SQLAlchemy's select overloads cannot infer labels built from
+                # JSON index expressions.
+                select(  # type: ignore[reportCallIssue]
                     col(Preference.scope_id).label("session_id"),
-                    func.json_extract(Preference.value, "$.val").label(
-                        "conversation_id",
-                    ),  # type: ignore
+                    conversation_id.label("conversation_id"),
                     col(ConversationV2.prompt_id).label("prompt_id"),
                     col(ConversationV2.title).label("title"),
                     col(Prompt.prompt_id).label("prompt_name"),
@@ -374,8 +375,7 @@ class ConversationStoreMixin(DatabaseStoreMixin):
                 .select_from(Preference)
                 .outerjoin(
                     ConversationV2,
-                    func.json_extract(Preference.value, "$.val")
-                    == ConversationV2.conversation_id,
+                    conversation_id == ConversationV2.conversation_id,
                 )
                 .outerjoin(
                     Prompt,
@@ -416,8 +416,7 @@ class ConversationStoreMixin(DatabaseStoreMixin):
                 .select_from(Preference)
                 .outerjoin(
                     ConversationV2,
-                    func.json_extract(Preference.value, "$.val")
-                    == ConversationV2.conversation_id,
+                    conversation_id == ConversationV2.conversation_id,
                 )
                 .outerjoin(
                     Prompt,

@@ -128,3 +128,51 @@ async def test_open_api_file_download_is_forced_to_attachment(
     assert png_response.headers["content-type"].startswith("image/png")
     assert png_response.headers["x-content-type-options"] == "nosniff"
     assert png_response.headers["content-disposition"].startswith("attachment;")
+
+
+@pytest.mark.asyncio
+async def test_v1_delete_attachment_removes_via_service(
+    asgi_client: httpx.AsyncClient,
+    asgi_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from unittest.mock import AsyncMock
+
+    delete_attachment = AsyncMock(return_value=True)
+    monkeypatch.setattr(
+        asgi_app.state.services.chat,
+        "delete_attachment",
+        delete_attachment,
+    )
+
+    response = await asgi_client.delete(
+        "/api/v1/files/att-1",
+        headers=_jwt_headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"] == {"attachment_id": "att-1"}
+    delete_attachment.assert_awaited_once_with("att-1")
+
+
+@pytest.mark.asyncio
+async def test_v1_delete_attachment_returns_404_when_absent(
+    asgi_client: httpx.AsyncClient,
+    asgi_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(
+        asgi_app.state.services.chat,
+        "delete_attachment",
+        AsyncMock(return_value=False),
+    )
+
+    response = await asgi_client.delete(
+        "/api/v1/files/missing",
+        headers=_jwt_headers(),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["status"] == "error"

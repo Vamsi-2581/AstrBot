@@ -559,7 +559,7 @@ describe('Chat view smoke', () => {
     expect(wrapper.find('.refs-sidebar-stub').text()).toBe('1');
   });
 
-  it('uses the current input model when regenerating without an explicit selection', async () => {
+  it('falls back to the default model when the session has no saved selection', async () => {
     testState.currSessionId = 'session-1';
     testState.sessions = [
       {
@@ -581,14 +581,18 @@ describe('Chat view smoke', () => {
 
     const wrapper = mountChat();
     await flushPromises();
+    await wrapper.get('.session-item').trigger('click');
+    await flushPromises();
+    expect(localStorage.getItem('selectedProvider')).toBeNull();
+    expect(localStorage.getItem('selectedProviderModel')).toBeNull();
     await wrapper.find('.regenerate-trigger').trigger('click');
     await flushPromises();
 
     expect(testState.regenerateMessageMock).toHaveBeenCalledWith(
       'session-1',
       expect.objectContaining({ id: 'msg-1' }),
-      'current-provider',
-      'current-model',
+      '',
+      '',
       true,
       true,
     );

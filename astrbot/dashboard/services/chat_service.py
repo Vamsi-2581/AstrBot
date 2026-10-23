@@ -751,14 +751,17 @@ class ChatService:
         if not upload_id:
             raise ChatServiceError("Missing key: upload_id")
 
+        merged_path: Path | None = None
         try:
-            session = self.chunked_uploads.get_session(upload_id, owner=owner)
-            merged_path = self.chunked_uploads.chunks_root / f"{upload_id}.merged"
-            await self.chunked_uploads.assemble(upload_id, merged_path, owner=owner)
-        except ChunkedUploadError as exc:
-            raise ChatServiceError(str(exc)) from exc
-
-        try:
+            try:
+                session = self.chunked_uploads.get_session(upload_id, owner=owner)
+                # Derive the merge target from the validated session id, never
+                # from the caller-supplied upload_id, which may contain path
+                # traversal segments.
+                merged_path = self.chunked_uploads.chunks_root / f"{session.id}.merged"
+                await self.chunked_uploads.assemble(upload_id, merged_path, owner=owner)
+            except ChunkedUploadError as exc:
+                raise ChatServiceError(str(exc)) from exc
             upload = LocalUploadFile(
                 merged_path,
                 session.filename,
@@ -766,7 +769,8 @@ class ChatService:
             )
             result = await self.save_uploaded_file(upload)
         finally:
-            merged_path.unlink(missing_ok=True)
+            if merged_path is not None:
+                merged_path.unlink(missing_ok=True)
 
         logger.info(
             "Chunked attachment upload completed: %s, size=%s, chunks=%s",
@@ -1548,6 +1552,40 @@ class ChatService:
         if not session_ids or not isinstance(session_ids, list):
             raise ChatServiceError("Missing or invalid key: session_ids")
         return await self.batch_delete_sessions(username, session_ids, delete_session)
+
+    async def delete_attachment(self, attachment_id: str) -> bool:
+        """Delete one attachment record and its stored file.
+
+        The database record is removed first. The file is then unlinked unless
+        another attachment still references the same path. Missing files are
+        tolerated and unlink failures are logged so the record is not left
+        undeletable.
+
+        Args:
+            attachment_id: Attachment identifier to remove.
+
+        Returns:
+            True when the record existed and was deleted, False when absent.
+        """
+
+        attachments = await self.db.get_attachments([attachment_id])
+        if not attachments:
+            return False
+        if not await self.db.delete_attachment(attachment_id):
+            return False
+        for attachment in attachments:
+            path = Path(attachment.path)
+            if await self.db.is_attachment_path_referenced(
+                str(path), exclude_attachment_id=attachment_id
+            ):
+                continue
+            try:
+                await asyncio.to_thread(path.unlink, missing_ok=True)
+            except OSError as exc:
+                logger.warning(
+                    "Failed to delete attachment file: %s", safe_error("", exc)
+                )
+        return True
 
     async def delete_attachments(self, attachment_ids: list[str]) -> None:
         try:

@@ -175,9 +175,10 @@ async function onStartRotateRecovery() {
       recovery_code: recoveryCode,
       recovery_code_hash: recoveryCodeHash,
     } = res.data.data || {};
-    if (!recoveryCode || !recoveryCodeHash) return;
-    if (!props.configRoot?.dashboard?.totp) return;
-    props.configRoot.dashboard.totp.recovery_code_hash = recoveryCodeHash;
+    if (!recoveryCode) return;
+    if (recoveryCodeHash && props.configRoot?.dashboard?.totp) {
+      props.configRoot.dashboard.totp.recovery_code_hash = recoveryCodeHash;
+    }
     pendingRecoveryCode.value = recoveryCode;
     recoveryDialogVisible.value = true;
   } catch {

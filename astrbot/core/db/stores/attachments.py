@@ -42,6 +42,18 @@ class AttachmentStoreMixin(DatabaseStoreMixin):
             result = await session.execute(query)
             return list(result.scalars().all())
 
+    async def is_attachment_path_referenced(
+        self, path: str, *, exclude_attachment_id: str = ""
+    ) -> bool:
+        """Return whether another attachment row still uses the stored path."""
+        async with store_session(self) as session:
+            query = select(Attachment.attachment_id).where(
+                col(Attachment.path) == path,
+                col(Attachment.attachment_id) != exclude_attachment_id,
+            )
+            result = await session.execute(query.limit(1))
+            return result.scalar_one_or_none() is not None
+
     async def delete_attachment(self, attachment_id: str) -> bool:
         """Delete an attachment by its ID.
 

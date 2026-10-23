@@ -461,7 +461,7 @@ class AuthContext:
             raise AuthorizationValueError("Invalid platform member role")
         if self.principal_subject_id is not None:
             _validate_identifier(self.principal_subject_id, "principal subject id")
-        if self.auth_strength not in {"none", "password", "totp", "step_up"}:
+        if self.auth_strength not in {"none", "password", "totp", "step_up", "oidc"}:
             raise AuthorizationValueError("Invalid authentication strength")
         if self.origin_session_resource_id is not None:
             origin_config_id, _ = parse_canonical_session_resource(

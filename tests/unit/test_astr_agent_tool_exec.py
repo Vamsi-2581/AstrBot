@@ -1216,3 +1216,49 @@ async def test_execute_background_redacts_failure_text(
     assert "internal.example.test" not in result_text
     assert "user:pass" not in result_text
     assert "token=secret" not in result_text
+
+
+@pytest.mark.asyncio
+async def test_execute_background_accumulates_all_tool_result_fragments(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    captured: dict = {}
+
+    async def _fake_execute_local(
+        cls, tool, run_context, tool_call_timeout=3600, **tool_args
+    ):
+        yield mcp.types.CallToolResult(
+            content=[mcp.types.TextContent(type="text", text="first")]
+        )
+        yield mcp.types.CallToolResult(
+            content=[mcp.types.TextContent(type="text", text="second")]
+        )
+
+    async def _fake_wake(cls, run_context, **kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(
+        FunctionToolExecutor,
+        "_execute_local",
+        classmethod(_fake_execute_local),
+    )
+    monkeypatch.setattr(
+        FunctionToolExecutor,
+        "_wake_main_agent_for_background_result",
+        classmethod(_fake_wake),
+    )
+
+    tool = FunctionTool(
+        name="background-tool",
+        description="run in the background",
+        parameters={"type": "object", "properties": {}},
+        is_background_task=True,
+    )
+    await FunctionToolExecutor._execute_background(
+        tool=tool,
+        run_context=_build_run_context(),
+        task_id="task-id",
+    )
+
+    assert "first" in captured["result_text"]
+    assert "second" in captured["result_text"]

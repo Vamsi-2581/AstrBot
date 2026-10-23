@@ -146,6 +146,8 @@ class ResultDecorateStage(Stage):
         is_stream = result.result_content_type == ResultContentType.STREAMING_FINISH
         async for _ in self._check_content_safety(event, result, is_stream):
             yield
+        if event.is_stopped():
+            return
         if not await self._run_decorating_hooks(event, is_stream):
             return
         if is_stream:

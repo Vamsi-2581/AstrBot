@@ -11,9 +11,11 @@ another upload flow.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import math
 import os
 import shutil
+import stat
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -49,6 +51,7 @@ class UploadSession:
     chunk_dir: Path
     meta: dict = field(default_factory=dict)
     received_chunks: set[int] = field(default_factory=set)
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
     created_at: float = 0.0
     last_activity: float = 0.0
 
@@ -181,6 +184,8 @@ class ChunkedUploadService:
             temp_path.unlink(missing_ok=True)
             if isinstance(exc, UploadLimitError):
                 raise ChunkedUploadError("Chunk exceeds the size limit") from exc
+            if isinstance(exc, FileNotFoundError):
+                raise ChunkedUploadError("Upload session not found or expired") from exc
             raise
 
         expected = min(
@@ -193,13 +198,17 @@ class ChunkedUploadService:
                 f"Chunk size mismatch: got {written} bytes, expected {expected}"
             )
 
-        try:
-            await asyncio.to_thread(os.replace, temp_path, chunk_path)
-        except BaseException:
-            temp_path.unlink(missing_ok=True)
-            raise
-        session.received_chunks.add(chunk_index)
-        session.last_activity = time.time()
+        async with session.lock:
+            if self.sessions.get(upload_id) is not session:
+                temp_path.unlink(missing_ok=True)
+                raise ChunkedUploadError("Upload session not found or expired")
+            try:
+                await asyncio.to_thread(os.replace, temp_path, chunk_path)
+            except BaseException:
+                temp_path.unlink(missing_ok=True)
+                raise
+            session.received_chunks.add(chunk_index)
+            session.last_activity = time.time()
 
         logger.debug(
             "Chunk received: id=%s, chunk=%s/%s",
@@ -253,23 +262,62 @@ class ChunkedUploadService:
             raise ChunkedUploadError(f"Chunks incomplete, missing: {missing[:10]}...")
 
         dest_path = Path(dest)
+        async with session.lock:
+            if self.sessions.get(upload_id) is not session:
+                raise ChunkedUploadError("Upload session not found or expired")
+            worker = asyncio.create_task(
+                asyncio.to_thread(self._assemble_sync, session, dest_path)
+            )
+            try:
+                size = await asyncio.shield(worker)
+            except asyncio.CancelledError:
+                # to_thread cannot be cancelled; let the merge finish so it
+                # cannot recreate files after the session cleanup below.
+                with contextlib.suppress(BaseException):
+                    await asyncio.shield(worker)
+                await self._cleanup_session_locked(session)
+                raise
+            await self._cleanup_session_locked(session)
+            return size
+
+    @staticmethod
+    def _assemble_sync(session: UploadSession, dest_path: Path) -> int:
+        temp_path = dest_path.parent / f".{dest_path.name}.{uuid.uuid4().hex}.tmp"
+        mode = 0o600
         try:
-            with dest_path.open("wb") as outfile:
+            mode = stat.S_IMODE(dest_path.stat().st_mode)
+        except OSError:
+            # A missing destination keeps the restrictive private default.
+            mode = 0o600
+        try:
+            descriptor = os.open(
+                temp_path,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                mode,
+            )
+            with os.fdopen(descriptor, "wb") as outfile:
                 for i in range(session.total_chunks):
-                    with (session.chunk_dir / f"{i}.part").open("rb") as part:
-                        shutil.copyfileobj(part, outfile)
-            size = dest_path.stat().st_size
+                    try:
+                        with (session.chunk_dir / f"{i}.part").open("rb") as part:
+                            shutil.copyfileobj(part, outfile)
+                    except FileNotFoundError as exc:
+                        raise ChunkedUploadError(
+                            "Upload session chunks are missing"
+                        ) from exc
+            # The process umask filters O_CREAT modes, so apply the preserved
+            # destination mode explicitly before publishing the merged file.
+            os.chmod(temp_path, mode)
+            size = temp_path.stat().st_size
             if size != session.total_size:
                 raise ChunkedUploadError(
                     f"Merged size ({size}) does not match the declared size "
                     f"({session.total_size})"
                 )
+            os.replace(temp_path, dest_path)
+            return size
         except BaseException:
-            dest_path.unlink(missing_ok=True)
+            temp_path.unlink(missing_ok=True)
             raise
-
-        await self.cleanup_session(upload_id)
-        return size
 
     async def abort(self, upload_id: str, *, owner: str | None = None) -> bool:
         """Abort and clean up a session. Unknown sessions abort silently.
@@ -288,22 +336,33 @@ class ChunkedUploadService:
             return False
         if owner is not None and session.owner != owner:
             raise ChunkedUploadError("Upload session not found or expired")
-        await self.cleanup_session(upload_id)
+        async with session.lock:
+            if self.sessions.get(upload_id) is not session:
+                return False
+            await self._cleanup_session_locked(session)
         return True
 
     async def cleanup_session(self, upload_id: str) -> None:
         session = self.sessions.get(upload_id)
         if session is None:
             return
+        async with session.lock:
+            if self.sessions.get(upload_id) is not session:
+                return
+            await self._cleanup_session_locked(session)
+
+    async def _cleanup_session_locked(self, session: UploadSession) -> None:
+        # Drop the session before awaiting filesystem cleanup. A cancellation
+        # during the worker join must not leave a zombie session whose chunks
+        # have already been removed.
+        self.sessions.pop(session.id, None)
         if session.chunk_dir.exists():
             try:
-                shutil.rmtree(session.chunk_dir)
+                await asyncio.to_thread(shutil.rmtree, session.chunk_dir)
             except Exception as exc:
                 logger.warning(
                     "Failed to remove chunk dir %s: %s", session.chunk_dir, exc
                 )
-                return
-        self.sessions.pop(upload_id, None)
 
     def ensure_cleanup_task_started(self) -> None:
         if self._cleanup_task is not None and not self._cleanup_task.done():

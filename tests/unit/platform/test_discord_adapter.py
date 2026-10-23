@@ -1475,3 +1475,84 @@ async def test_discord_get_group_keeps_basic_metadata_when_channel_fetch_fails()
 
     assert group is not inbound
     assert group == Group(group_id="123", group_name="general")
+
+
+@pytest.mark.asyncio
+async def test_discord_send_before_run_returns_failed_result():
+    adapter = DiscordPlatformAdapter.__new__(DiscordPlatformAdapter)
+    adapter.config = {"id": "discord-test"}
+    adapter.client = None
+    session = MessageSession.from_str("discord:FriendMessage:123")
+
+    result = await adapter.send_by_session(session, MessageChain().message("hello"))
+
+    assert result.success is False
+    assert result.error_message == "Discord client is not ready"
+
+
+@pytest.mark.asyncio
+async def test_discord_terminate_before_run_is_safe():
+    adapter = DiscordPlatformAdapter.__new__(DiscordPlatformAdapter)
+    adapter.config = {"id": "discord-test"}
+    adapter.client = None
+    adapter.shutdown_event = asyncio.Event()
+    adapter.enable_command_register = False
+    adapter._polling_task = None
+
+    await adapter.terminate()
+
+
+@pytest.mark.asyncio
+async def test_discord_run_rejects_missing_token_without_stringifying_none(monkeypatch):
+    adapter = DiscordPlatformAdapter.__new__(DiscordPlatformAdapter)
+    adapter.config = {"discord_token": None}
+    adapter.shutdown_event = asyncio.Event()
+    adapter.enable_command_register = False
+    adapter.activity_name = None
+    adapter.client = None
+
+    await adapter.run()
+
+    assert adapter.client is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "poll_error",
+    [
+        discord.errors.LoginFailure("bad token"),
+        discord.errors.ConnectionClosed(
+            SimpleNamespace(close_code=1000), shard_id=None
+        ),
+    ],
+)
+async def test_discord_run_observes_polling_task_failure(monkeypatch, poll_error):
+    adapter = DiscordPlatformAdapter.__new__(DiscordPlatformAdapter)
+    adapter.config = {"discord_token": "token"}
+    adapter.shutdown_event = asyncio.Event()
+    adapter.enable_command_register = False
+    adapter.activity_name = None
+    adapter.client = None
+
+    class FakeClient:
+        def __init__(self, *_args, **_kwargs):
+            self.on_message_received = None
+            self.on_ready_once_callback = None
+
+        async def start_polling(self):
+            raise poll_error
+
+        async def close(self):
+            return None
+
+    monkeypatch.setattr(
+        discord_platform_adapter,
+        "DiscordBotClient",
+        FakeClient,
+    )
+    monkeypatch.setattr(
+        "astrbot.core.utils.proxy_route.resolve_proxy_route",
+        lambda **_kwargs: SimpleNamespace(proxy_url=None),
+    )
+
+    await asyncio.wait_for(adapter.run(), timeout=2)

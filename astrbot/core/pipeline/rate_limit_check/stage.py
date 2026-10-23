@@ -35,9 +35,17 @@ class RateLimitStage(Stage):
         self.rate_limit_time = timedelta(
             seconds=ctx.astrbot_config["platform_settings"]["rate_limit"]["time"],
         )
-        self.rl_strategy = ctx.astrbot_config["platform_settings"]["rate_limit"][
-            "strategy"
-        ]  # stall or discard
+        strategy = ctx.astrbot_config["platform_settings"]["rate_limit"]["strategy"]
+        if strategy not in {
+            RateLimitStrategy.STALL.value,
+            RateLimitStrategy.DISCARD.value,
+        }:
+            logger.warning(
+                "无效的限流策略 %r，回退到 stall",
+                strategy,
+            )
+            strategy = RateLimitStrategy.STALL.value
+        self.rl_strategy = strategy
         self.max_sessions = max(
             int(
                 ctx.astrbot_config["platform_settings"]["rate_limit"].get(
@@ -95,6 +103,12 @@ class RateLimitStage(Stage):
                             f"会话 {umo} 被限流。根据限流策略，此请求已被丢弃，直到限额于 {stall_duration:.2f} 秒后重置。",
                         )
                         return event.stop_event()
+                    case _:
+                        logger.warning(
+                            "无效的限流策略 %r，跳过本次限流等待",
+                            self.rl_strategy,
+                        )
+                        break
 
     def _prune_idle_sessions(
         self,

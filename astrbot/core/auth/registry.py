@@ -234,6 +234,8 @@ def _resource_types_for(action: str) -> frozenset[str]:
                 "memory",
                 "file",
                 "knowledge-base",
+                "knowledge-base-document",
+                "knowledge-base-chunk",
                 "session",
                 "dashboard-api",
             }

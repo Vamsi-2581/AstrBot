@@ -478,7 +478,10 @@ async function activateEntry(entry: DataFileEntry) {
   void openEntry(entry);
 }
 
+let openEntryRequestId = 0;
+
 async function openEntry(entry: DataFileEntry) {
+  const requestId = ++openEntryRequestId;
   clearPreview();
   selectedEntry.value = entry;
   selectedPath.value = entry.path;
@@ -489,16 +492,19 @@ async function openEntry(entry: DataFileEntry) {
   content.value = null;
   dirty.value = false;
   await router.replace({ path: '/data', query: { path: entry.path } });
+  if (requestId !== openEntryRequestId) return;
   if (!isTextEntry(entry)) {
-    await loadBinaryPreview(entry);
+    await loadBinaryPreview(entry, requestId);
     return;
   }
   try {
     const response = await dataFilesApi.content(entry.path);
+    if (requestId !== openEntryRequestId) return;
     content.value = response.data.data.content;
     etag.value = response.data.data.etag;
     selectedEntry.value = { ...entry, writable: response.data.data.writable };
   } catch {
+    if (requestId !== openEntryRequestId) return;
     editorError.value = tm('error');
   }
 }
@@ -543,7 +549,7 @@ function requiresStepUp(error: unknown) {
   );
 }
 
-async function loadBinaryPreview(entry: DataFileEntry) {
+async function loadBinaryPreview(entry: DataFileEntry, requestId: number) {
   const mime = entry.mime_type || '';
   let kind: 'image' | 'audio' | null = null;
   if (mime.startsWith('image/') && mime !== 'image/svg+xml') kind = 'image';
@@ -551,9 +557,11 @@ async function loadBinaryPreview(entry: DataFileEntry) {
   if (!kind || !entry.downloadable) return;
   try {
     const response = await downloadWithStepUp(entry);
+    if (requestId !== openEntryRequestId) return;
     previewUrl.value = URL.createObjectURL(response.data);
     previewKind.value = kind;
   } catch {
+    if (requestId !== openEntryRequestId) return;
     editorError.value = tm('error');
   }
 }
@@ -871,6 +879,7 @@ watch(
   },
 );
 onBeforeUnmount(() => {
+  openEntryRequestId += 1;
   window.removeEventListener('keydown', onKeyDown);
   window.removeEventListener('beforeunload', onBeforeUnload);
   clearPreview();
