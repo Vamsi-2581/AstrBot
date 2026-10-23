@@ -313,6 +313,20 @@
               <div class="settings-item">
                 <div class="settings-item__label">
                   <div class="settings-item__title">
+                    {{ tm('system.diagnostics.title') }}
+                  </div>
+                  <div class="settings-item__subtitle">
+                    {{ tm('system.diagnostics.subtitle') }}
+                  </div>
+                </div>
+                <div class="settings-item__control">
+                  <LogExportButton />
+                </div>
+              </div>
+
+              <div class="settings-item">
+                <div class="settings-item__label">
+                  <div class="settings-item__title">
                     {{ tm('system.restart.title') }}
                   </div>
                   <div class="settings-item__subtitle">
@@ -566,6 +580,7 @@ import SidebarCustomizer from '@/components/shared/SidebarCustomizer.vue';
 import DashboardAppearanceSettings from '@/components/appearance/DashboardAppearanceSettings.vue';
 import BackupDialog from '@/components/shared/BackupDialog.vue';
 import StorageCleanupPanel from '@/components/shared/StorageCleanupPanel.vue';
+import LogExportButton from '@/components/shared/LogExportButton.vue';
 import DashboardTwoFactorDialog from '@/components/shared/DashboardTwoFactorDialog.vue';
 import DashboardStepUpDialog from '@/components/shared/DashboardStepUpDialog.vue';
 import { useDashboardStepUp } from '@/composables/useDashboardStepUp';

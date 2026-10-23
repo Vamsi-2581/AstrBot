@@ -48,6 +48,7 @@ NON_JSON_SUCCESS_MEDIA = {
         {"text/event-stream"}
     ),
     ("get", "/api/v1/logs/live"): frozenset({"text/event-stream"}),
+    ("get", "/api/v1/logs/export"): frozenset({"application/zip"}),
     ("get", "/api/v1/appearance/wallpapers/{wallpaper_id}"): frozenset(
         {"image/gif", "image/jpeg", "image/png", "image/webp"}
     ),

@@ -16,8 +16,9 @@ function syncFromStorage() {
   try {
     selectedProviderId.value =
       localStorage.getItem(SELECTED_PROVIDER_KEY) || '';
-    selectedModelName.value =
-      localStorage.getItem(SELECTED_PROVIDER_MODEL_KEY) || '';
+    selectedModelName.value = selectedProviderId.value
+      ? localStorage.getItem(SELECTED_PROVIDER_MODEL_KEY) || ''
+      : '';
   } catch {
     selectedProviderId.value = '';
     selectedModelName.value = '';
@@ -31,10 +32,15 @@ export function useProviderModelSelection() {
   /** Update the shared state and its browser persistence. */
   function setSelection(providerId: string, modelName = '') {
     selectedProviderId.value = providerId;
-    selectedModelName.value = modelName;
+    selectedModelName.value = providerId ? modelName : '';
     try {
-      localStorage.setItem(SELECTED_PROVIDER_KEY, providerId);
-      localStorage.setItem(SELECTED_PROVIDER_MODEL_KEY, modelName);
+      if (providerId) {
+        localStorage.setItem(SELECTED_PROVIDER_KEY, providerId);
+        localStorage.setItem(SELECTED_PROVIDER_MODEL_KEY, modelName);
+      } else {
+        localStorage.removeItem(SELECTED_PROVIDER_KEY);
+        localStorage.removeItem(SELECTED_PROVIDER_MODEL_KEY);
+      }
     } catch {
       // Selection persistence must not block the UI.
     }

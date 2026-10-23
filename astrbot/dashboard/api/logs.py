@@ -1,7 +1,10 @@
+import asyncio
+import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, Path, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from starlette.background import BackgroundTask
 
 from astrbot.dashboard.responses import ApiError, ok
 from astrbot.dashboard.schemas import TraceSettingsRequest
@@ -16,10 +19,38 @@ _SSE_RESPONSE: dict[int | str, dict[str, Any]] = {
         "content": {"text/event-stream": {"schema": {"type": "string"}}},
     }
 }
+_ZIP_RESPONSE: dict[int | str, dict[str, Any]] = {
+    200: {
+        "description": "Diagnostic ZIP archive",
+        "content": {
+            "application/zip": {"schema": {"type": "string", "format": "binary"}}
+        },
+    }
+}
 
 
 async def require_system_scope(request: Request) -> AuthContext:
     return await require_scope(request, "system")
+
+
+async def require_diagnostic_export(request: Request) -> AuthContext:
+    """Require the root system scope and reject developer API keys.
+
+    Args:
+        request: Incoming Dashboard request.
+
+    Returns:
+        The authorized Dashboard principal.
+
+    Raises:
+        ApiError: If the caller is not a root Dashboard session.
+    """
+    auth = await require_system_scope(request)
+    if auth.via == "api_key":
+        raise ApiError(
+            "Developer API keys cannot export diagnostic bundles", status_code=403
+        )
+    return auth
 
 
 def get_service(request: Request) -> LogService:
@@ -91,6 +122,34 @@ async def live_logs(
             "Connection": "keep-alive",
             "Transfer-Encoding": "chunked",
         },
+    )
+
+
+@router.get("/logs/export", responses=_ZIP_RESPONSE)
+async def export_logs(
+    redact: bool = Query(default=True),
+    start_time: int | None = Query(default=None, ge=0),
+    end_time: int | None = Query(default=None, ge=0),
+    _auth: AuthContext = Depends(require_diagnostic_export),
+    service: LogService = Depends(get_service),
+):
+    archive_path: Any = None
+    try:
+        archive_path = await asyncio.to_thread(
+            service.export_logs,
+            redact=redact,
+            start_time=start_time,
+            end_time=end_time,
+        )
+    except LogServiceError as exc:
+        _raise_log_error(exc)
+    assert archive_path is not None
+    return FileResponse(
+        archive_path,
+        media_type="application/zip",
+        filename=f"astrbot-diagnostics-{'raw-' if not redact else ''}{time.strftime('%Y%m%d-%H%M%S')}.zip",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+        background=BackgroundTask(archive_path.unlink, missing_ok=True),
     )
 
 

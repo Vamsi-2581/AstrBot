@@ -1,4 +1,5 @@
 import os
+import stat
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -80,7 +81,7 @@ class StorageCleaner:
 
     def _build_status(self, target: str) -> dict:
         if target == self.TARGET_LOGS:
-            files = self._collect_log_files()
+            files = self.collect_log_files()
             primary_path = self._data_dir / "logs"
         elif target == self.TARGET_CACHE:
             files = self._collect_cache_files()
@@ -128,7 +129,7 @@ class StorageCleaner:
                 "failed_files": 0,
             }
         if target == self.TARGET_LOGS:
-            files = self._collect_log_files()
+            files = self.collect_log_files()
             active_log_files = self._active_log_files()
         elif target == self.TARGET_CACHE:
             files = self._collect_cache_files()
@@ -186,7 +187,13 @@ class StorageCleaner:
             "failed_files": failed_files,
         }
 
-    def _collect_log_files(self) -> set[Path]:
+    def collect_log_files(self) -> set[Path]:
+        """Collect files under data/logs plus the configured log files.
+
+        Returns:
+            The log files, including rotated ones of the configured log and
+            trace log paths, even when those are outside data/logs.
+        """
         files = set(self._iter_files(self._data_dir / "logs"))
         for log_path in self._configured_log_paths():
             files.update(self._iter_log_family_files(log_path))
@@ -206,10 +213,25 @@ class StorageCleaner:
                 or path.name.endswith(("-wal", "-shm", "-journal"))
             ):
                 continue
+            if path.is_symlink():
+                # Only the link itself is removed; its target is never opened.
+                candidates.add(path)
+                continue
             try:
                 # Protect custom database names, including an old active path
                 # after a configuration edit that has not restarted the core.
-                with path.open("rb") as stream:
+                # A symlinked parent (for example data/logs mounted elsewhere)
+                # must not skip this signature check: the file itself is still
+                # removed by cleanup, so a non-.db database name stays protected.
+                flags = (
+                    os.O_RDONLY
+                    | getattr(os, "O_NOFOLLOW", 0)
+                    | getattr(os, "O_NONBLOCK", 0)
+                    | getattr(os, "O_BINARY", 0)
+                )
+                with os.fdopen(os.open(path, flags), "rb") as stream:
+                    if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                        continue
                     if stream.read(16) == b"SQLite format 3\x00":
                         continue
             except OSError:
@@ -281,8 +303,8 @@ class StorageCleaner:
         path_value = configured_path or default_relative_path
         path = Path(path_value)
         if path.is_absolute():
-            return path.resolve()
-        return (self._data_dir / path).resolve()
+            return Path(os.path.abspath(path))
+        return Path(os.path.abspath(self._data_dir / path))
 
     def _iter_log_family_files(self, log_path: Path) -> set[Path]:
         files: set[Path] = set()

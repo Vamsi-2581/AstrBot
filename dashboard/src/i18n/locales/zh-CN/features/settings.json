@@ -178,6 +178,10 @@
       "subtitle": "导出或导入 AstrBot 的所有数据，方便迁移到新服务器",
       "button": "备份管理"
     },
+    "diagnostics": {
+      "title": "诊断",
+      "subtitle": "导出诊断包，帮助排查 AstrBot 运行问题。"
+    },
     "cleanup": {
       "title": "日志、缓存与追踪清理",
       "subtitle": "查看当前日志和缓存占用，并一键清理。",

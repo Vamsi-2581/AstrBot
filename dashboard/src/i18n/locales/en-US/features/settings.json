@@ -178,6 +178,10 @@
       "subtitle": "Export or import all AstrBot data for easy migration to a new server",
       "button": "Backup Manager"
     },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "subtitle": "Export a diagnostic bundle to troubleshoot AstrBot."
+    },
     "cleanup": {
       "title": "Log, Cache & Trace Cleanup",
       "subtitle": "Review disk usage for logs and caches, then clean them from the UI without shell commands.",

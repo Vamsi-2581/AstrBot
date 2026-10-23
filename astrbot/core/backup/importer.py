@@ -18,9 +18,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import delete
+from sqlmodel import col
 
 from astrbot import logger
+from astrbot.core.auth.models import persist_capability_config_id
+from astrbot.core.auth.registry import dashboard_api_capability_specs
 from astrbot.core.config.default import VERSION
+from astrbot.core.db.po import ApiKey, AuthCapability
 from astrbot.core.db.protocols import DatabaseSessionStore
 from astrbot.core.utils.astrbot_path import (
     get_astrbot_data_path,
@@ -54,6 +58,7 @@ from ._importer_versioning import (
 
 # 从共享常量模块导入
 from .constants import (
+    EXCLUDED_MAIN_DB_MODELS,
     KB_VECTOR_INDEX_FILENAMES,
     MAIN_DB_MODELS,
 )
@@ -271,18 +276,30 @@ class AstrBotImporter:
             result.add_internal_warning("导入知识库失败", exc)
 
     def _import_config_stage(self, zf: zipfile.ZipFile, result: ImportResult) -> None:
-        if "config/cmd_config.json" not in zf.namelist():
-            return
+        if "config/cmd_config.json" in zf.namelist():
+            try:
+                config_content = zf.read("config/cmd_config.json")
+                if os.path.exists(self.config_path):
+                    shutil.copy2(self.config_path, f"{self.config_path}.bak")
+                with open(self.config_path, "wb") as f:
+                    f.write(config_content)
+                result.imported_files["config"] = 1
+            except Exception as exc:
+                result.add_internal_warning("导入配置文件失败", exc)
 
-        try:
-            config_content = zf.read("config/cmd_config.json")
-            if os.path.exists(self.config_path):
-                shutil.copy2(self.config_path, f"{self.config_path}.bak")
-            with open(self.config_path, "wb") as f:
-                f.write(config_content)
-            result.imported_files["config"] = 1
-        except Exception as exc:
-            result.add_internal_warning("导入配置文件失败", exc)
+        if "config/mcp_server.json" in zf.namelist():
+            try:
+                mcp_config_path = Path(get_astrbot_data_path()) / "mcp_server.json"
+                mcp_config_path.parent.mkdir(parents=True, exist_ok=True)
+                if mcp_config_path.exists():
+                    shutil.copy2(
+                        mcp_config_path,
+                        mcp_config_path.with_suffix(".json.bak"),
+                    )
+                mcp_config_path.write_bytes(zf.read("config/mcp_server.json"))
+                result.imported_files["mcp_config"] = 1
+            except Exception as exc:
+                result.add_internal_warning("Failed to restore MCP configuration", exc)
 
     async def _import_attachments_stage(
         self,
@@ -507,7 +524,10 @@ class AstrBotImporter:
         """清空主数据库所有表"""
         async with self.main_db.get_db() as session:
             async with session.begin():
-                for table_name, model_class in MAIN_DB_MODELS.items():
+                # Replace restores also invalidate device trust on the target instance.
+                for table_name, model_class in (
+                    MAIN_DB_MODELS | EXCLUDED_MAIN_DB_MODELS
+                ).items():
                     try:
                         await session.execute(delete(model_class))
                         logger.debug(f"已清空表 {table_name}")
@@ -515,6 +535,13 @@ class AstrBotImporter:
                         raise
                     except Exception as exc:
                         raise DatabaseClearError("清空主数据库失败") from exc
+                # API key capabilities are derived from ``ApiKey.scopes`` and
+                # target rows are replaced below, so stale grants must go too.
+                await session.execute(
+                    delete(AuthCapability).where(
+                        col(AuthCapability.subject_id).startswith("api-key:")
+                    )
+                )
 
     async def _clear_kb_data(self) -> None:
         """清空知识库数据"""
@@ -542,6 +569,8 @@ class AstrBotImporter:
                             row = self._convert_datetime_fields(row, model_class)
                             obj = model_class(**row)
                             session.add(obj)
+                            if isinstance(obj, ApiKey):
+                                self._restore_api_key_capabilities(session, obj)
                             count += 1
                         except asyncio.CancelledError:
                             raise
@@ -556,6 +585,35 @@ class AstrBotImporter:
                     logger.debug(f"导入表 {table_name}: {count} 条记录")
 
         return imported
+
+    @staticmethod
+    def _restore_api_key_capabilities(session: Any, key: ApiKey) -> None:
+        """Rebuild the capability rows derived from a restored API key's scopes.
+
+        The fork stores API-key grants in ``auth_capabilities`` instead of
+        reading ``ApiKey.scopes`` during authorization, so restoring only the
+        key row leaves the key unable to perform any action.
+
+        Args:
+            session: Active import transaction.
+            key: Restored API key row.
+        """
+        scopes = [scope for scope in (key.scopes or []) if isinstance(scope, str)]
+        for action, resource_type, resource_id in dashboard_api_capability_specs(
+            scopes
+        ):
+            session.add(
+                AuthCapability(
+                    subject_id=f"api-key:{key.key_id}",
+                    action=action,
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    config_id=persist_capability_config_id(None),
+                    created_by=key.created_by,
+                    expires_at=key.expires_at,
+                    revoked_at=key.revoked_at,
+                )
+            )
 
     def _preprocess_main_table_rows(
         self, table_name: str, rows: list[dict[str, Any]]
