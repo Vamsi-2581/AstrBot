@@ -901,6 +901,23 @@ def test_wecom_kf_sync_uses_next_cursor_until_done():
     assert calls == ["", "cursor-1", "cursor-2"]
 
 
+def test_wecom_kf_sync_keeps_the_last_message_when_the_terminal_page_is_empty():
+    responses = [
+        {"has_more": 1, "next_cursor": "cursor-1", "msg_list": [{"msgid": "a"}]},
+        {"has_more": 0, "next_cursor": "", "msg_list": []},
+    ]
+    calls: list[str] = []
+    adapter = _adapter()
+    adapter.wechat_kf_api = SimpleNamespace(
+        sync_msg=lambda token, kfid, cursor="": (
+            calls.append(cursor) or responses[len(calls) - 1]
+        )
+    )
+
+    assert adapter._latest_wechat_kf_message("token", "kf") == {"msgid": "a"}
+    assert calls == ["", "cursor-1"]
+
+
 def test_wecom_kf_sync_tolerates_error_responses_and_stops_on_repeated_cursor():
     adapter = _adapter()
     adapter.wechat_kf_api = SimpleNamespace(

@@ -249,17 +249,19 @@ class WecomPlatformAdapter(Platform):
 
     def _latest_wechat_kf_message(self, token: str, kfid: str) -> dict | None:
         cursor = ""
-        ret: dict = {}
+        latest: dict | None = None
         while True:
             ret = self.wechat_kf_api.sync_msg(token, kfid, cursor)
             if not isinstance(ret, dict):
-                return None
+                return latest
+            page = ret.get("msg_list") or []
+            if page:
+                latest = page[-1]
             next_cursor = ret.get("next_cursor") or ""
             if not ret.get("has_more") or not next_cursor or next_cursor == cursor:
                 break
             cursor = next_cursor
-        msg_list = ret.get("msg_list", [])
-        return msg_list[-1] if msg_list else None
+        return latest
 
     def _is_duplicate_wechat_kf_text_message(self, session_id: str, text: str) -> bool:
         normalized_text = text.strip()

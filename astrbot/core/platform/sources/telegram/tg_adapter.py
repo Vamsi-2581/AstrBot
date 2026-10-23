@@ -750,7 +750,15 @@ class TelegramPlatformAdapter(Platform):
             getattr(message, "business_connection_id", None),
             is_forum=is_forum,
         )
-        if binding.target != callback_target or binding.message_id != message_id:
+        legacy_callback_target = format_telegram_target(
+            chat.id,
+            raw_thread_id,
+            getattr(message, "business_connection_id", None),
+        )
+        if (
+            binding.target not in (callback_target, legacy_callback_target)
+            or binding.message_id != message_id
+        ):
             return
 
         role = "member"

@@ -4186,6 +4186,37 @@ async def test_telegram_general_topic_callback_matches_message_target():
 
 
 @pytest.mark.asyncio
+async def test_telegram_general_topic_callback_accepts_an_explicit_topic_one_target():
+    adapter = _interaction_adapter()
+    await adapter.invoke_capability(
+        TELEGRAM_CAPABILITY_NAME,
+        "send_interactive",
+        target="-10001#1",
+        text="Continue?",
+        buttons=[[{"text": "Yes", "value": "confirm"}]],
+    )
+    token = next(iter(adapter._callback_bindings))
+
+    await adapter.callback_query_handler(
+        _callback_update(
+            token,
+            chat_id=-10001,
+            chat_type="supergroup",
+            is_forum=True,
+            message_thread_id=1,
+            is_topic_message=True,
+        ),
+        _build_context(),
+    )
+
+    event = await adapter._event_queue.get()
+    callback = event.get_extra("telegram_callback")
+    assert isinstance(callback, TelegramCallbackEvent)
+    assert callback.data == "confirm"
+    assert event.get_session_id() == "-10001"
+
+
+@pytest.mark.asyncio
 async def test_telegram_callback_rejects_unauthorized_actor_and_expired_token():
     adapter = _interaction_adapter()
     await adapter.invoke_capability(
