@@ -113,3 +113,26 @@ def test_generate_ob11_event_models_rejects_invalid_json(tmp_path: Path) -> None
     output = _normalize_powershell_output(proc.stderr or proc.stdout)
     assert "Schema file is not valid JSON:" in output
     assert str(schema_path) in _compact_for_path_match(output)
+
+
+def test_generate_models_validates_the_temporary_output_path() -> None:
+    script = (REPO_ROOT / "scripts/napcat/generate_ob11_event_models.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    assert "Get-Content -LiteralPath $temporaryOutputPath -Raw" in script
+    assert "Get-Content -LiteralPath $OutputPath -Raw" not in script
+
+
+def test_generate_schema_scopes_git_commands_to_the_clone_directory() -> None:
+    script = (REPO_ROOT / "scripts/napcat/generate_ob11_event_schema.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    assert "git -C $parent clone" in script
+    assert "git -C $Path fetch" in script
+    assert "git -C $Path checkout" in script
+    assert "git -C $cloneDir rev-parse HEAD" in script
+    assert "git -C $cloneDir fetch" in script
+    assert "git -C $cloneDir checkout" in script
+    assert script.count("$LASTEXITCODE") >= 6

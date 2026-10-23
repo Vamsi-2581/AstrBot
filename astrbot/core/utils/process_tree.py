@@ -237,8 +237,15 @@ class ProcessTree:
         if self._job is None or _KERNEL32 is None:
             return
         assigner = ThreadAssigner(self)
-        assigner.start()
-        if not await assigner.ready():
+        try:
+            assigner.start()
+            ready = await assigner.ready()
+        except BaseException:
+            # A cancelled arm must not leave the listener parked forever now
+            # that it waits without a timeout.
+            await assigner.close()
+            raise
+        if not ready:
             logger.debug("Job binding is unavailable; the child is not bound.")
             await assigner.close()
             return
@@ -463,8 +470,10 @@ class ThreadAssigner:
         """Wait for a pid, bind it, and resume it."""
         try:
             self._ready.set()
-            if not self._event.wait(_ASSIGNER_CLOSE_TIMEOUT):
-                return
+            # Wait until either a child is handed over or close() signals the
+            # listener. A timeout here would let a slow arm-to-spawn gap leave
+            # a CREATE_SUSPENDED child permanently suspended.
+            self._event.wait()
             if self._args is None:
                 return  # Closing a tree that was never handed a child.
             self._assign(*self._args)
