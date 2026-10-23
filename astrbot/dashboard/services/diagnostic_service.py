@@ -31,6 +31,7 @@ _URL_AUTH = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*://)[^/\s@]+@")
 _ASSIGNMENT = re.compile(r"(?<![\w.-])([\w.-]+)[\"']?\s*[:=]\s*")
 _ASSIGNMENT_KEY = re.compile(
     r"token|secret|password|passwd|api[_-]?key|access[_-]?key|aes[_-]?key|"
+    r"private[_-]?key|credential|"
     r"(?:client|app|signing|encrypt(?:ion)?)[_-]?key|recovery[_-]?code|"
     r"(?:authorization|cookie|\bkey)$",
     re.IGNORECASE,
@@ -162,6 +163,7 @@ class DiagnosticRedactor:
                 "password",
                 "passwd",
                 "key",
+                "credential",
                 "code",
                 "authorization",
                 "cookie",

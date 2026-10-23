@@ -428,3 +428,18 @@ def test_public_ip_aliases_are_shared_across_config_logs_and_trace_spellings():
 )
 def test_local_non_global_and_non_ip_text_remains_unchanged(value):
     assert DiagnosticRedactor().text(value) == value
+
+
+def test_credential_and_private_key_assignments_are_redacted_in_text():
+    redactor = DiagnosticRedactor()
+
+    result = redactor.text(
+        "credential=private-credential-value\n"
+        "private_key=private-key-value\n"
+        "service.credential: nested-credential-value"
+    )
+
+    assert "private-credential-value" not in result
+    assert "private-key-value" not in result
+    assert "nested-credential-value" not in result
+    assert result.count("[REDACTED]") == 3
