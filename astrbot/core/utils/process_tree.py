@@ -237,8 +237,15 @@ class ProcessTree:
         if self._job is None or _KERNEL32 is None:
             return
         assigner = ThreadAssigner(self)
-        assigner.start()
-        if not await assigner.ready():
+        try:
+            assigner.start()
+            ready = await assigner.ready()
+        except BaseException:
+            # A cancelled arm must not leave the listener parked forever now
+            # that it waits without a timeout.
+            await assigner.close()
+            raise
+        if not ready:
             logger.debug("Job binding is unavailable; the child is not bound.")
             await assigner.close()
             return
