@@ -63,6 +63,7 @@ from .rate_limit import TelegramDeliveryLimiter
 from .tg_event import (
     TelegramPlatformEvent,
     format_telegram_target,
+    normalize_telegram_thread_id,
     resolve_telegram_api_target,
 )
 
@@ -742,12 +743,22 @@ class TelegramPlatformAdapter(Platform):
             if getattr(message, "is_topic_message", False) is True
             else None
         )
+        is_forum = getattr(chat, "is_forum", False) is True
         callback_target = format_telegram_target(
             chat.id,
             raw_thread_id,
             getattr(message, "business_connection_id", None),
+            is_forum=is_forum,
         )
-        if binding.target != callback_target or binding.message_id != message_id:
+        legacy_callback_target = format_telegram_target(
+            chat.id,
+            raw_thread_id,
+            getattr(message, "business_connection_id", None),
+        )
+        if (
+            binding.target not in (callback_target, legacy_callback_target)
+            or binding.message_id != message_id
+        ):
             return
 
         role = "member"
@@ -786,10 +797,12 @@ class TelegramPlatformAdapter(Platform):
         abm.message_str = ""
         if not is_private:
             group_id = str(chat.id)
-            if raw_thread_id and not (
-                getattr(chat, "is_forum", False) is True and raw_thread_id == 1
-            ):
-                group_id += f"#{raw_thread_id}"
+            thread_id = normalize_telegram_thread_id(
+                raw_thread_id,
+                is_forum=is_forum,
+            )
+            if thread_id is not None:
+                group_id += f"#{thread_id}"
             abm.group = Group(
                 group_id=group_id, group_name=getattr(chat, "title", None)
             )
@@ -1460,10 +1473,9 @@ class TelegramPlatformAdapter(Platform):
             message.type = MessageType.GROUP_MESSAGE
             group_id = chat_id
             is_forum = getattr(telegram_message.chat, "is_forum", False) is True
-            thread_id = (
-                raw_thread_id
-                if raw_thread_id and not (is_forum and raw_thread_id == 1)
-                else None
+            thread_id = normalize_telegram_thread_id(
+                raw_thread_id,
+                is_forum=is_forum,
             )
             if thread_id is not None:
                 # Telegram Topic Group: include thread id to isolate per-topic sessions.

@@ -234,15 +234,7 @@ class WecomPlatformAdapter(Platform):
                 def get_latest_msg_item() -> dict | None:
                     token = msg._data["Token"]
                     kfid = msg._data["OpenKfId"]
-                    has_more = 1
-                    ret = {}
-                    while has_more:
-                        ret = self.wechat_kf_api.sync_msg(token, kfid)
-                        has_more = ret["has_more"]
-                    msg_list = ret.get("msg_list", [])
-                    if msg_list:
-                        return msg_list[-1]
-                    return None
+                    return self._latest_wechat_kf_message(token, kfid)
 
                 msg_new = await asyncio.get_running_loop().run_in_executor(
                     None,
@@ -254,6 +246,22 @@ class WecomPlatformAdapter(Platform):
             await self.convert_message(msg)
 
         self.server.callback = callback
+
+    def _latest_wechat_kf_message(self, token: str, kfid: str) -> dict | None:
+        cursor = ""
+        latest: dict | None = None
+        while True:
+            ret = self.wechat_kf_api.sync_msg(token, kfid, cursor)
+            if not isinstance(ret, dict):
+                return latest
+            page = ret.get("msg_list") or []
+            if page:
+                latest = page[-1]
+            next_cursor = ret.get("next_cursor") or ""
+            if not ret.get("has_more") or not next_cursor or next_cursor == cursor:
+                break
+            cursor = next_cursor
+        return latest
 
     def _is_duplicate_wechat_kf_text_message(self, session_id: str, text: str) -> bool:
         normalized_text = text.strip()
