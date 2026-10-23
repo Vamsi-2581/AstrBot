@@ -545,3 +545,47 @@ async def test_replace_without_stored_backup_rolls_forward_consistently(
     assert "legacy generation without a stored source" not in joined
     assert not helper._doc_blob_path(live_id, ".staging").exists()
     assert not helper._doc_blob_path(live_id, ".bak").exists()
+
+
+@pytest.mark.asyncio
+async def test_roll_forward_does_not_claim_chunks_when_rebuild_fails(
+    kb_helper, monkeypatch
+):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="no-backup-rebuild-failure.md",
+        file_content=b"previous generation without a stored source",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    helper._doc_blob_path(live_id).unlink()
+    incoming = b"incoming generation whose rebuild fails"
+    original_update = helper._update_live_document_metadata
+    failed = False
+
+    async def fail_once(**kwargs):
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise RuntimeError("metadata update failed")
+        return await original_update(**kwargs)
+
+    async def broken_reembed(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(helper, "_update_live_document_metadata", fail_once)
+    monkeypatch.setattr(helper, "_reembed_from_stored_blob", broken_reembed)
+
+    with pytest.raises(RuntimeError, match="metadata update failed"):
+        await helper.upload_document(
+            file_name="no-backup-rebuild-failure.md",
+            file_content=incoming,
+            file_type="md",
+        )
+
+    live = await helper.get_document(live_id)
+    assert live is not None
+    assert live.content_hash == hashlib.sha256(incoming).hexdigest()
+    assert live.chunk_count == 0
+    assert live.media_count == 0
+    assert await _chunk_texts(helper, live_id) == []

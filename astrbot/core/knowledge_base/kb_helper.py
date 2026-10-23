@@ -1267,6 +1267,12 @@ class KBHelper:
             chunks_text, saved_media = restored
             metadata["chunk_count"] = len(chunks_text)
             metadata["media_count"] = len(saved_media)
+        else:
+            # The rebuild failed after the incoming chunks were retired, so no
+            # indexed generation exists. Do not claim chunks that are absent;
+            # startup recovery rebuilds this document from the stored blob.
+            metadata["chunk_count"] = 0
+            metadata["media_count"] = 0
         await self._update_live_document_metadata(
             live_doc_id=live_doc_id,
             **metadata,
