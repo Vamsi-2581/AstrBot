@@ -11,6 +11,7 @@ another upload flow.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import math
 import os
 import shutil
@@ -272,10 +273,8 @@ class ChunkedUploadService:
             except asyncio.CancelledError:
                 # to_thread cannot be cancelled; let the merge finish so it
                 # cannot recreate files after the session cleanup below.
-                try:
+                with contextlib.suppress(BaseException):
                     await asyncio.shield(worker)
-                except BaseException:
-                    pass
                 await self._cleanup_session_locked(session)
                 raise
             await self._cleanup_session_locked(session)
@@ -288,7 +287,8 @@ class ChunkedUploadService:
         try:
             mode = stat.S_IMODE(dest_path.stat().st_mode)
         except OSError:
-            pass
+            # A missing destination keeps the restrictive private default.
+            mode = 0o600
         try:
             descriptor = os.open(
                 temp_path,
