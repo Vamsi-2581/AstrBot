@@ -42,6 +42,11 @@ class ContentSafetyCheckStage(Stage):
 
         ok, info = await self.strategy_selector.check("\n".join(texts))
         if not ok:
+            should_notify = (
+                check_text is not None
+                or bool(event.get_extra("should_run_command"))
+                or bool(event.get_extra("should_run_llm"))
+            )
             result = MessageEventResult().message(
                 "你的消息或者大模型的响应中包含不适当的内容，已被屏蔽。",
             )
@@ -49,8 +54,10 @@ class ContentSafetyCheckStage(Stage):
             event.stop_event()
             # Respond is skipped once the event is stopped, so deliver the
             # notice here and clear the result to avoid a second send when
-            # ResultDecorate reuses this stage for model output.
-            await event.send(result)
+            # ResultDecorate reuses this stage for model output. Messages that
+            # were never addressed to the bot stay silent.
+            if should_notify:
+                await event.send(result)
             event.clear_result()
             logger.info(f"内容安全检查不通过，原因：{info}")
             yield

@@ -57,6 +57,7 @@ class _DownstreamProbe(Stage):
 @pytest.mark.asyncio
 async def test_blocked_message_stops_before_downstream_and_sends_once():
     event = _BlockedEvent()
+    event.extras["should_run_llm"] = True
     stage = ContentSafetyCheckStage()
     stage.strategy_selector = SimpleNamespace(
         check=AsyncMock(return_value=(False, "blocked"))
@@ -70,6 +71,25 @@ async def test_blocked_message_stops_before_downstream_and_sends_once():
     assert event.stopped is True
     assert event.result is None
     assert len(event.sent) == 1
+    assert probe.called is False
+
+
+@pytest.mark.asyncio
+async def test_blocked_unaddressed_message_stops_without_notifying():
+    event = _BlockedEvent()
+    stage = ContentSafetyCheckStage()
+    stage.strategy_selector = SimpleNamespace(
+        check=AsyncMock(return_value=(False, "blocked"))
+    )
+    probe = _DownstreamProbe()
+    scheduler = PipelineScheduler(SimpleNamespace())
+    scheduler.stages = [stage, probe]
+
+    await scheduler._process_stages(event)
+
+    assert event.stopped is True
+    assert event.result is None
+    assert event.sent == []
     assert probe.called is False
 
 
