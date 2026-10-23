@@ -7,6 +7,7 @@ const api = vi.hoisted(() => ({
   content: vi.fn(),
   metadata: vi.fn(),
   save: vi.fn(),
+  download: vi.fn(),
 }));
 
 vi.mock('@/api/v1', () => ({ dataFilesApi: api }));
@@ -143,5 +144,62 @@ describe('DataFilesPage stale failures', () => {
     expect(wrapper.find('.editor-value').text()).toBe('second file');
     expect(wrapper.find('.v-alert').exists()).toBe(false);
     wrapper.unmount();
+  });
+});
+
+describe('DataFilesPage unmount races', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      callback(0);
+      return 0;
+    });
+    api.tree.mockResolvedValue({
+      data: {
+        data: {
+          entries: [
+            {
+              ...file('a.png'),
+              category: 'image',
+              language: null,
+              downloadable: true,
+              mime_type: 'image/png',
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  it('does not create a preview after the page unmounts', async () => {
+    const pending = deferred<unknown>();
+    api.download.mockReturnValue(pending.promise);
+    const createObjectURL = vi.fn(() => 'blob:stale');
+    const original = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: createObjectURL,
+    });
+    try {
+      const wrapper = mountWithVuetify(DataFilesPage);
+      await flushPromises();
+
+      await wrapper.find('button[aria-label="a.png"]').trigger('click');
+      await flushPromises();
+      wrapper.unmount();
+
+      pending.resolve({ data: new Blob(['stale'], { type: 'image/png' }) });
+      await flushPromises();
+
+      expect(api.download).toHaveBeenCalled();
+      expect(createObjectURL).not.toHaveBeenCalled();
+    } finally {
+      if (original) {
+        Object.defineProperty(URL, 'createObjectURL', original);
+      } else {
+        Reflect.deleteProperty(URL, 'createObjectURL');
+      }
+    }
   });
 });

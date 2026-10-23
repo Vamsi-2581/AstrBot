@@ -879,6 +879,7 @@ watch(
   },
 );
 onBeforeUnmount(() => {
+  openEntryRequestId += 1;
   window.removeEventListener('keydown', onKeyDown);
   window.removeEventListener('beforeunload', onBeforeUnload);
   clearPreview();
