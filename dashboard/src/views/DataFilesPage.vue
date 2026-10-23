@@ -504,6 +504,7 @@ async function openEntry(entry: DataFileEntry) {
     etag.value = response.data.data.etag;
     selectedEntry.value = { ...entry, writable: response.data.data.writable };
   } catch {
+    if (requestId !== openEntryRequestId) return;
     editorError.value = tm('error');
   }
 }
@@ -560,6 +561,7 @@ async function loadBinaryPreview(entry: DataFileEntry, requestId: number) {
     previewUrl.value = URL.createObjectURL(response.data);
     previewKind.value = kind;
   } catch {
+    if (requestId !== openEntryRequestId) return;
     editorError.value = tm('error');
   }
 }

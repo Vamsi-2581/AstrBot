@@ -32,10 +32,12 @@ import { mountWithVuetify } from './utils/mountWithVuetify';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((done, fail) => {
     resolve = done;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 function file(name: string) {
@@ -93,6 +95,53 @@ describe('DataFilesPage selection races', () => {
 
     expect(wrapper.find('.editor-value').text()).toBe('second file');
     expect(wrapper.text()).toContain('b.txt');
+    wrapper.unmount();
+  });
+});
+
+describe('DataFilesPage stale failures', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      callback(0);
+      return 0;
+    });
+    api.tree.mockResolvedValue({
+      data: { data: { entries: [file('a.txt'), file('b.txt')] } },
+    });
+  });
+
+  it('does not surface an older failure for the newly selected file', async () => {
+    const first = deferred<unknown>();
+    api.content.mockImplementation((path: string) =>
+      path === 'a.txt'
+        ? first.promise
+        : Promise.resolve({
+            data: {
+              data: {
+                content: 'second file',
+                etag: 'etag-b',
+                writable: true,
+              },
+            },
+          }),
+    );
+    const wrapper = mountWithVuetify(DataFilesPage);
+    await flushPromises();
+
+    await wrapper.find('button[aria-label="a.txt"]').trigger('click');
+    await flushPromises();
+    await wrapper.find('button[aria-label="b.txt"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('.editor-value').text()).toBe('second file');
+
+    first.reject(new Error('stale failure'));
+    await flushPromises();
+
+    expect(wrapper.find('.editor-value').text()).toBe('second file');
+    expect(wrapper.find('.v-alert').exists()).toBe(false);
     wrapper.unmount();
   });
 });
