@@ -751,10 +751,14 @@ class ChatService:
         if not upload_id:
             raise ChatServiceError("Missing key: upload_id")
 
-        merged_path = self.chunked_uploads.chunks_root / f"{upload_id}.merged"
+        merged_path: Path | None = None
         try:
             try:
                 session = self.chunked_uploads.get_session(upload_id, owner=owner)
+                # Derive the merge target from the validated session id, never
+                # from the caller-supplied upload_id, which may contain path
+                # traversal segments.
+                merged_path = self.chunked_uploads.chunks_root / f"{session.id}.merged"
                 await self.chunked_uploads.assemble(upload_id, merged_path, owner=owner)
             except ChunkedUploadError as exc:
                 raise ChatServiceError(str(exc)) from exc
@@ -765,7 +769,8 @@ class ChatService:
             )
             result = await self.save_uploaded_file(upload)
         finally:
-            merged_path.unlink(missing_ok=True)
+            if merged_path is not None:
+                merged_path.unlink(missing_ok=True)
 
         logger.info(
             "Chunked attachment upload completed: %s, size=%s, chunks=%s",

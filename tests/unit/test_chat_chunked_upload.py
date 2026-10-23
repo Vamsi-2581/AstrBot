@@ -314,3 +314,16 @@ async def test_assembly_preserves_restrictive_destination_mode(service, tmp_path
     await uploads.assemble(session.id, destination)
 
     assert stat.S_IMODE(destination.stat().st_mode) == 0o640
+
+
+@pytest.mark.asyncio
+async def test_complete_rejects_path_traversal_without_deleting_foreign_files(service):
+    chunks_root = service.chunked_uploads.chunks_root
+    chunks_root.mkdir(parents=True, exist_ok=True)
+    victim = chunks_root.parent / "victim.merged"
+    victim.write_bytes(b"keep me")
+
+    with pytest.raises(ChatServiceError, match="not found or expired"):
+        await service.upload_complete({"upload_id": "../victim"}, owner="alice")
+
+    assert victim.read_bytes() == b"keep me"
