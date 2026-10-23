@@ -1554,16 +1554,18 @@ class ChatService:
         return await self.batch_delete_sessions(username, session_ids, delete_session)
 
     async def delete_attachment(self, attachment_id: str) -> bool:
-        """Delete one attachment file and its database record.
+        """Delete one attachment record and its stored file.
+
+        The database record is removed first. The file is then unlinked unless
+        another attachment still references the same path. Missing files are
+        tolerated and unlink failures are logged so the record is not left
+        undeletable.
 
         Args:
             attachment_id: Attachment identifier to remove.
 
         Returns:
             True when the record existed and was deleted, False when absent.
-
-        Raises:
-            ChatServiceError: The stored file could not be removed.
         """
 
         attachments = await self.db.get_attachments([attachment_id])
