@@ -183,6 +183,8 @@ class ChunkedUploadService:
             temp_path.unlink(missing_ok=True)
             if isinstance(exc, UploadLimitError):
                 raise ChunkedUploadError("Chunk exceeds the size limit") from exc
+            if isinstance(exc, OSError):
+                raise ChunkedUploadError("Upload session not found or expired") from exc
             raise
 
         expected = min(
@@ -295,8 +297,16 @@ class ChunkedUploadService:
             )
             with os.fdopen(descriptor, "wb") as outfile:
                 for i in range(session.total_chunks):
-                    with (session.chunk_dir / f"{i}.part").open("rb") as part:
-                        shutil.copyfileobj(part, outfile)
+                    try:
+                        with (session.chunk_dir / f"{i}.part").open("rb") as part:
+                            shutil.copyfileobj(part, outfile)
+                    except FileNotFoundError as exc:
+                        raise ChunkedUploadError(
+                            "Upload session chunks are missing"
+                        ) from exc
+            # The process umask filters O_CREAT modes, so apply the preserved
+            # destination mode explicitly before publishing the merged file.
+            os.chmod(temp_path, mode)
             size = temp_path.stat().st_size
             if size != session.total_size:
                 raise ChunkedUploadError(
@@ -342,6 +352,10 @@ class ChunkedUploadService:
             await self._cleanup_session_locked(session)
 
     async def _cleanup_session_locked(self, session: UploadSession) -> None:
+        # Drop the session before awaiting filesystem cleanup. A cancellation
+        # during the worker join must not leave a zombie session whose chunks
+        # have already been removed.
+        self.sessions.pop(session.id, None)
         if session.chunk_dir.exists():
             try:
                 await asyncio.to_thread(shutil.rmtree, session.chunk_dir)
@@ -349,8 +363,6 @@ class ChunkedUploadService:
                 logger.warning(
                     "Failed to remove chunk dir %s: %s", session.chunk_dir, exc
                 )
-                return
-        self.sessions.pop(session.id, None)
 
     def ensure_cleanup_task_started(self) -> None:
         if self._cleanup_task is not None and not self._cleanup_task.done():

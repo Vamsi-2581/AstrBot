@@ -311,7 +311,11 @@ async def test_assembly_preserves_restrictive_destination_mode(service, tmp_path
     destination.write_bytes(b"old")
     destination.chmod(0o640)
 
-    await uploads.assemble(session.id, destination)
+    previous_umask = os.umask(0o077)
+    try:
+        await uploads.assemble(session.id, destination)
+    finally:
+        os.umask(previous_umask)
 
     assert stat.S_IMODE(destination.stat().st_mode) == 0o640
 
@@ -327,3 +331,30 @@ async def test_complete_rejects_path_traversal_without_deleting_foreign_files(se
         await service.upload_complete({"upload_id": "../victim"}, owner="alice")
 
     assert victim.read_bytes() == b"keep me"
+
+
+@pytest.mark.asyncio
+async def test_cleanup_cancellation_drops_the_session(service, monkeypatch):
+    uploads = service.chunked_uploads
+    session = _complete_upload(uploads)
+
+    def cancelled_rmtree(*args, **kwargs):
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(chunked_module.shutil, "rmtree", cancelled_rmtree)
+
+    with pytest.raises(asyncio.CancelledError):
+        await uploads.abort(session.id)
+
+    assert session.id not in uploads.sessions
+
+
+@pytest.mark.asyncio
+async def test_assemble_reports_missing_chunks_as_upload_errors(service, tmp_path):
+    uploads = service.chunked_uploads
+    session = _complete_upload(uploads)
+    (session.chunk_dir / "0.part").unlink()
+    destination = tmp_path / "backup.zip"
+
+    with pytest.raises(ChunkedUploadError, match="chunks are missing"):
+        await uploads.assemble(session.id, destination)
