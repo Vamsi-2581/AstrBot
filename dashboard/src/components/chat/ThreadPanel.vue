@@ -118,16 +118,19 @@ const messagesEl = ref<HTMLElement | null>(null);
 let activeAbort: AbortController | null = null;
 
 watch(
-  () => props.thread?.thread_id,
-  (threadId) => {
+  [() => props.modelValue, () => props.thread?.thread_id] as const,
+  ([isOpen, threadId], previous) => {
     activeAbort?.abort();
     activeAbort = null;
     sending.value = false;
-    if (threadId) {
-      void loadThread(threadId);
-    } else {
+    if (!threadId) {
       messages.value = [];
+      return;
     }
+    if (!isOpen) return;
+    const reopened = previous?.[0] === false;
+    if (!reopened && previous?.[1] === threadId) return;
+    void loadThread(threadId);
   },
   { immediate: true },
 );

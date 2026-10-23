@@ -81,3 +81,22 @@ describe('ThreadPanel abort handling', () => {
     wrapper.unmount();
   });
 });
+
+describe('ThreadPanel reopen handling', () => {
+  it('reloads the thread when the panel is reopened', async () => {
+    api.getThread.mockClear();
+    api.getThread.mockResolvedValue({ data: { data: { history: [] } } });
+    const wrapper = mountWithVuetify(ThreadPanel, {
+      props: { modelValue: true, thread: thread('thread-1'), isDark: false },
+    });
+    await flushPromises();
+    expect(api.getThread).toHaveBeenCalledTimes(1);
+
+    await wrapper.setProps({ modelValue: false });
+    await wrapper.setProps({ modelValue: true });
+    await flushPromises();
+
+    expect(api.getThread).toHaveBeenCalledTimes(2);
+    wrapper.unmount();
+  });
+});
