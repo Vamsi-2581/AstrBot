@@ -152,6 +152,36 @@ def test_group_umo_keys_match_runtime_group_ids(umo, expected):
     assert session_admission_key_from_umo(umo) == expected
 
 
+@pytest.mark.parametrize(
+    ("umo", "platform_instance", "group_id"),
+    [
+        (
+            "my-lark:GroupMessage:oc_0123456789abcdef",
+            "my-lark",
+            "oc_0123456789abcdef",
+        ),
+        ("my-lark:GroupMessage:ou_sender%oc_group", "my-lark", "oc_group"),
+        (
+            "my-matrix:GroupMessage:!abc_def:server",
+            "my-matrix",
+            "!abc_def:server",
+        ),
+        (
+            "my-matrix:GroupMessage:user_!abc_def:server",
+            "my-matrix",
+            "!abc_def:server",
+        ),
+        ("my-misskey:GroupMessage:room%123_user1", "my-misskey", "123"),
+    ],
+)
+def test_group_umo_keys_with_custom_instance_ids(umo, platform_instance, group_id):
+    assert session_admission_key_from_umo(umo) == session_admission_key(
+        platform_instance=platform_instance,
+        conversation_kind=ConversationKind.GROUP,
+        conversation_id=group_id,
+    )
+
+
 def test_private_session_key_matches_subject_im_peer():
     event = make_real_event(
         message_type=MessageType.FRIEND_MESSAGE,

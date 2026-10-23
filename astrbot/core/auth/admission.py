@@ -192,14 +192,15 @@ def group_conversation_id_from_session_id(
 
     Unique-session builders use ``sender_id_group_id`` or ``sender_id%group_id``.
     An explicit group id is preferred by callers; this helper only unwraps the
-    stored session fragment. Some platforms place the group id before the
-    unique-session suffix or embed the sender in it, so unwrapping is
-    platform-aware; Matrix room ids are preserved verbatim.
+    stored session fragment. The UMO stores the configured adapter instance id,
+    which may differ from the platform type, so unambiguous layouts are
+    recognized structurally before the instance id is consulted. Matrix room
+    ids and Lark native chat ids are preserved verbatim.
 
     Args:
         session_id: UMO session fragment, possibly unique-session rewritten.
-        platform_instance: Adapter instance/platform used to pick the
-            unique-session layout.
+        platform_instance: Adapter instance id used for layouts that cannot be
+            recognized structurally.
 
     Returns:
         Group id encoded in the fragment, or ``session_id`` when it cannot be
@@ -209,26 +210,26 @@ def group_conversation_id_from_session_id(
     value = str(session_id or "").strip()
     if not value:
         return value
-    platform = str(platform_instance or "").strip().lower()
-    if platform == "misskey":
-        if not value.startswith("room%"):
-            return value
+    if value.startswith(("!", "#")):
+        return value
+    for marker in ("_!", "_#"):
+        position = value.find(marker)
+        if position >= 0:
+            return value[position + 1 :].strip() or value
+    if value.startswith("room%"):
         candidate = value.removeprefix("room%").strip()
         if "_" in candidate:
             candidate = candidate.rsplit("_", 1)[0].strip()
         return candidate or value
-    if platform == "matrix":
-        if value.startswith(("!", "#")):
-            return value
-        for marker in ("_!", "_#"):
-            position = value.find(marker)
-            if position >= 0:
-                return value[position + 1 :].strip() or value
-        return value
-    if platform == "lark" and "%" in value:
+    if "%" in value:
         candidate = value.split("%", 1)[1].strip()
         if candidate:
             return candidate
+    if value.startswith("oc_"):
+        # Lark native group chat ids embed an underscore that is not a
+        # unique-session separator.
+        return value
+    platform = str(platform_instance or "").strip().lower()
     if (
         platform
         in {
