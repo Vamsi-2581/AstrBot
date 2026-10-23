@@ -351,7 +351,7 @@ class KBSQLiteDatabase:
             doc_id: Document ID used as the relative blob name.
         """
         base = kb_files_dir.resolve()
-        for suffix in ("", ".staging", ".bak"):
+        for suffix in ("", ".staging", ".bak", ".replacing", ".replacing.tmp"):
             candidate = kb_files_dir / f"{doc_id}{suffix}"
             try:
                 resolved = candidate.resolve()

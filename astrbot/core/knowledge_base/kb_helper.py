@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import importlib.util
 import json
+import os
 import shutil
 import uuid
 from dataclasses import dataclass
@@ -832,6 +833,78 @@ class KBHelper:
         async with aiofiles.open(path, "wb") as handle:
             await handle.write(data)
 
+    def _replacement_marker_path(self, doc_id: str) -> Path:
+        return self._doc_blob_path(doc_id, ".replacing")
+
+    async def _write_replacement_marker(
+        self,
+        doc_id: str,
+        metadata: dict[str, Any],
+        *,
+        phase: str = "swapped",
+    ) -> None:
+        """Atomically persist the incoming generation and its swap phase."""
+        path = self._replacement_marker_path(doc_id)
+        temporary = path.with_name(f"{path.name}.tmp")
+        payload = dict(metadata)
+        payload["phase"] = phase
+        try:
+            await self._write_blob(
+                temporary,
+                json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            )
+            await asyncio.to_thread(os.replace, temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    def _read_replacement_marker(self, doc_id: str) -> dict[str, Any] | None:
+        path = self._replacement_marker_path(doc_id)
+        if not path.is_file():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except OSError, ValueError:
+            logger.warning(
+                "Unreadable replacement marker for document %s; ignoring it",
+                doc_id,
+                exc_info=True,
+            )
+            return None
+        return data if isinstance(data, dict) else None
+
+    def _clear_replacement_marker(self, doc_id: str) -> None:
+        self._replacement_marker_path(doc_id).unlink(missing_ok=True)
+
+    @staticmethod
+    def _replacement_metadata_from_marker(
+        marker: dict[str, Any],
+        doc: KBDocument,
+        live_blob: Path,
+    ) -> dict[str, Any]:
+        """Rebuild roll-forward metadata from a marker and the live record."""
+        file_size = marker.get("file_size")
+        if not isinstance(file_size, int) or file_size < 0:
+            file_size = live_blob.stat().st_size
+        return {
+            "file_name": marker.get("file_name") or doc.doc_name,
+            "file_type": marker.get("file_type") or doc.file_type,
+            "file_size": file_size,
+            "chunk_count": 0,
+            "media_count": 0,
+            "identity_key": marker.get("identity_key") or doc.identity_key,
+            "content_hash": marker.get("content_hash") or doc.content_hash,
+            "source_kind": marker.get("source_kind") or doc.source_kind,
+            "source_url": marker.get("source_url", doc.source_url),
+        }
+
+    @staticmethod
+    def _hash_blob(path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for block in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(block)
+        return digest.hexdigest()
+
     async def _ingest_chunks_for_doc_id(
         self,
         *,
@@ -981,9 +1054,24 @@ class KBHelper:
             staging_blob.unlink()
 
         media_paths: list[Path] = []
+        chunks_text: list[str] = []
+        saved_media: list[KBMedia] = []
         swapped_blob = False
         retired_live = False
         relabeled = False
+        finalized = False
+        replacement_metadata: dict[str, Any] = {
+            "file_name": file_name,
+            "file_type": file_type,
+            "file_size": len(blob_bytes),
+            "chunk_count": 0,
+            "media_count": 0,
+            "identity_key": identity_key,
+            "content_hash": content_hash,
+            "source_kind": source_kind,
+            "source_url": source_url,
+            "blob_sha256": hashlib.sha256(blob_bytes).hexdigest(),
+        }
         try:
             await self._write_blob(staging_blob, blob_bytes)
             chunks_text, saved_media, _file_size = await self._ingest_chunks_for_doc_id(
@@ -1000,16 +1088,33 @@ class KBHelper:
                 progress_callback=progress_callback,
                 pre_chunked_text=pre_chunked_text,
             )
+            replacement_metadata["chunk_count"] = len(chunks_text)
+            replacement_metadata["media_count"] = len(saved_media)
+            # Persist the replacement intent before the first rename. A crash
+            # during the two renames must be recoverable from the marker plus
+            # the actual blob layout.
+            await self._write_replacement_marker(
+                live_doc_id,
+                replacement_metadata,
+                phase="prepared",
+            )
             swapped_blob = self._swap_live_blob(live_blob, staging_blob, bak_blob)
-            await self._retire_live_chunks(live_doc_id)
+            await self._write_replacement_marker(
+                live_doc_id,
+                replacement_metadata,
+                phase="swapped",
+            )
+            # Mark the generation retired before the call: a partially
+            # completed delete must still take the rollback path.
             retired_live = True
+            await self._retire_live_chunks(live_doc_id)
             await self._relabel_staging_generation(
                 staging_id=staging_id,
                 live_doc_id=live_doc_id,
                 saved_media=saved_media,
             )
-            await self._commit_replaced_media(saved_media)
             relabeled = True
+            await self._commit_replaced_media(saved_media)
             doc = await self._update_live_document_metadata(
                 live_doc_id=live_doc_id,
                 file_name=file_name,
@@ -1022,6 +1127,10 @@ class KBHelper:
                 source_kind=source_kind,
                 source_url=source_url,
             )
+            finalized = True
+            # Metadata is committed, so the marker is no longer needed even if
+            # cleanup below or the process fails.
+            self._clear_replacement_marker(live_doc_id)
             bak_blob.unlink(missing_ok=True)
             await self._refresh_uploaded_document_state(
                 doc_id=live_doc_id,
@@ -1044,10 +1153,14 @@ class KBHelper:
                 swapped_blob=swapped_blob,
                 retired_live=retired_live,
                 relabeled=relabeled,
+                finalized=finalized,
+                saved_media=saved_media,
+                replacement_metadata=replacement_metadata,
                 live_blob=live_blob,
                 staging_blob=staging_blob,
                 bak_blob=bak_blob,
             )
+            self._clear_replacement_marker(live_doc_id)
             raise
 
     def _swap_live_blob(
@@ -1152,6 +1265,9 @@ class KBHelper:
         swapped_blob: bool,
         retired_live: bool,
         relabeled: bool,
+        finalized: bool,
+        saved_media: list[KBMedia],
+        replacement_metadata: dict[str, Any],
         live_blob: Path,
         staging_blob: Path,
         bak_blob: Path,
@@ -1161,24 +1277,117 @@ class KBHelper:
                 doc_id=staging_id,
                 media_paths=media_paths,
             )
-            if swapped_blob and bak_blob.exists():
+            if bak_blob.exists() and (swapped_blob or not live_blob.exists()):
                 live_blob.unlink(missing_ok=True)
                 bak_blob.replace(live_blob)
             staging_blob.unlink(missing_ok=True)
             return
 
+        if relabeled and not finalized:
+            await self._rollback_relabeled_replace(
+                live_doc_id=live_doc_id,
+                live_blob=live_blob,
+                staging_blob=staging_blob,
+                bak_blob=bak_blob,
+                replacement_metadata=replacement_metadata,
+            )
+            return
+
         if not relabeled:
             restored = await self._try_relabel_staging(staging_id, live_doc_id)
-            if not restored:
-                await self._cleanup_failed_upload(
-                    doc_id=staging_id,
-                    media_paths=media_paths,
+            if restored:
+                await self._rollback_relabeled_replace(
+                    live_doc_id=live_doc_id,
+                    live_blob=live_blob,
+                    staging_blob=staging_blob,
+                    bak_blob=bak_blob,
+                    replacement_metadata=replacement_metadata,
                 )
-                restore_blob = bak_blob if bak_blob.exists() else live_blob
-                await self._reembed_from_stored_blob(live_doc_id, restore_blob)
+                return
+            await self._cleanup_failed_upload(
+                doc_id=staging_id,
+                media_paths=media_paths,
+            )
+            if bak_blob.exists():
+                await self._retire_live_chunks(live_doc_id)
+                await self._reembed_from_stored_blob(live_doc_id, bak_blob)
+                live_blob.unlink(missing_ok=True)
+                bak_blob.replace(live_blob)
+            else:
+                await self._roll_forward_replacement(
+                    live_doc_id=live_doc_id,
+                    live_blob=live_blob,
+                    replacement_metadata=replacement_metadata,
+                )
         staging_blob.unlink(missing_ok=True)
 
+    async def _rollback_relabeled_replace(
+        self,
+        *,
+        live_doc_id: str,
+        live_blob: Path,
+        staging_blob: Path,
+        bak_blob: Path,
+        replacement_metadata: dict[str, Any],
+    ) -> None:
+        """Remove a half-committed replacement and restore a consistent generation."""
+        if not bak_blob.exists():
+            # The previous generation had no stored source. Rolling back would
+            # re-embed the incoming body under stale metadata, so finish the
+            # incoming generation instead.
+            await self._roll_forward_replacement(
+                live_doc_id=live_doc_id,
+                live_blob=live_blob,
+                replacement_metadata=replacement_metadata,
+            )
+            staging_blob.unlink(missing_ok=True)
+            return
+        await self._retire_live_chunks(live_doc_id)
+        await self._reembed_from_stored_blob(live_doc_id, bak_blob)
+        live_blob.unlink(missing_ok=True)
+        bak_blob.replace(live_blob)
+        staging_blob.unlink(missing_ok=True)
+
+    async def _roll_forward_replacement(
+        self,
+        *,
+        live_doc_id: str,
+        live_blob: Path,
+        replacement_metadata: dict[str, Any],
+    ) -> None:
+        """Finalize the incoming generation when the previous source is gone."""
+        await self._retire_live_chunks(live_doc_id)
+        restored = await self._reembed_from_stored_blob(live_doc_id, live_blob)
+        metadata = dict(replacement_metadata)
+        metadata.pop("blob_sha256", None)
+        metadata.pop("phase", None)
+        if restored is not None:
+            chunks_text, saved_media = restored
+            metadata["chunk_count"] = len(chunks_text)
+            metadata["media_count"] = len(saved_media)
+        else:
+            # The rebuild failed after the incoming chunks were retired, so no
+            # indexed generation exists. Do not claim chunks that are absent;
+            # startup recovery rebuilds this document from the stored blob.
+            metadata["chunk_count"] = 0
+            metadata["media_count"] = 0
+        await self._update_live_document_metadata(
+            live_doc_id=live_doc_id,
+            **metadata,
+        )
+
     async def _try_relabel_staging(self, staging_id: str, live_doc_id: str) -> bool:
+        try:
+            vec_db = await self._ensure_vec_db()
+            staged_count = await vec_db.count_documents(
+                metadata_filter={"kb_doc_id": staging_id}
+            )
+        except Exception:
+            staged_count = 1
+        if staged_count == 0:
+            # A previous attempt already moved the vectors; re-running relabel
+            # would be a no-op and hide an incomplete media/metadata commit.
+            return False
         try:
             await self._relabel_staging_generation(
                 staging_id=staging_id,
@@ -1196,12 +1405,12 @@ class KBHelper:
 
     async def _reembed_from_stored_blob(
         self, live_doc_id: str, blob_path: Path
-    ) -> None:
+    ) -> tuple[list[str], list[KBMedia]] | None:
         if not blob_path.is_file():
             logger.warning(
                 "Cannot restore document %s; stored source is missing", live_doc_id
             )
-            return
+            return None
         doc = await self.get_document(live_doc_id)
         file_name = doc.doc_name if doc is not None else "restored"
         file_type = doc.file_type if doc is not None else "txt"
@@ -1222,7 +1431,11 @@ class KBHelper:
                     ),
                 )
                 file_content = None
-            await self._ingest_chunks_for_doc_id(
+            # Rebuilding replaces the indexed generation. Clear any stale rows
+            # and media left by an interrupted retirement so the new generation
+            # is the only one attached to the document.
+            await self._retire_live_chunks(live_doc_id)
+            chunks_text, saved_media, _file_size = await self._ingest_chunks_for_doc_id(
                 doc_id=live_doc_id,
                 file_name=file_name,
                 file_content=file_content,
@@ -1236,12 +1449,35 @@ class KBHelper:
                 progress_callback=None,
                 pre_chunked_text=pre_chunked_text,
             )
+            await self._commit_replaced_media(saved_media)
+            from sqlalchemy import update
+            from sqlmodel import col
+
+            async with self.kb_db.get_db() as session, session.begin():
+                await session.execute(
+                    update(KBDocument)
+                    .where(col(KBDocument.doc_id) == live_doc_id)
+                    .values(
+                        chunk_count=len(chunks_text),
+                        media_count=len(saved_media),
+                    )
+                )
+            return chunks_text, saved_media
         except Exception as exc:
             logger.warning(
                 "Failed to restore document %s from stored source: %s",
                 live_doc_id,
                 exc,
             )
+            try:
+                await self._retire_live_chunks(live_doc_id)
+            except Exception:
+                logger.warning(
+                    "Failed to discard the partial generation for %s",
+                    live_doc_id,
+                    exc_info=True,
+                )
+            return None
 
     async def _recover_interrupted_replace(self) -> None:
         """Drop orphan staging vectors and rebuild live docs that lost chunks."""
@@ -1254,15 +1490,61 @@ class KBHelper:
         if orphans:
             self._invalidate_bm25_cache()
         for doc_id in live_ids:
-            self._doc_blob_path(doc_id, ".staging").unlink(missing_ok=True)
             chunk_count = await vec_db.count_documents(
                 metadata_filter={"kb_doc_id": doc_id},
             )
             bak_blob = self._doc_blob_path(doc_id, ".bak")
-            if chunk_count:
-                bak_blob.unlink(missing_ok=True)
-                continue
             live_blob = self._doc_blob_path(doc_id)
+            staging_blob = self._doc_blob_path(doc_id, ".staging")
+            marker_path = self._replacement_marker_path(doc_id)
+            marker = self._read_replacement_marker(doc_id)
+            if marker is not None:
+                try:
+                    handled = await self._recover_interrupted_marker(
+                        doc_id=doc_id,
+                        marker=marker,
+                        live_blob=live_blob,
+                        bak_blob=bak_blob,
+                        chunk_count=chunk_count,
+                    )
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.warning(
+                        "Failed to recover interrupted replacement for document %s; "
+                        "keeping the marker for the next start",
+                        doc_id,
+                        exc_info=True,
+                    )
+                    continue
+                if handled:
+                    staging_blob.unlink(missing_ok=True)
+                    continue
+            elif marker_path.exists():
+                # The marker cannot be trusted, so do not let the live vector
+                # count decide whether the backup may be discarded. Restore the
+                # backup source and reindex it when one exists.
+                logger.warning(
+                    "Discarding an unreadable replacement marker for document %s",
+                    doc_id,
+                )
+                marker_path.unlink(missing_ok=True)
+                staging_blob.unlink(missing_ok=True)
+                if bak_blob.is_file():
+                    await self._retire_live_chunks(doc_id)
+                    await self._reembed_from_stored_blob(doc_id, bak_blob)
+                    live_blob.unlink(missing_ok=True)
+                    bak_blob.replace(live_blob)
+                elif chunk_count == 0 and live_blob.is_file():
+                    await self._reembed_from_stored_blob(doc_id, live_blob)
+                continue
+            staging_blob.unlink(missing_ok=True)
+            if chunk_count:
+                if not live_blob.is_file() and bak_blob.is_file():
+                    bak_blob.replace(live_blob)
+                else:
+                    bak_blob.unlink(missing_ok=True)
+                continue
             restore_blob = live_blob if live_blob.is_file() else bak_blob
             if not restore_blob.is_file():
                 continue
@@ -1270,6 +1552,98 @@ class KBHelper:
             if restore_blob.resolve() != live_blob.resolve() and restore_blob.is_file():
                 restore_blob.replace(live_blob)
             bak_blob.unlink(missing_ok=True)
+
+    async def _recover_interrupted_marker(
+        self,
+        *,
+        doc_id: str,
+        marker: dict[str, Any],
+        live_blob: Path,
+        bak_blob: Path,
+        chunk_count: int,
+    ) -> bool:
+        """Finish or undo a replacement that stopped before metadata commit.
+
+        Returns:
+            True when the document is consistent and generic recovery must be
+            skipped; False when the marker is unusable and should be ignored.
+        """
+        doc = await self.get_document(doc_id)
+        incoming_hash = marker.get("content_hash")
+        if doc is None or not isinstance(incoming_hash, str) or not incoming_hash:
+            logger.warning(
+                "Replacement marker for document %s is incomplete; ignoring it",
+                doc_id,
+            )
+            self._clear_replacement_marker(doc_id)
+            return False
+        phase = marker.get("phase")
+        staging_blob = self._doc_blob_path(doc_id, ".staging")
+        if phase == "prepared" and staging_blob.is_file():
+            # The staging blob still exists, so the live->bak rename may or may
+            # not have happened but the incoming blob was never published.
+            if not live_blob.is_file() and bak_blob.is_file():
+                bak_blob.replace(live_blob)
+            elif live_blob.is_file():
+                bak_blob.unlink(missing_ok=True)
+            self._clear_replacement_marker(doc_id)
+            return True
+        incoming_blob_hash = marker.get("blob_sha256")
+        live_is_incoming = True
+        if isinstance(incoming_blob_hash, str) and live_blob.is_file():
+            try:
+                live_is_incoming = (
+                    await asyncio.to_thread(self._hash_blob, live_blob)
+                    == incoming_blob_hash
+                )
+            except OSError:
+                live_is_incoming = False
+        if doc.content_hash == incoming_hash:
+            # Metadata was already committed, so the incoming generation is the
+            # authoritative one even if cleanup did not finish.
+            if chunk_count > 0:
+                bak_blob.unlink(missing_ok=True)
+                self._clear_replacement_marker(doc_id)
+                return True
+            if live_blob.is_file():
+                await self._roll_forward_replacement(
+                    live_doc_id=doc_id,
+                    live_blob=live_blob,
+                    replacement_metadata=self._replacement_metadata_from_marker(
+                        marker,
+                        doc,
+                        live_blob,
+                    ),
+                )
+            self._clear_replacement_marker(doc_id)
+            return True
+        if not live_is_incoming:
+            # A rollback restored the previous generation but the marker was
+            # not cleared. The live blob, chunks and metadata are consistent.
+            self._clear_replacement_marker(doc_id)
+            return True
+        if bak_blob.is_file():
+            # The previous generation still has its stored source, so restore it
+            # instead of exposing incoming content under the previous metadata.
+            await self._retire_live_chunks(doc_id)
+            await self._reembed_from_stored_blob(doc_id, bak_blob)
+            live_blob.unlink(missing_ok=True)
+            bak_blob.replace(live_blob)
+            self._clear_replacement_marker(doc_id)
+            return True
+        if live_blob.is_file():
+            # No previous source exists; finish the incoming generation.
+            await self._roll_forward_replacement(
+                live_doc_id=doc_id,
+                live_blob=live_blob,
+                replacement_metadata=self._replacement_metadata_from_marker(
+                    marker,
+                    doc,
+                    live_blob,
+                ),
+            )
+        self._clear_replacement_marker(doc_id)
+        return True
 
     async def list_documents(
         self,

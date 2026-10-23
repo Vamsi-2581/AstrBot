@@ -2,6 +2,8 @@
 
 import asyncio
 import hashlib
+import uuid
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -15,7 +17,7 @@ from astrbot.core.knowledge_base.kb_db_sqlite import (
     posix_identity_input,
 )
 from astrbot.core.knowledge_base.kb_helper import KBHelper
-from astrbot.core.knowledge_base.models import KnowledgeBase
+from astrbot.core.knowledge_base.models import KBMedia, KnowledgeBase
 from astrbot.core.provider.provider import EmbeddingProvider
 from astrbot.dashboard.services.knowledge_base_service import KnowledgeBaseService
 
@@ -379,3 +381,559 @@ async def test_recover_interrupted_replace_drops_orphans_and_rebuilds(kb_helper)
     assert orphans == []
     joined = "\n".join(await _chunk_texts(helper, live_id))
     assert "recoverable unique live body" in joined
+
+
+@pytest.mark.asyncio
+async def test_replace_media_commit_failure_rolls_back_to_previous_generation(
+    kb_helper, monkeypatch
+):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="rollback-media.md",
+        file_content=b"previous generation survives media failure",
+        file_type="md",
+    )
+    original_commit = helper._commit_replaced_media
+    calls = 0
+
+    async def fail_once(saved_media):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("media commit failed")
+        await original_commit(saved_media)
+
+    monkeypatch.setattr(helper, "_commit_replaced_media", fail_once)
+
+    with pytest.raises(RuntimeError, match="media commit failed"):
+        await helper.upload_document(
+            file_name="rollback-media.md",
+            file_content=b"incoming generation must not remain",
+            file_type="md",
+        )
+
+    live_id = first.document.doc_id
+    joined = "\n".join(await _chunk_texts(helper, live_id))
+    assert "previous generation survives media failure" in joined
+    assert "incoming generation must not remain" not in joined
+    live = await helper.get_document(live_id)
+    assert live is not None
+    assert live.chunk_count == len(await _chunk_texts(helper, live_id))
+    assert not helper._doc_blob_path(live_id, ".staging").exists()
+    assert not helper._doc_blob_path(live_id, ".bak").exists()
+
+
+@pytest.mark.asyncio
+async def test_replace_metadata_failure_rolls_back_and_recovery_is_idempotent(
+    kb_helper, monkeypatch
+):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="rollback-metadata.md",
+        file_content=b"previous metadata generation survives",
+        file_type="md",
+    )
+    original_update = helper._update_live_document_metadata
+    failed = False
+
+    async def fail_once(**kwargs):
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise RuntimeError("metadata update failed")
+        return await original_update(**kwargs)
+
+    monkeypatch.setattr(helper, "_update_live_document_metadata", fail_once)
+
+    with pytest.raises(RuntimeError, match="metadata update failed"):
+        await helper.upload_document(
+            file_name="rollback-metadata.md",
+            file_content=b"incoming metadata generation must not remain",
+            file_type="md",
+        )
+
+    live_id = first.document.doc_id
+    live = await helper.get_document(live_id)
+    assert live is not None
+    assert live.content_hash == first.document.content_hash
+    joined = "\n".join(await _chunk_texts(helper, live_id))
+    assert "previous metadata generation survives" in joined
+    assert "incoming metadata generation must not remain" not in joined
+
+    await helper.initialize()
+    live = await helper.get_document(live_id)
+    assert live is not None
+    joined = "\n".join(await _chunk_texts(helper, live_id))
+    assert "previous metadata generation survives" in joined
+    assert live.chunk_count == len(await _chunk_texts(helper, live_id))
+    assert not helper._doc_blob_path(live_id, ".bak").exists()
+
+
+@pytest.mark.asyncio
+async def test_partial_relabel_failure_rolls_back_to_previous_generation(
+    kb_helper, monkeypatch
+):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="partial-relabel.md",
+        file_content=b"previous generation survives partial relabel",
+        file_type="md",
+    )
+    original_relabel = helper._relabel_staging_generation
+
+    async def relabel_then_fail(**kwargs):
+        await original_relabel(**kwargs)
+        raise RuntimeError("media directory rename failed")
+
+    monkeypatch.setattr(helper, "_relabel_staging_generation", relabel_then_fail)
+
+    with pytest.raises(RuntimeError, match="media directory rename failed"):
+        await helper.upload_document(
+            file_name="partial-relabel.md",
+            file_content=b"incoming partial relabel must not remain",
+            file_type="md",
+        )
+
+    live_id = first.document.doc_id
+    joined = "\n".join(await _chunk_texts(helper, live_id))
+    assert "previous generation survives partial relabel" in joined
+    assert "incoming partial relabel must not remain" not in joined
+    live = await helper.get_document(live_id)
+    assert live is not None
+    assert live.content_hash == first.document.content_hash
+    assert not helper._doc_blob_path(live_id, ".staging").exists()
+    assert not helper._doc_blob_path(live_id, ".bak").exists()
+
+
+@pytest.mark.asyncio
+async def test_replace_without_stored_backup_rolls_forward_consistently(
+    kb_helper, monkeypatch
+):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="legacy-no-blob.md",
+        file_content=b"legacy generation without a stored source",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    helper._doc_blob_path(live_id).unlink()
+    incoming = b"replacement generation without backup rollback"
+    original_update = helper._update_live_document_metadata
+    failed = False
+
+    async def fail_once(**kwargs):
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise RuntimeError("metadata update failed")
+        return await original_update(**kwargs)
+
+    monkeypatch.setattr(helper, "_update_live_document_metadata", fail_once)
+
+    with pytest.raises(RuntimeError, match="metadata update failed"):
+        await helper.upload_document(
+            file_name="legacy-no-blob.md",
+            file_content=incoming,
+            file_type="md",
+        )
+
+    live = await helper.get_document(live_id)
+    assert live is not None
+    assert live.content_hash == hashlib.sha256(incoming).hexdigest()
+    assert live.file_size == len(incoming)
+    assert live.chunk_count == len(await _chunk_texts(helper, live_id))
+    joined = "\n".join(await _chunk_texts(helper, live_id))
+    assert "replacement generation without backup rollback" in joined
+    assert "legacy generation without a stored source" not in joined
+    assert not helper._doc_blob_path(live_id, ".staging").exists()
+    assert not helper._doc_blob_path(live_id, ".bak").exists()
+
+
+@pytest.mark.asyncio
+async def test_roll_forward_does_not_claim_chunks_when_rebuild_fails(
+    kb_helper, monkeypatch
+):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="no-backup-rebuild-failure.md",
+        file_content=b"previous generation without a stored source",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    helper._doc_blob_path(live_id).unlink()
+    incoming = b"incoming generation whose rebuild fails"
+    original_update = helper._update_live_document_metadata
+    failed = False
+
+    async def fail_once(**kwargs):
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise RuntimeError("metadata update failed")
+        return await original_update(**kwargs)
+
+    async def broken_reembed(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(helper, "_update_live_document_metadata", fail_once)
+    monkeypatch.setattr(helper, "_reembed_from_stored_blob", broken_reembed)
+
+    with pytest.raises(RuntimeError, match="metadata update failed"):
+        await helper.upload_document(
+            file_name="no-backup-rebuild-failure.md",
+            file_content=incoming,
+            file_type="md",
+        )
+
+    live = await helper.get_document(live_id)
+    assert live is not None
+    assert live.content_hash == hashlib.sha256(incoming).hexdigest()
+    assert live.chunk_count == 0
+    assert live.media_count == 0
+    assert await _chunk_texts(helper, live_id) == []
+
+
+@pytest.mark.asyncio
+async def test_reembed_from_stored_blob_clears_stale_media(kb_helper):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="stale-media.md",
+        file_content=b"body for the media rebuild",
+        file_type="md",
+    )
+    doc_id = first.document.doc_id
+    async with helper.kb_db.get_db() as session, session.begin():
+        session.add(
+            KBMedia(
+                media_id="stale-media",
+                doc_id=doc_id,
+                kb_id=helper.kb.kb_id,
+                media_type="image",
+                file_name="stale.png",
+                file_path=str(helper.kb_medias_dir / doc_id / "stale.png"),
+                file_size=1,
+                mime_type="image/png",
+            ),
+        )
+
+    rebuilt = await helper._reembed_from_stored_blob(
+        doc_id,
+        helper._doc_blob_path(doc_id),
+    )
+
+    assert rebuilt is not None
+    assert await helper.kb_db.list_media_by_doc(doc_id) == []
+    live = await helper.get_document(doc_id)
+    assert live is not None
+    assert live.media_count == 0
+    assert await _chunk_texts(helper, doc_id)
+
+
+async def _stage_crashed_replacement(
+    helper: KBHelper,
+    document,
+    incoming: bytes,
+    *,
+    finalize_metadata: bool,
+) -> tuple[str, dict[str, object]]:
+    """Leave the live state exactly where a crash can interrupt a replacement."""
+    live_id = document.doc_id
+    staging_id = str(uuid.uuid4())
+    staging_blob = helper._doc_blob_path(live_id, ".staging")
+    live_blob = helper._doc_blob_path(live_id)
+    bak_blob = helper._doc_blob_path(live_id, ".bak")
+    await helper._write_blob(staging_blob, incoming)
+    chunks, saved_media, _ = await helper._ingest_chunks_for_doc_id(
+        doc_id=staging_id,
+        file_name=document.doc_name,
+        file_content=incoming,
+        file_type=document.file_type,
+        media_paths=[],
+        chunk_size=helper.kb.chunk_size or 64,
+        chunk_overlap=helper.kb.chunk_overlap or 0,
+        batch_size=32,
+        tasks_limit=3,
+        max_retries=3,
+        progress_callback=None,
+        pre_chunked_text=None,
+    )
+    marker = {
+        "file_name": document.doc_name,
+        "file_type": document.file_type,
+        "file_size": len(incoming),
+        "chunk_count": len(chunks),
+        "media_count": len(saved_media),
+        "identity_key": document.identity_key,
+        "content_hash": hashlib.sha256(incoming).hexdigest(),
+        "source_kind": document.source_kind,
+        "source_url": document.source_url,
+    }
+    helper._swap_live_blob(live_blob, staging_blob, bak_blob)
+    await helper._write_replacement_marker(live_id, marker)
+    await helper._retire_live_chunks(live_id)
+    await helper._relabel_staging_generation(
+        staging_id=staging_id,
+        live_doc_id=live_id,
+        saved_media=saved_media,
+    )
+    await helper._commit_replaced_media(saved_media)
+    if finalize_metadata:
+        await helper._update_live_document_metadata(
+            live_doc_id=live_id,
+            file_name=document.doc_name,
+            file_type=document.file_type,
+            file_size=len(incoming),
+            chunk_count=len(chunks),
+            media_count=len(saved_media),
+            identity_key=document.identity_key,
+            content_hash=marker["content_hash"],
+            source_kind=document.source_kind,
+            source_url=document.source_url,
+        )
+    return live_id, marker
+
+
+@pytest.mark.asyncio
+async def test_startup_rolls_back_replacement_interrupted_before_metadata(
+    kb_helper,
+):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="interrupted.md",
+        file_content=b"previous generation before the interrupted replace",
+        file_type="md",
+    )
+    live_id, _marker = await _stage_crashed_replacement(
+        helper,
+        first.document,
+        b"incoming generation interrupted before metadata",
+        finalize_metadata=False,
+    )
+
+    await helper.initialize()
+
+    live = await helper.get_document(live_id)
+    assert live is not None
+    assert live.content_hash == first.document.content_hash
+    joined = "\n".join(await _chunk_texts(helper, live_id))
+    assert "previous generation before the interrupted replace" in joined
+    assert "incoming generation interrupted before metadata" not in joined
+    assert live.chunk_count == len(await _chunk_texts(helper, live_id))
+    assert not helper._doc_blob_path(live_id, ".bak").exists()
+    assert not helper._replacement_marker_path(live_id).exists()
+
+
+@pytest.mark.asyncio
+async def test_startup_keeps_replacement_interrupted_after_metadata(kb_helper):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="interrupted.md",
+        file_content=b"previous generation before the interrupted replace",
+        file_type="md",
+    )
+    live_id, marker = await _stage_crashed_replacement(
+        helper,
+        first.document,
+        b"incoming generation interrupted after metadata",
+        finalize_metadata=True,
+    )
+
+    await helper.initialize()
+
+    live = await helper.get_document(live_id)
+    assert live is not None
+    assert live.content_hash == marker["content_hash"]
+    joined = "\n".join(await _chunk_texts(helper, live_id))
+    assert "incoming generation interrupted after metadata" in joined
+    assert "previous generation before the interrupted replace" not in joined
+    assert live.chunk_count == len(await _chunk_texts(helper, live_id))
+    assert not helper._doc_blob_path(live_id, ".bak").exists()
+    assert not helper._replacement_marker_path(live_id).exists()
+
+
+@pytest.mark.asyncio
+async def test_startup_finishes_replacement_without_a_previous_source(kb_helper):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="no-backup-crash.md",
+        file_content=b"legacy generation without a stored source",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    helper._doc_blob_path(live_id).unlink()
+    live_id, marker = await _stage_crashed_replacement(
+        helper,
+        first.document,
+        b"incoming generation recovered after a crash",
+        finalize_metadata=False,
+    )
+
+    await helper.initialize()
+
+    live = await helper.get_document(live_id)
+    assert live is not None
+    assert live.content_hash == marker["content_hash"]
+    joined = "\n".join(await _chunk_texts(helper, live_id))
+    assert "incoming generation recovered after a crash" in joined
+    assert "legacy generation without a stored source" not in joined
+    assert live.chunk_count == len(await _chunk_texts(helper, live_id))
+    assert not helper._doc_blob_path(live_id, ".bak").exists()
+    assert not helper._replacement_marker_path(live_id).exists()
+
+
+def _replacement_marker_for(document, incoming: bytes) -> dict[str, object]:
+    return {
+        "file_name": document.doc_name,
+        "file_type": document.file_type,
+        "file_size": len(incoming),
+        "chunk_count": 1,
+        "media_count": 0,
+        "identity_key": document.identity_key,
+        "content_hash": hashlib.sha256(incoming).hexdigest(),
+        "source_kind": document.source_kind,
+        "source_url": document.source_url,
+        "blob_sha256": hashlib.sha256(incoming).hexdigest(),
+    }
+
+
+@pytest.mark.asyncio
+async def test_startup_restores_backup_when_swap_stopped_after_live_rename(kb_helper):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="half-swap.md",
+        file_content=b"previous generation",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    live = helper._doc_blob_path(live_id)
+    bak = helper._doc_blob_path(live_id, ".bak")
+    staging = helper._doc_blob_path(live_id, ".staging")
+    live.replace(bak)
+    await helper._write_blob(staging, b"incoming generation")
+    await helper._write_replacement_marker(
+        live_id,
+        _replacement_marker_for(first.document, b"incoming generation"),
+        phase="prepared",
+    )
+
+    await helper.initialize()
+
+    assert live.read_bytes() == b"previous generation"
+    assert not bak.exists()
+    assert not staging.exists()
+    assert not helper._replacement_marker_path(live_id).exists()
+    assert "previous generation" in "\n".join(await _chunk_texts(helper, live_id))
+
+
+@pytest.mark.asyncio
+async def test_startup_rolls_back_when_swap_finished_before_phase_update(kb_helper):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="phase-lag.md",
+        file_content=b"previous generation",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    live = helper._doc_blob_path(live_id)
+    bak = helper._doc_blob_path(live_id, ".bak")
+    staging = helper._doc_blob_path(live_id, ".staging")
+    await helper._write_blob(staging, b"incoming generation")
+    await helper._write_replacement_marker(
+        live_id,
+        _replacement_marker_for(first.document, b"incoming generation"),
+        phase="prepared",
+    )
+    live.replace(bak)
+    staging.replace(live)
+
+    await helper.initialize()
+
+    assert live.read_bytes() == b"previous generation"
+    assert not bak.exists()
+    assert not helper._replacement_marker_path(live_id).exists()
+    assert "previous generation" in "\n".join(await _chunk_texts(helper, live_id))
+
+
+@pytest.mark.asyncio
+async def test_startup_keeps_old_generation_when_rollback_left_a_marker(kb_helper):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="late-marker.md",
+        file_content=b"previous generation",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    await helper._write_replacement_marker(
+        live_id,
+        _replacement_marker_for(first.document, b"incoming generation"),
+        phase="swapped",
+    )
+
+    await helper.initialize()
+
+    assert helper._doc_blob_path(live_id).read_bytes() == b"previous generation"
+    assert not helper._replacement_marker_path(live_id).exists()
+    assert "previous generation" in "\n".join(await _chunk_texts(helper, live_id))
+    current = await helper.get_document(live_id)
+    assert current is not None
+    assert current.content_hash == first.document.content_hash
+
+
+@pytest.mark.asyncio
+async def test_startup_restores_backup_for_an_unreadable_marker(kb_helper):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="torn-marker.md",
+        file_content=b"previous generation",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    live = helper._doc_blob_path(live_id)
+    bak = helper._doc_blob_path(live_id, ".bak")
+    live.replace(bak)
+    await helper._write_blob(live, b"incoming generation")
+    helper._replacement_marker_path(live_id).write_text("{not json", encoding="utf-8")
+
+    await helper.initialize()
+
+    assert live.read_bytes() == b"previous generation"
+    assert not bak.exists()
+    assert not helper._replacement_marker_path(live_id).exists()
+    assert "previous generation" in "\n".join(await _chunk_texts(helper, live_id))
+
+
+@pytest.mark.asyncio
+async def test_partial_blob_swap_failure_restores_the_previous_source(
+    kb_helper, monkeypatch
+):
+    helper, _embedding = kb_helper
+    first = await helper.upload_document(
+        file_name="partial-swap.md",
+        file_content=b"previous generation",
+        file_type="md",
+    )
+    live_id = first.document.doc_id
+    live = helper._doc_blob_path(live_id)
+    bak = helper._doc_blob_path(live_id, ".bak")
+    original_replace = Path.replace
+    calls = {"count": 0}
+
+    def flaky_replace(source: Path, target: Path) -> Path:
+        calls["count"] += 1
+        if calls["count"] == 2:
+            raise OSError("staging publish failed")
+        return original_replace(source, target)
+
+    monkeypatch.setattr(Path, "replace", flaky_replace)
+
+    with pytest.raises(OSError, match="staging publish failed"):
+        await helper.upload_document(
+            file_name="partial-swap.md",
+            file_content=b"incoming generation",
+            file_type="md",
+        )
+
+    assert live.read_bytes() == b"previous generation"
+    assert not bak.exists()
+    assert "previous generation" in "\n".join(await _chunk_texts(helper, live_id))
+    assert not helper._replacement_marker_path(live_id).exists()
